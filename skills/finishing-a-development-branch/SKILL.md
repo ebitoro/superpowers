@@ -133,7 +133,7 @@ git branch -D <feature-branch>
 
 Then: Cleanup worktree (Step 5)
 
-### Step 5: Cleanup Worktree
+### Step 5: Cleanup Worktree and State
 
 **For Options 1, 2, 4:**
 
@@ -147,16 +147,22 @@ If yes:
 git worktree remove <worktree-path>
 ```
 
-**For Option 3:** Keep worktree.
+Clean up Codex state files:
+```bash
+MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+rm -rf "$MAIN_REPO/.codex-state"
+```
+
+**For Option 3:** Keep worktree and state files (user may resume later).
 
 ## Quick Reference
 
-| Option | Merge | Push | Keep Worktree | Cleanup Branch |
-|--------|-------|------|---------------|----------------|
-| 1. Merge locally | ✓ | - | - | ✓ |
-| 2. Create PR | - | ✓ | ✓ | - |
-| 3. Keep as-is | - | - | ✓ | - |
-| 4. Discard | - | - | - | ✓ (force) |
+| Option | Merge | Push | Keep Worktree | Cleanup Branch | Cleanup State |
+|--------|-------|------|---------------|----------------|---------------|
+| 1. Merge locally | ✓ | - | - | ✓ | ✓ |
+| 2. Create PR | - | ✓ | ✓ | - | ✓ |
+| 3. Keep as-is | - | - | ✓ | - | - |
+| 4. Discard | - | - | - | ✓ (force) | ✓ |
 
 ## Common Mistakes
 
@@ -189,6 +195,7 @@ git worktree remove <worktree-path>
 - Present exactly 4 options
 - Get typed confirmation for Option 4
 - Clean up worktree for Options 1 & 4 only
+- Clean up `.codex-state/` for Options 1, 2 & 4 (preserve for Option 3)
 
 ## Integration
 

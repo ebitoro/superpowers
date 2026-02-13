@@ -21,6 +21,8 @@ Every project goes through this process. A todo list, a single-function utility,
 
 ## Codex Integration
 
+> **Reference:** See `lib/codex-integration.md` for shared patterns (state directory, availability, review gate logic, cleanup).
+
 You use Codex as a reviewer and thought partner via MCP tools throughout the brainstorming process.
 
 **Thread management:**
@@ -30,13 +32,18 @@ You use Codex as a reviewer and thought partner via MCP tools throughout the bra
 
 <CRITICAL>
 **Context window protection — `CODEX_THREAD_ID`:**
-`CODEX_THREAD_ID` must survive compact. After obtaining the thread ID, immediately write it to a temporary file:
-```
-echo "CODEX_THREAD_ID=<id>" > /tmp/codex_thread_id
+`CODEX_THREAD_ID` must survive compact. After obtaining the thread ID, immediately persist it:
+```bash
+MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+STATE_DIR="$MAIN_REPO/.codex-state"
+mkdir -p "$STATE_DIR"
+grep -q '.codex-state/' "$MAIN_REPO/.gitignore" 2>/dev/null || echo '.codex-state/' >> "$MAIN_REPO/.gitignore"
+echo "<thread-id>" > "$STATE_DIR/codex_thread_id"
 ```
 Before any `codex-reply` call, if `CODEX_THREAD_ID` is not in your working memory, read it back:
-```
-cat /tmp/codex_thread_id
+```bash
+MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+cat "$MAIN_REPO/.codex-state/codex_thread_id"
 ```
 </CRITICAL>
 
@@ -46,15 +53,7 @@ If Codex is unavailable (MCP not connected, usage limit hit, or any error from `
 **Codex is consulted at three points:**
 1. **After idea exploration** — You discuss the refined idea with Codex to validate understanding and surface blind spots.
 2. **After exploring approaches** — You share proposed approaches with Codex. If you and Codex recommend different approaches, present both recommendations to the user with clear attribution (e.g., "I recommend A because X. Codex recommends B because Y.").
-3. **Before presenting design to user** — Codex must review and pass the design. See "Codex Review Gate" below.
-
-### Codex Review Gate
-
-Before presenting the design to the user, you send the full design to Codex for review via `codex-reply`.
-
-- If Codex passes: proceed to present design to user.
-- If Codex flags issues: you fix the design and resubmit for review.
-- Maximum 5 review rounds. If the design still has unresolved issues after 5 rounds, present the design to the user and clearly state what Codex still flagged as unresolved.
+3. **Before presenting design to user** — Codex must review and pass the design. See review gate pattern in `lib/codex-integration.md`.
 
 ## Checklist
 
@@ -62,14 +61,14 @@ You MUST create a task for each of these items and complete them in order:
 
 1. **Explore project context** — launch 2-3 subagent code-explorers in parallel (see "Codebase Exploration")
 2. **Read key files** — read all files identified by the explorer agents to build deep understanding
-3. **Start Codex thread** — call `codex` MCP tool, save `CODEX_THREAD_ID` to `/tmp/codex_thread_id`, send context + mission
+3. **Start Codex thread** — call `codex` MCP tool, save `CODEX_THREAD_ID` to `.codex-state/codex_thread_id`, send context + mission
 4. **Ask clarifying questions** — one at a time, understand purpose/constraints/success criteria
 5. **Discuss refined idea with Codex** — via `codex-reply`, validate understanding and surface blind spots
 6. **Propose 2-3 approaches** — with trade-offs and your recommendation
 7. **Discuss approaches with Codex** — via `codex-reply`, if recommendations differ, note both for user
-8. **Codex review gate** — send design to Codex via `codex-reply`, iterate up to 5 times until pass
+8. **Codex review gate** — send design to Codex via `codex-reply`, iterate up to 5 rounds (see `lib/codex-integration.md`)
 9. **Present final design to user** — include any unresolved Codex flags if review gate did not fully pass
-10. **Write design doc** — save to `docs/plans/YYYY-MM-DD-<topic>-design.md`, commit, and write breadcrumb file to `/tmp/current_design_doc`
+10. **Write design doc** — save to `docs/plans/YYYY-MM-DD-<topic>-design.md`, commit, and write breadcrumb to `.codex-state/current_design_doc`
 
 ## Process Flow
 
@@ -77,14 +76,13 @@ You MUST create a task for each of these items and complete them in order:
 digraph brainstorming {
     "Explore context (subagents)" [shape=box];
     "Read key files" [shape=box];
-    "Start Codex thread" [shape=box];
-    "Codex available?" [shape=diamond];
+    "Start Codex thread" [shape=box label="Start Codex thread\n(skip Codex steps if unavailable)"];
     "Ask clarifying questions" [shape=box];
-    "Discuss idea with Codex" [shape=box];
+    "Discuss idea with Codex" [shape=box style=dashed];
     "Propose 2-3 approaches" [shape=box];
-    "Discuss approaches with Codex" [shape=box];
+    "Discuss approaches with Codex" [shape=box style=dashed];
     "Draft design sections" [shape=box];
-    "Codex review gate" [shape=diamond];
+    "Codex review gate" [shape=diamond style=dashed];
     "Fixes < 5?" [shape=diamond];
     "Present design to user" [shape=box];
     "User approves?" [shape=diamond];
@@ -92,17 +90,12 @@ digraph brainstorming {
 
     "Explore context (subagents)" -> "Read key files";
     "Read key files" -> "Start Codex thread";
-    "Start Codex thread" -> "Codex available?";
-    "Codex available?" -> "Ask clarifying questions" [label="no, skip all Codex steps"];
-    "Codex available?" -> "Ask clarifying questions" [label="yes"];
+    "Start Codex thread" -> "Ask clarifying questions";
     "Ask clarifying questions" -> "Discuss idea with Codex";
-    "Ask clarifying questions" -> "Propose 2-3 approaches" [label="no Codex"];
     "Discuss idea with Codex" -> "Propose 2-3 approaches";
     "Propose 2-3 approaches" -> "Discuss approaches with Codex";
-    "Propose 2-3 approaches" -> "Draft design sections" [label="no Codex"];
     "Discuss approaches with Codex" -> "Draft design sections";
     "Draft design sections" -> "Codex review gate";
-    "Draft design sections" -> "Present design to user" [label="no Codex"];
     "Codex review gate" -> "Present design to user" [label="pass"];
     "Codex review gate" -> "Fixes < 5?" [label="fail"];
     "Fixes < 5?" -> "Draft design sections" [label="yes, fix and resubmit"];
@@ -112,6 +105,8 @@ digraph brainstorming {
     "User approves?" -> "Write design doc" [label="yes"];
 }
 ```
+
+> Dashed nodes are skipped when Codex is unavailable. The flow proceeds linearly without them.
 
 **The terminal state is the committed design doc.** Do NOT invoke any implementation skill. The user manually proceeds from here.
 
@@ -140,7 +135,7 @@ digraph brainstorming {
 
 - Call `codex` MCP tool to start a new thread
 - Save the returned thread ID as `CODEX_THREAD_ID`
-- Immediately persist to file: `echo "CODEX_THREAD_ID=<id>" > /tmp/codex_thread_id`
+- Immediately persist to `.codex-state/codex_thread_id` (see CRITICAL block above)
 - Send a single message via `codex-reply` containing:
   - Summary of the project context gathered by subagents
   - The user's idea/request
@@ -181,9 +176,13 @@ digraph brainstorming {
 - Write the validated design to `docs/plans/YYYY-MM-DD-<topic>-design.md`
 - Use elements-of-style:writing-clearly-and-concisely skill if available
 - Commit the design document to git
-- Write breadcrumb file: `echo "docs/plans/YYYY-MM-DD-<topic>-design.md" > /tmp/current_design_doc`
+- Write breadcrumb:
+```bash
+MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+echo "docs/plans/YYYY-MM-DD-<topic>-design.md" > "$MAIN_REPO/.codex-state/current_design_doc"
+```
 
-**Brainstorming ends here.** The user manually proceeds with worktree creation and implementation planning.
+**Brainstorming ends here.** The user manually starts a new session for planning. (Rationale: brainstorming consumes most of the context window; a fresh session for writing-plans avoids compaction-induced context loss.)
 
 ## Key Principles
 

@@ -35,24 +35,11 @@ digraph when_to_use {
 - Two-stage review after each task: spec compliance first, then code quality
 - Faster iteration (no human-in-loop between tasks)
 
-## Context Recovery
+## Codex Integration
 
-On startup, recover Codex thread from breadcrumb file:
+> **Reference:** See `lib/codex-integration.md` for shared patterns (state directory, availability, review gate logic, working directory awareness, cleanup).
 
-1. Read `CODEX_THREAD_ID` from `/tmp/codex_thread_id`
-
-If `/tmp/codex_thread_id` exists and is valid, reuse the existing Codex thread. If missing or Codex is unavailable, proceed without Codex review and inform the user.
-
-**Codex availability:**
-If Codex is unavailable (MCP not connected, usage limit hit, or any error from `codex-reply`), skip all Codex steps and proceed without Codex review. Inform the user that Codex review was skipped and why.
-
-**Working directory awareness:**
-All messages to Codex via `codex-reply` MUST include:
-
-```
-NOTE: Implementation is in worktree at <worktree-absolute-path>.
-All file paths are relative to the worktree root.
-```
+**Context recovery** — on startup, read `CODEX_THREAD_ID` from `.codex-state/codex_thread_id`. If valid (file exists, non-empty, test `codex-reply` succeeds), reuse the thread. If missing or unavailable, proceed without Codex and inform the user.
 
 ## The Process
 
@@ -113,25 +100,15 @@ digraph process {
 
 ## Codex Final Review Gate
 
-After the final code reviewer subagent completes, submit the entire implementation to Codex for review via `codex-reply`.
+After the final code reviewer subagent completes, submit the entire implementation to Codex for review via `codex-reply`. Follow the review gate pattern from `lib/codex-integration.md`.
 
 **What to send to Codex:**
 - The full diff of the feature branch against its base (`git diff main...HEAD` or equivalent)
-- The design doc (read from `/tmp/current_design_doc`)
+- The design doc (read from `.codex-state/current_design_doc`)
 - The implementation plan filename
 - Test results summary
 - Any issues the final code reviewer subagent flagged
-
-**Review loop:**
-- If Codex passes: proceed to `finishing-a-development-branch`.
-- If Codex flags issues: fix the issues and resubmit for review.
-- Maximum 5 review rounds. If still unresolved after 5 rounds, proceed to `finishing-a-development-branch` and clearly report to the user what Codex flagged as unresolved.
-
-**What counts as a pass:**
-Codex explicitly states the implementation is acceptable. Minor style suggestions that don't affect correctness can be noted but do not block a pass.
-
-**What counts as a fail:**
-Bugs, logic errors, missing error handling, test gaps, violations of the design, security issues, or deviations from the plan.
+- The worktree path note
 
 ## Prompt Templates
 

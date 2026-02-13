@@ -36,29 +36,24 @@ For each task:
 3. Run verifications as specified
 4. Mark as completed
 
-### Step 3: Codex Code Review Gate
+### Step 3: Code Review
 
-When batch complete, submit the batch for Codex code review before reporting to user. Follow the review gate pattern from `lib/codex-integration.md`.
+When batch complete, request code review before reporting to user.
 
-**What to send to Codex via `codex-reply`:**
-- List of files changed in this batch (use `git diff --name-only` against the branch point)
-- The actual diff (`git diff` for the batch's commits)
-- Verification/test output
-- Which tasks from the plan were implemented
-- The worktree path note
+**REQUIRED SUB-SKILL:** Use superpowers:requesting-code-review with the batch diff. The code review skill handles both the subagent review and the Codex review gate.
 
 ### Step 4: Report
-When batch complete and Codex review passed (or 5 rounds exhausted):
+When batch complete and code review passed:
 - Show what was implemented
 - Show verification output
-- Show Codex review result (pass, or unresolved flags)
+- Show code review result (subagent + Codex verdicts)
 - Say: "Ready for feedback."
 
 ### Step 5: Continue
 Based on feedback:
 - Apply changes if needed
 - Execute next batch
-- Repeat Step 2 → Step 3 → Step 4 for each batch
+- Repeat Step 2 -> Step 3 -> Step 4 for each batch
 
 ### Step 6: Complete Development
 
@@ -89,7 +84,7 @@ After all tasks complete and verified:
 - Review plan critically first
 - Follow plan steps exactly
 - Don't skip verifications
-- Every batch goes through Codex code review before reporting to user
+- Every batch goes through code review (subagent + Codex) before reporting to user
 - Reference skills when plan says to
 - Between batches: just report and wait
 - Stop when blocked, don't guess
@@ -100,4 +95,5 @@ After all tasks complete and verified:
 **Required workflow skills:**
 - **superpowers:using-git-worktrees** - REQUIRED: Set up isolated workspace before starting
 - **superpowers:writing-plans** - Creates the plan this skill executes
+- **superpowers:requesting-code-review** - Reviews each batch (subagent + Codex)
 - **superpowers:finishing-a-development-branch** - Complete development after all tasks

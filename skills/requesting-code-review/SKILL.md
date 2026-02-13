@@ -5,14 +5,15 @@ description: Use when completing tasks, implementing major features, or before m
 
 # Requesting Code Review
 
-Dispatch superpowers:code-reviewer subagent to catch issues before they cascade.
+Two-stage review: dispatch superpowers:code-reviewer subagent, then Codex review gate. Both must pass before proceeding.
 
-**Core principle:** Review early, review often.
+**Core principle:** Review early, review often. Two reviewers catch what one misses.
 
 ## When to Request Review
 
 **Mandatory:**
 - After each task in subagent-driven development
+- After each batch in executing-plans
 - After completing major feature
 - Before merge to main
 
@@ -23,13 +24,14 @@ Dispatch superpowers:code-reviewer subagent to catch issues before they cascade.
 
 ## How to Request
 
-**1. Get git SHAs:**
+### Step 1: Get git SHAs
+
 ```bash
 BASE_SHA=$(git rev-parse HEAD~1)  # or origin/main
 HEAD_SHA=$(git rev-parse HEAD)
 ```
 
-**2. Dispatch code-reviewer subagent:**
+### Step 2: Dispatch code-reviewer subagent
 
 Use Task tool with superpowers:code-reviewer type, fill template at `code-reviewer.md`
 
@@ -40,11 +42,37 @@ Use Task tool with superpowers:code-reviewer type, fill template at `code-review
 - `{HEAD_SHA}` - Ending commit
 - `{DESCRIPTION}` - Brief summary
 
-**3. Act on feedback:**
+### Step 3: Act on subagent feedback
+
 - Fix Critical issues immediately
 - Fix Important issues before proceeding
 - Note Minor issues for later
 - Push back if reviewer is wrong (with reasoning)
+- Re-dispatch subagent if fixes were needed, until it passes
+
+### Step 4: Codex review gate
+
+> **Reference:** See `lib/codex-integration.md` for shared patterns (state directory, availability, review gate logic).
+
+After the code-reviewer subagent passes, send the diff to Codex via `codex-reply` for a second opinion.
+
+**What to send to Codex:**
+- The diff (`git diff {BASE_SHA}..{HEAD_SHA}`)
+- What was implemented and why
+- Test results summary
+- Any context the caller provides (design doc, plan reference, etc.)
+- The worktree path note (see `lib/codex-integration.md`)
+
+**Review gate:** Follow the standard review gate pattern from `lib/codex-integration.md` (max 5 rounds, fix and resubmit until pass).
+
+**If Codex is unavailable:** Skip this step and proceed with the subagent's result only. Inform the caller that Codex review was skipped.
+
+### Step 5: Report result
+
+Report the combined result to the caller:
+- Code-reviewer subagent assessment
+- Codex review result (pass, or unresolved flags, or skipped)
+- Overall verdict: **pass** (both passed), **pass with flags** (subagent passed, Codex had unresolved minor items), or **needs fixes**
 
 ## Example
 
@@ -67,22 +95,28 @@ HEAD_SHA=$(git rev-parse HEAD)
   Strengths: Clean architecture, real tests
   Issues:
     Important: Missing progress indicators
-    Minor: Magic number (100) for reporting interval
-  Assessment: Ready to proceed
+  Assessment: With fixes
 
-You: [Fix progress indicators]
+[Fix progress indicators, re-dispatch subagent]
+[Subagent returns]: All clear. Ready to proceed.
+
+[Send diff to Codex via codex-reply]
+Codex: Pass. Minor suggestion: consider adding JSDoc to public API.
+
+Result: Pass (subagent approved, Codex approved with minor note)
+
 [Continue to Task 3]
 ```
 
 ## Integration with Workflows
 
 **Subagent-Driven Development:**
-- Review after EACH task
+- Review after EACH task (per-task diff)
+- Final review after all tasks (full branch diff)
 - Catch issues before they compound
-- Fix before moving to next task
 
 **Executing Plans:**
-- Review after each batch (3 tasks)
+- Review after each batch (batch diff)
 - Get feedback, apply, continue
 
 **Ad-Hoc Development:**
@@ -96,6 +130,7 @@ You: [Fix progress indicators]
 - Ignore Critical issues
 - Proceed with unfixed Important issues
 - Argue with valid technical feedback
+- Skip Codex review to save time (it catches cross-cutting issues the subagent misses)
 
 **If reviewer wrong:**
 - Push back with technical reasoning

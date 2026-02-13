@@ -64,11 +64,7 @@ digraph process {
 
     "Read plan, extract all tasks with full text, note context, create TodoWrite" [shape=box];
     "More tasks remain?" [shape=diamond];
-    "Dispatch final code reviewer subagent for entire implementation" [shape=box];
-    "Codex final review gate" [shape=diamond];
-    "Codex pass?" [shape=diamond];
-    "Fixes < 5?" [shape=diamond];
-    "Fix issues and resubmit" [shape=box];
+    "Final code review (requesting-code-review)" [shape=box];
     "Use superpowers:finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
 
     "Read plan, extract all tasks with full text, note context, create TodoWrite" -> "Dispatch implementer subagent (./implementer-prompt.md)";
@@ -87,28 +83,22 @@ digraph process {
     "Code quality reviewer subagent approves?" -> "Mark task complete in TodoWrite" [label="yes"];
     "Mark task complete in TodoWrite" -> "More tasks remain?";
     "More tasks remain?" -> "Dispatch implementer subagent (./implementer-prompt.md)" [label="yes"];
-    "More tasks remain?" -> "Dispatch final code reviewer subagent for entire implementation" [label="no"];
-    "Dispatch final code reviewer subagent for entire implementation" -> "Codex final review gate";
-    "Codex final review gate" -> "Codex pass?";
-    "Codex pass?" -> "Use superpowers:finishing-a-development-branch" [label="yes"];
-    "Codex pass?" -> "Fixes < 5?" [label="no"];
-    "Fixes < 5?" -> "Fix issues and resubmit" [label="yes"];
-    "Fix issues and resubmit" -> "Codex final review gate";
-    "Fixes < 5?" -> "Use superpowers:finishing-a-development-branch" [label="no, proceed with unresolved flags"];
+    "More tasks remain?" -> "Final code review (requesting-code-review)" [label="no"];
+    "Final code review (requesting-code-review)" -> "Use superpowers:finishing-a-development-branch";
 }
 ```
 
-## Codex Final Review Gate
+## Final Code Review
 
-After the final code reviewer subagent completes, submit the entire implementation to Codex for review via `codex-reply`. Follow the review gate pattern from `lib/codex-integration.md`.
+After all tasks complete, request a final code review of the entire implementation.
 
-**What to send to Codex:**
-- The full diff of the feature branch against its base (`git diff main...HEAD` or equivalent)
+**REQUIRED SUB-SKILL:** Use superpowers:requesting-code-review with:
+- Full branch diff (`git diff main...HEAD` or equivalent)
 - The design doc (read from `.codex-state/current_design_doc`)
 - The implementation plan filename
 - Test results summary
-- Any issues the final code reviewer subagent flagged
-- The worktree path note
+
+The code review skill handles both the subagent review and the Codex review gate. Only proceed to `finishing-a-development-branch` after the review passes.
 
 ## Prompt Templates
 
@@ -142,7 +132,7 @@ Implementer: "Got it. Implementing now..."
   - Committed
 
 [Dispatch spec compliance reviewer]
-Spec reviewer: ✅ Spec compliant - all requirements met, nothing extra
+Spec reviewer: Spec compliant - all requirements met, nothing extra
 
 [Get git SHAs, dispatch code quality reviewer]
 Code reviewer: Strengths: Good test coverage, clean. Issues: None. Approved.
@@ -150,51 +140,16 @@ Code reviewer: Strengths: Good test coverage, clean. Issues: None. Approved.
 [Mark Task 1 complete]
 
 Task 2: Recovery modes
-
-[Get Task 2 text and context (already extracted)]
-[Dispatch implementation subagent with full task text + context]
-
-Implementer: [No questions, proceeds]
-Implementer:
-  - Added verify/repair modes
-  - 8/8 tests passing
-  - Self-review: All good
-  - Committed
-
-[Dispatch spec compliance reviewer]
-Spec reviewer: ❌ Issues:
-  - Missing: Progress reporting (spec says "report every 100 items")
-  - Extra: Added --json flag (not requested)
-
-[Implementer fixes issues]
-Implementer: Removed --json flag, added progress reporting
-
-[Spec reviewer reviews again]
-Spec reviewer: ✅ Spec compliant now
-
-[Dispatch code quality reviewer]
-Code reviewer: Strengths: Solid. Issues (Important): Magic number (100)
-
-[Implementer fixes]
-Implementer: Extracted PROGRESS_INTERVAL constant
-
-[Code reviewer reviews again]
-Code reviewer: ✅ Approved
-
-[Mark Task 2 complete]
-
 ...
 
 [After all tasks]
-[Dispatch final code-reviewer]
-Final reviewer: All requirements met, ready to merge
-
-[Codex final review gate]
-[Send full diff + design doc + test results to Codex via codex-reply]
-Codex: ❌ Missing input validation on recovery mode parameter
-[Fix: add validation]
-[Resubmit to Codex]
-Codex: ✅ Pass
+[Request final code review via requesting-code-review skill]
+  Code-reviewer subagent: All requirements met
+  Codex: Missing input validation on recovery mode parameter
+  [Fix: add validation]
+  [Re-review]
+  Code-reviewer subagent: Approved
+  Codex: Pass
 
 Done!
 ```
@@ -221,7 +176,7 @@ Done!
 **Quality gates:**
 - Self-review catches issues before handoff
 - Two-stage review: spec compliance, then code quality
-- Codex final review gate catches cross-task issues
+- Final code review with Codex catches cross-task issues
 - Review loops ensure fixes actually work
 - Spec compliance prevents over/under-building
 - Code quality ensures implementation is well-built
@@ -230,14 +185,14 @@ Done!
 - More subagent invocations (implementer + 2 reviewers per task)
 - Controller does more prep work (extracting all tasks upfront)
 - Review loops add iterations
-- Codex final review adds token cost
+- Final Codex review adds token cost
 - But catches issues early (cheaper than debugging later)
 
 ## Red Flags
 
 **Never:**
 - Start implementation on main/master branch without explicit user consent
-- Skip reviews (spec compliance OR code quality OR Codex final)
+- Skip reviews (spec compliance OR code quality OR final review)
 - Proceed with unfixed issues
 - Dispatch multiple implementation subagents in parallel (conflicts)
 - Make subagent read plan file (provide full text instead)
@@ -246,8 +201,8 @@ Done!
 - Accept "close enough" on spec compliance (spec reviewer found issues = not done)
 - Skip review loops (reviewer found issues = implementer fixes = review again)
 - Let implementer self-review replace actual review (both are needed)
-- **Start code quality review before spec compliance is ✅** (wrong order)
-- **Start Codex final review before final code reviewer completes** (wrong order)
+- **Start code quality review before spec compliance is approved** (wrong order)
+- **Start final code review before all tasks are complete** (wrong order)
 - Move to next task while either review has open issues
 
 **If subagent asks questions:**
@@ -270,7 +225,7 @@ Done!
 **Required workflow skills:**
 - **superpowers:using-git-worktrees** - REQUIRED: Set up isolated workspace before starting
 - **superpowers:writing-plans** - Creates the plan this skill executes
-- **superpowers:requesting-code-review** - Code review template for reviewer subagents
+- **superpowers:requesting-code-review** - Final review (subagent + Codex) for entire implementation
 - **superpowers:finishing-a-development-branch** - Complete development after all tasks
 
 **Subagents should use:**

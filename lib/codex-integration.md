@@ -44,6 +44,10 @@ fi
 
 **Validation:** A thread ID is valid if the file exists, is non-empty, and a test `codex-reply` call succeeds. If the test call fails, treat Codex as unavailable.
 
+## Model Selection
+
+When calling the `codex` or `codex-reply` MCP tools, **do NOT pass the `model` parameter**. Let Codex use the model configured in `~/.codex/config.toml` or the MCP server startup flags. Passing a model override can cause account compatibility errors.
+
 ## Codex Availability
 
 If Codex is unavailable (MCP not connected, usage limit hit, or any error from `codex` or `codex-reply`), skip all Codex steps and proceed without Codex review. Inform the user that Codex review was skipped and why.

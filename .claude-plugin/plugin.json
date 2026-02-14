@@ -6,8 +6,8 @@
     "name": "Ebitoro",
     "email": "ebitoro.sys@gmail.com"
   },
-  "homepage": "https://https://github.com/ebitoro/superpowers",
-  "repository": "https://https://github.com/ebitoro/superpowers",
+  "homepage": "https://github.com/ebitoro/superpowers",
+  "repository": "https://github.com/ebitoro/superpowers",
   "license": "MIT",
   "keywords": ["skills", "tdd", "debugging", "collaboration", "best-practices", "workflows"]
 }

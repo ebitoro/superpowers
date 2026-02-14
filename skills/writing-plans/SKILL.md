@@ -26,11 +26,12 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 2. Read the design doc path from `.codex-state/current_design_doc`
 3. Read the design doc itself to rebuild full context
 
-If `.codex-state/codex_thread_id` exists and is valid (file exists, non-empty, test `codex-reply` succeeds), reuse the existing Codex thread. If missing or Codex is unavailable, proceed without Codex review and inform the user.
+Validate the thread ID by testing a `codex-reply` call. Follow the validation and recovery steps in `lib/codex-integration.md`:
+- If the thread works: reuse it. The design context from brainstorming is retained.
+- If "Session not found": create a new thread via `codex`, save the new ID, and send the design doc as context so Codex is caught up.
+- If Codex is unavailable entirely: proceed without Codex and inform the user.
 
 If `.codex-state/current_design_doc` exists, read the design doc it points to. If missing, look for the most recent `*-design.md` in `docs/plans/`. If neither exists, ask the user for the design doc path.
-
-The design has already been reviewed and approved by Codex during brainstorming. Do not re-send it. The existing Codex thread retains that context.
 
 **Codex is consulted once:**
 - **Before presenting to user** — Send the full plan to Codex via `codex-reply` for review. Follow the review gate pattern from `lib/codex-integration.md` (max 5 rounds). Include the worktree path note.

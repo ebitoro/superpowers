@@ -42,7 +42,12 @@ if [ -f "$STATE_DIR/codex_thread_id" ]; then
 fi
 ```
 
-**Validation:** A thread ID is valid if the file exists, is non-empty, and a test `codex-reply` call succeeds. If the test call fails, treat Codex as unavailable.
+**Validation and recovery:**
+1. Read the thread ID from the file
+2. Test it with a `codex-reply` call (e.g. a short "ping" message)
+3. If it succeeds: reuse the thread
+4. If it fails with "Session not found" or similar: the thread has expired. **Create a new thread** by calling `codex` MCP tool, save the new thread ID to the state file, and send a context message summarizing what has happened so far (read the design doc to rebuild context). Inform the user that the previous Codex thread expired and a new one was created.
+5. If it fails for other reasons (MCP not connected, usage limit): treat Codex as unavailable
 
 ## Model Selection
 

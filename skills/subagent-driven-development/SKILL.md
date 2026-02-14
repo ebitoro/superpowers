@@ -39,7 +39,7 @@ digraph when_to_use {
 
 > **Reference:** See `lib/codex-integration.md` for shared patterns (state directory, availability, review gate logic, working directory awareness, cleanup).
 
-**Context recovery** — on startup, read `CODEX_THREAD_ID` from `.codex-state/codex_thread_id`. If valid (file exists, non-empty, test `codex-reply` succeeds), reuse the thread. If missing or unavailable, proceed without Codex and inform the user.
+**Context recovery** — on startup, read `CODEX_THREAD_ID` from `.codex-state/codex_thread_id` and validate it. Follow the validation and recovery steps in `lib/codex-integration.md` (reuse if valid, create new thread if expired, skip if Codex unavailable).
 
 ## The Process
 

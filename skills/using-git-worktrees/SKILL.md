@@ -13,6 +13,8 @@ Git worktrees create isolated workspaces sharing the same repository, allowing w
 
 **Announce at start:** "I'm using the using-git-worktrees skill to set up an isolated workspace."
 
+**Cost optimization:** This skill is procedural (no creative decisions). Other skills should dispatch the `worktree-setup` agent (see `agents/worktree-setup.md`) instead of running this skill inline. The agent runs on Sonnet and keeps worktree setup out of the caller's context window.
+
 ## Directory Selection Process
 
 Follow this priority order:

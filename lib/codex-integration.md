@@ -19,6 +19,8 @@ mkdir -p "$STATE_DIR"
 - `$STATE_DIR/codex_thread_id` — Codex thread ID for conversation continuity
 - `$STATE_DIR/current_design_doc` — path to the approved design doc (relative to repo root)
 
+> **Note:** Unresolved flags are tracked in `docs/unresolved-flags.md` (version-controlled, committed to git), NOT in `.codex-state/`. See "Tracking Unresolved Flags" below.
+
 **Ensure `.codex-state/` is gitignored (run from main repo):**
 ```bash
 grep -q '.codex-state/' "$MAIN_REPO/.gitignore" 2>/dev/null || echo '.codex-state/' >> "$MAIN_REPO/.gitignore"
@@ -66,6 +68,31 @@ NOTE: Implementation is in worktree at <worktree-absolute-path>.
 All file paths are relative to the worktree root.
 ```
 
+## Efficient Codex Communication
+
+Codex has its own filesystem access (read-only sandbox). Do NOT paste full diffs or file contents into `codex-reply` messages — this wastes tokens and can hit message limits.
+
+**For code reviews, send:**
+1. The commit SHA(s) covering the changes (CC must commit before sending to Codex)
+2. A short summary of what was implemented and why
+3. The test results summary (pass/fail counts, not full output)
+4. The worktree path note (see Working Directory Awareness)
+5. Any relevant context (design doc reference, plan task number)
+
+**Example message to Codex:**
+```
+Review commit abc1234..def5678 on branch feature/auth.
+NOTE: Implementation is in worktree at /path/to/.worktrees/auth.
+
+Implemented: JWT token validation middleware (Task 3 from docs/plans/2025-01-15-auth-design.md)
+Tests: 12 passing, 0 failing
+Files changed: src/middleware/auth.ts, tests/middleware/auth.test.ts
+
+Please review for correctness, security issues, and alignment with the design.
+```
+
+Codex can then inspect the actual files and git log in its sandbox. This is far more efficient than pasting hundreds of lines of diff.
+
 ## Review Gate Pattern
 
 All review gates follow the same logic:
@@ -74,10 +101,34 @@ All review gates follow the same logic:
 2. If Codex passes: proceed
 3. If Codex flags issues: fix and resubmit
 4. Maximum **5 review rounds**. If still unresolved, proceed and clearly report unresolved flags to the user
+5. **Track unresolved flags** — append any unresolved items to `docs/unresolved-flags.md` and commit (see below)
 
 **What counts as a pass:** Codex explicitly states the content is acceptable. Minor style suggestions that don't affect correctness can be noted but do not block a pass.
 
 **What counts as a fail:** Bugs, logic errors, missing error handling, test gaps, violations of the design, security issues, or deviations from the plan.
+
+## Tracking Unresolved Flags
+
+When the review gate passes with unresolved flags (5-round limit hit, or pass with minor notes worth revisiting), append them to `docs/unresolved-flags.md` and **commit the change**.
+
+This file is version-controlled so flags survive across sessions, worktree changes, and branch merges. They represent real technical debt that needs to be addressed.
+
+**Location:** `docs/unresolved-flags.md` (relative to repo/worktree root)
+
+**Format:**
+```markdown
+## [Task/Batch name] - [YYYY-MM-DD HH:MM]
+- **Source:** [which review — brainstorming design, per-task Codex, batch review, final review]
+- **Flags:**
+  - [flag 1 description]
+  - [flag 2 description]
+```
+
+**Rules:**
+- Append-only during implementation. Never delete or edit existing entries.
+- Every "pass with flags" or 5-round exhaustion MUST append to this file and commit.
+- `finishing-a-development-branch` reads and reports all accumulated flags before presenting options.
+- When flags are resolved later, remove the entries and commit with `fix: resolve Codex flag — <description>`.
 
 ## State Cleanup
 

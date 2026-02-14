@@ -111,15 +111,17 @@ digraph process {
 
 > **Reference:** See `lib/codex-integration.md` for shared patterns (review gate logic, availability).
 
-After the code quality reviewer approves, send the per-task diff to Codex via `codex-reply` for a third opinion. This catches cross-cutting issues that subagent reviewers miss because they lack project-wide context.
+After the code quality reviewer approves, ensure changes are committed, then send the commit SHAs to Codex via `codex-reply` for a third opinion. This catches cross-cutting issues that subagent reviewers miss because they lack project-wide context.
 
-**What to send:**
-- The task diff (`git diff` of the task's commits)
-- What was implemented and the task spec
-- Test results summary
+**Important:** The implementer subagent should have already committed as part of its workflow. Verify with `git status` — if uncommitted changes remain, commit them before sending to Codex.
+
+**What to send** (see `lib/codex-integration.md` "Efficient Codex Communication"):
+- The commit SHA(s) covering the task — NOT the raw diff text
+- A short summary of what was implemented and the task spec
+- Test results summary (pass/fail counts)
 - The worktree path note (see `lib/codex-integration.md`)
 
-**Review gate:** Follow the standard review gate pattern from `lib/codex-integration.md` (max 5 rounds, fix and resubmit until pass).
+**Review gate:** Follow the standard review gate pattern from `lib/codex-integration.md` (max 5 rounds, fix and resubmit until pass). If passing with unresolved flags, append them to `docs/unresolved-flags.md` and commit (see `lib/codex-integration.md` for format).
 
 **If Codex is unavailable:** Skip this step and proceed with the subagent results only. Inform the user that Codex per-task review was skipped.
 
@@ -174,7 +176,9 @@ Spec reviewer: Spec compliant - all requirements met, nothing extra
 [Get git SHAs, dispatch code quality reviewer]
 Code reviewer: Strengths: Good test coverage, clean. Issues: None. Approved.
 
-[Send task diff to Codex via codex-reply]
+[Send commit SHAs + summary to Codex via codex-reply]
+  "Review abc1234..def5678. Implemented install-hook command.
+   Tests: 5 passing. Worktree at /path/.worktrees/hooks."
 Codex: Pass. Minor note: consider adding --dry-run flag for safety.
 
 [Mark Task 1 complete]
@@ -265,7 +269,7 @@ Done!
 ## Integration
 
 **Required workflow skills:**
-- **superpowers:using-git-worktrees** - REQUIRED: Set up isolated workspace before starting
+- **worktree-setup agent** - REQUIRED: Set up isolated workspace before starting. Dispatch `agents/worktree-setup.md` (runs on Sonnet, keeps setup out of context window).
 - **superpowers:writing-plans** - Creates the plan this skill executes
 - **superpowers:requesting-code-review** - Final review (subagent + Codex) for entire implementation
 - **superpowers:finishing-a-development-branch** - Complete development after all tasks

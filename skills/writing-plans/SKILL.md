@@ -45,7 +45,7 @@ See `lib/codex-integration.md` for full recovery details.
 
 You MUST complete these steps in order:
 
-1. **Verify worktree** — check if inside a git worktree (`git worktree list`). If NOT in a worktree, **REQUIRED SUB-SKILL:** invoke `superpowers:using-git-worktrees` to create one before proceeding.
+1. **Verify worktree** — check if inside a git worktree (`git worktree list`). If NOT in a worktree, dispatch the `worktree-setup` agent (see `agents/worktree-setup.md`) with the branch name. The agent runs on Sonnet and handles the full setup.
 2. **Recover context** — run `MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"` to find the main repo root, then read `$MAIN_REPO/.codex-state/codex_thread_id` and `$MAIN_REPO/.codex-state/current_design_doc`, load the design doc
 3. **Draft the implementation plan** — following the task structure and granularity rules below
 4. **Codex review gate** — send plan to Codex via `codex-reply` (include worktree path note), iterate up to 5 rounds (see `lib/codex-integration.md`)

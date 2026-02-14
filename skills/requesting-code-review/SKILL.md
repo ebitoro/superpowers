@@ -24,9 +24,14 @@ Two-stage review: dispatch superpowers:code-reviewer subagent, then Codex review
 
 ## How to Request
 
-### Step 1: Get git SHAs
+### Step 1: Commit and get git SHAs
+
+All changes MUST be committed before code review. Codex reviews by commit SHA, not raw diff text. If there are uncommitted changes, commit them first.
 
 ```bash
+# Commit any uncommitted work
+git add -A && git commit -m "feat: <description>"
+
 BASE_SHA=$(git rev-parse HEAD~1)  # or origin/main
 HEAD_SHA=$(git rev-parse HEAD)
 ```
@@ -61,23 +66,30 @@ MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
 cat "$MAIN_REPO/.codex-state/codex_thread_id"
 ```
 
-**What to send to Codex:**
-- The diff (`git diff {BASE_SHA}..{HEAD_SHA}`)
-- What was implemented and why
-- Test results summary
+**What to send to Codex** (see `lib/codex-integration.md` "Efficient Codex Communication"):
+- The commit SHAs (`{BASE_SHA}..{HEAD_SHA}`) — NOT the raw diff text
+- A short summary of what was implemented and why
+- Test results summary (pass/fail counts)
 - Any context the caller provides (design doc, plan reference, etc.)
 - The worktree path note (see `lib/codex-integration.md`)
+
+Codex has filesystem access and can inspect the commits directly. Do NOT paste full diffs into the message.
 
 **Review gate:** Follow the standard review gate pattern from `lib/codex-integration.md` (max 5 rounds, fix and resubmit until pass).
 
 **If Codex is unavailable:** Skip this step and proceed with the subagent's result only. Inform the caller that Codex review was skipped.
 
-### Step 5: Report result
+### Step 5: Track unresolved flags
+
+If the verdict is **pass with flags**, append the unresolved items to `docs/unresolved-flags.md` following the format in `lib/codex-integration.md`, then commit the change. This file is version-controlled so flags survive across sessions and merges.
+
+### Step 6: Report result
 
 Report the combined result to the caller:
 - Code-reviewer subagent assessment
 - Codex review result (pass, or unresolved flags, or skipped)
 - Overall verdict: **pass** (both passed), **pass with flags** (subagent passed, Codex had unresolved minor items), or **needs fixes**
+- If flags were tracked, mention: "Unresolved flags committed to `docs/unresolved-flags.md`"
 
 ## Example
 
@@ -105,7 +117,9 @@ HEAD_SHA=$(git rev-parse HEAD)
 [Fix progress indicators, re-dispatch subagent]
 [Subagent returns]: All clear. Ready to proceed.
 
-[Send diff to Codex via codex-reply]
+[Send commit SHAs + summary to Codex via codex-reply]
+  "Review a7981ec..3df7661. Implemented verifyIndex() and repairIndex().
+   Tests: 4 passing. Worktree at /path/.worktrees/deploy."
 Codex: Pass. Minor suggestion: consider adding JSDoc to public API.
 
 Result: Pass (subagent approved, Codex approved with minor note)

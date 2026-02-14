@@ -17,7 +17,19 @@ Load plan, review critically, execute tasks in batches, report for review betwee
 
 > **Reference:** See `lib/codex-integration.md` for shared patterns (state directory, availability, review gate logic, working directory awareness, cleanup).
 
-**Context recovery** — on startup, read `CODEX_THREAD_ID` from `.codex-state/codex_thread_id` and validate it. Follow the validation and recovery steps in `lib/codex-integration.md` (reuse if valid, create new thread if expired, skip if Codex unavailable).
+**Context recovery** — on startup, locate the state directory and read the thread ID. The state directory is at the **main repo root**, not the worktree root. You MUST run this exact command to find it:
+
+```bash
+MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+cat "$MAIN_REPO/.codex-state/codex_thread_id"
+```
+
+Then validate the thread ID with a `codex-reply` ping:
+- If it succeeds: reuse the thread
+- If "Session not found": create new thread via `codex`, save ID to `$MAIN_REPO/.codex-state/codex_thread_id`, re-send context from design doc
+- If other error: skip Codex, inform user
+
+See `lib/codex-integration.md` for full recovery details.
 
 ## The Process
 

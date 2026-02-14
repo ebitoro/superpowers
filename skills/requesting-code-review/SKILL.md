@@ -54,7 +54,12 @@ Use Task tool with superpowers:code-reviewer type, fill template at `code-review
 
 > **Reference:** See `lib/codex-integration.md` for shared patterns (state directory, availability, review gate logic).
 
-After the code-reviewer subagent passes, send the diff to Codex via `codex-reply` for a second opinion.
+After the code-reviewer subagent passes, send the diff to Codex via `codex-reply` for a second opinion. If you don't have `CODEX_THREAD_ID` in working memory, read it from the state directory:
+
+```bash
+MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+cat "$MAIN_REPO/.codex-state/codex_thread_id"
+```
 
 **What to send to Codex:**
 - The diff (`git diff {BASE_SHA}..{HEAD_SHA}`)

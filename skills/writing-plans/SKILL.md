@@ -21,17 +21,22 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 
 > **Reference:** See `lib/codex-integration.md` for shared patterns (state directory, availability, review gate logic, working directory awareness, cleanup).
 
-**Context recovery** — on startup:
-1. Read `CODEX_THREAD_ID` from `.codex-state/codex_thread_id`
-2. Read the design doc path from `.codex-state/current_design_doc`
-3. Read the design doc itself to rebuild full context
+**Context recovery** — on startup, locate the state directory. The state directory is at the **main repo root**, not the worktree root. You MUST run this exact command to find it:
 
-Validate the thread ID by testing a `codex-reply` call. Follow the validation and recovery steps in `lib/codex-integration.md`:
-- If the thread works: reuse it. The design context from brainstorming is retained.
-- If "Session not found": create a new thread via `codex`, save the new ID, and send the design doc as context so Codex is caught up.
-- If Codex is unavailable entirely: proceed without Codex and inform the user.
+```bash
+MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+cat "$MAIN_REPO/.codex-state/codex_thread_id"
+cat "$MAIN_REPO/.codex-state/current_design_doc"
+```
 
-If `.codex-state/current_design_doc` exists, read the design doc it points to. If missing, look for the most recent `*-design.md` in `docs/plans/`. If neither exists, ask the user for the design doc path.
+Then:
+1. Read the design doc path from `$MAIN_REPO/.codex-state/current_design_doc` and read that file to rebuild full context. If missing, look for the most recent `*-design.md` in `docs/plans/`. If neither exists, ask the user for the design doc path.
+2. Validate the thread ID with a `codex-reply` ping:
+   - If it succeeds: reuse the thread. The design context from brainstorming is retained.
+   - If "Session not found": create a new thread via `codex`, save the new ID to `$MAIN_REPO/.codex-state/codex_thread_id`, and send the design doc as context so Codex is caught up.
+   - If Codex is unavailable entirely: proceed without Codex and inform the user.
+
+See `lib/codex-integration.md` for full recovery details.
 
 **Codex is consulted once:**
 - **Before presenting to user** — Send the full plan to Codex via `codex-reply` for review. Follow the review gate pattern from `lib/codex-integration.md` (max 5 rounds). Include the worktree path note.
@@ -41,7 +46,7 @@ If `.codex-state/current_design_doc` exists, read the design doc it points to. I
 You MUST complete these steps in order:
 
 1. **Verify worktree** — check if inside a git worktree (`git worktree list`). If NOT in a worktree, **REQUIRED SUB-SKILL:** invoke `superpowers:using-git-worktrees` to create one before proceeding.
-2. **Recover context** — read `.codex-state/codex_thread_id` and `.codex-state/current_design_doc`, load the design doc
+2. **Recover context** — run `MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"` to find the main repo root, then read `$MAIN_REPO/.codex-state/codex_thread_id` and `$MAIN_REPO/.codex-state/current_design_doc`, load the design doc
 3. **Draft the implementation plan** — following the task structure and granularity rules below
 4. **Codex review gate** — send plan to Codex via `codex-reply` (include worktree path note), iterate up to 5 rounds (see `lib/codex-integration.md`)
 5. **Present plan to user** — include any unresolved Codex flags if review gate did not fully pass

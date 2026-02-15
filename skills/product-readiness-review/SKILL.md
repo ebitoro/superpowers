@@ -144,7 +144,9 @@ After both CC and Codex complete their reviews, create `docs/product-readiness-r
 
 ### Step 4: Cross-Verification
 
-Go through every finding (both CC's and Codex's) one by one via `codex-reply`. For each finding:
+Go through every finding (both CC's and Codex's) one by one via `codex-reply`. **Codex is a reference, not authority** — CC must independently verify every Codex finding against the actual code before accepting it, and verify Codex's assessment of CC findings against the code before agreeing. See `lib/codex-integration.md` "Core Principle" for details.
+
+For each finding:
 
 1. **CC findings** — send each CC finding to Codex: "I found [finding]. Do you agree this is a real issue? Can you verify by checking the code at [file:line]?"
 2. **Codex findings** — CC independently verifies each Codex finding by reading the code and checking if the issue is real.

@@ -32,7 +32,11 @@ brainstorming -> writing-plans -> [executing-plans | subagent-driven-development
 
 ## Codex Integration
 
-All Codex patterns are documented in `lib/codex-integration.md` (single source of truth). Key points:
+All Codex patterns are documented in `lib/codex-integration.md` (single source of truth).
+
+**Core principle:** Codex is a reference, not authority. CC must independently verify every Codex claim against the actual code before accepting it. When Codex and the code contradict, the code is ground truth.
+
+Key points:
 
 ### State Directory
 

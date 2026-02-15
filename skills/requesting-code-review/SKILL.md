@@ -77,6 +77,8 @@ Codex has filesystem access and can inspect the commits directly. Do NOT paste f
 
 **Review gate:** Follow the standard review gate pattern from `lib/codex-integration.md` (max 5 rounds, fix and resubmit until pass).
 
+**Verify before acting:** Codex is a reference, not authority. When Codex flags an issue, CC must read the relevant code and independently confirm the issue exists before fixing it. If Codex's claim doesn't match the code, push back with evidence. See `lib/codex-integration.md` "Core Principle" for details.
+
 **If Codex is unavailable:** Skip this step and proceed with the subagent's result only. Inform the caller that Codex review was skipped.
 
 ### Step 5: Track unresolved flags

@@ -2,6 +2,18 @@
 
 Shared patterns for skills that integrate with Codex as a reviewer/thought partner.
 
+## Core Principle: Codex as Reference, Not Authority
+
+Codex is a **reference**, not a source of truth. CC must **independently verify** every Codex claim against the actual code before accepting it. This applies to all interactions — reviews, cross-verification, brainstorming feedback.
+
+**Rules:**
+- Never accept a Codex finding without reading the code yourself
+- If Codex says "line 42 has a bug" — read line 42 and confirm
+- If Codex says "this function is missing validation" — check if the validation actually exists
+- If Codex dismisses a finding — verify the dismissal reasoning against the code
+- Codex has read-only sandbox access and may have stale or incomplete context
+- When Codex and the code contradict each other, the code is the ground truth
+
 ## State Directory
 
 All Codex state files live in `.codex-state/` at the **main repo root** (not `/tmp/`, not per-worktree).

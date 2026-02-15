@@ -113,6 +113,8 @@ digraph process {
 
 After the code quality reviewer approves, ensure changes are committed, then send the commit SHAs to Codex via `codex-reply` for a third opinion. This catches cross-cutting issues that subagent reviewers miss because they lack project-wide context.
 
+**Verify before acting:** Codex is a reference, not authority. When Codex flags an issue, CC must read the relevant code and independently confirm the issue exists before fixing it. If Codex's claim doesn't match the code, push back with evidence. See `lib/codex-integration.md` "Core Principle" for details.
+
 **Important:** The implementer subagent should have already committed as part of its workflow. Verify with `git status` — if uncommitted changes remain, commit them before sending to Codex.
 
 **What to send** (see `lib/codex-integration.md` "Efficient Codex Communication"):

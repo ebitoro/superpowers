@@ -34,6 +34,7 @@ You MUST create a task for each of these items and complete them in order:
 5. **Update document** — mark each finding as confirmed, dismissed, or downgraded
 6. **Write summary** — add summary section at bottom of document
 7. **Commit** — commit the document to git
+8. **Cleanup** — remove `.codex-state/` directory
 
 ## The Process
 
@@ -157,8 +158,9 @@ For each finding, determine:
 **Discussion protocol:**
 - Send one finding at a time to Codex
 - Wait for Codex's assessment
-- If CC and Codex disagree, exchange reasoning once more
-- If still disagreeing after 2 rounds, mark as "Disputed" with both perspectives
+- If both agree, mark the finding and move to the next one
+- If CC and Codex disagree, continue exchanging reasoning until both agree (max 5 attempts per finding)
+- If still disagreeing after 5 attempts, mark as "Disputed" and update the document with both perspectives including each side's reasoning
 
 ### Step 5: Update Document
 
@@ -205,6 +207,15 @@ Update the document status from "In Progress" to "Complete".
 ```bash
 git add docs/product-readiness-review-YYYY-MM-DD.md
 git commit -m "docs: product readiness review YYYY-MM-DD"
+```
+
+### Step 8: Cleanup
+
+Remove the `.codex-state/` directory. The review is complete and the thread is no longer needed.
+
+```bash
+MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+rm -rf "$MAIN_REPO/.codex-state"
 ```
 
 ## Red Flags

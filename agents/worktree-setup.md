@@ -34,4 +34,4 @@ No issues.
 - Do NOT make any design decisions or implementation choices
 - Do NOT modify any source code
 - If tests fail at baseline, report the failures and ask the caller how to proceed
-- If you cannot determine the worktree directory, ask the caller
+- Always create worktrees at `.worktrees/<branch-name>` inside the project root — never elsewhere

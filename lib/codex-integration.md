@@ -16,7 +16,7 @@ Codex is a **reference**, not a source of truth. CC must **independently verify*
 
 ## Codex Agent
 
-**All Codex interactions go through the `codex-agent` subagent** (`agents/codex-agent.md`). This preserves the main session's context window by offloading thread management, Codex communication, skill selection, and response verification to a dedicated agent.
+**All Codex interactions go through the `codex-agent` subagent** (`agents/codex-agent.md`).
 
 ### How to Dispatch
 

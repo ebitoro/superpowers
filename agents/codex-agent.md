@@ -133,7 +133,7 @@ For all modes except `create-thread`, recover the existing thread:
    STATE_DIR="$MAIN_REPO/.codex-state"
    ```
 2. Read thread ID from `$STATE_DIR/codex_thread_id`
-3. Test with a `codex-reply` ping message
+3. Test thread validity by sending a short `codex-reply` message: `"Thread check — still active?"`. If Codex responds normally (any non-error response): thread is valid.
 4. If valid: use this thread
 5. If "Session not found" or similar expiration error:
    - Create a new thread via `codex` MCP tool. **Do NOT pass the `model` parameter.**

@@ -41,6 +41,12 @@ digraph when_to_use {
 
 ## The Process
 
+### Verify Worktree (Before Starting)
+
+Check if inside a git worktree (`git worktree list`). If NOT in a worktree, dispatch the `worktree-setup` agent (see `agents/worktree-setup.md`) with the branch name. The agent runs on Sonnet and handles the full setup.
+
+### Per-Task Workflow
+
 ```dot
 digraph process {
     rankdir=TB;

@@ -30,7 +30,7 @@ You MUST create a task for each of these items and complete them in order:
 
 ### Step 1: Start Codex Review
 
-Dispatch codex-agent with `mode: discuss` and the following message:
+Dispatch codex-agent with `mode: discuss` (not `review-gate` — this is an open-ended review request, not a pass/fail gate) and the following message:
 
 ```
 Product readiness review for this project.

@@ -29,8 +29,8 @@ Two-stage review: dispatch superpowers:code-reviewer subagent, then Codex review
 All changes MUST be committed before code review. Codex reviews by commit SHA, not raw diff text. If there are uncommitted changes, commit them first.
 
 ```bash
-# Commit any uncommitted work
-git add -A && git commit -m "feat: <description>"
+# Commit any uncommitted work (add specific files, not -A)
+git add <changed-files> && git commit -m "feat: <description>"
 
 BASE_SHA=$(git rev-parse HEAD~1)  # or origin/main
 HEAD_SHA=$(git rev-parse HEAD)

@@ -38,20 +38,10 @@ digraph when_to_use {
 ## Codex Integration
 
 > **Reference:** See `lib/codex-integration.md` for shared patterns (state directory, availability, review gate logic, working directory awareness, cleanup).
+>
+> **All Codex interactions go through the `codex-agent` subagent** (`agents/codex-agent.md`). This preserves the main session's context window. See `lib/codex-integration.md` "Codex Agent (Preferred Pattern)" for dispatch format.
 
-**Context recovery** — on startup, locate the state directory and read the thread ID. The state directory is at the **main repo root**, not the worktree root. You MUST run this exact command to find it:
-
-```bash
-MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-cat "$MAIN_REPO/.codex-state/codex_thread_id"
-```
-
-Then validate the thread ID with a `codex-reply` ping:
-- If it succeeds: reuse the thread
-- If "Session not found": create new thread via `codex`, save ID to `$MAIN_REPO/.codex-state/codex_thread_id`, re-send context from design doc
-- If other error: skip Codex, inform user
-
-See `lib/codex-integration.md` for full recovery details.
+Thread management is handled by the codex-agent automatically — it reads the thread ID from `.codex-state/codex_thread_id`, validates it, and recovers if expired. You do not need to manage the thread ID directly.
 
 ## The Process
 
@@ -92,14 +82,14 @@ digraph process {
     "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" -> "Code quality reviewer subagent approves?";
     "Code quality reviewer subagent approves?" -> "Implementer subagent fixes quality issues" [label="no"];
     "Implementer subagent fixes quality issues" -> "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" [label="re-review"];
-    "Code quality reviewer subagent approves?" -> "Codex per-task review (codex-reply)" [label="yes"];
-    "Codex per-task review (codex-reply)" [shape=box style=dashed];
-    "Codex flags issues?" [shape=diamond style=dashed];
-    "Implementer subagent fixes Codex issues" [shape=box style=dashed];
-    "Codex per-task review (codex-reply)" -> "Codex flags issues?";
-    "Codex flags issues?" -> "Mark task complete in TodoWrite" [label="no (pass)"];
-    "Codex flags issues?" -> "Implementer subagent fixes Codex issues" [label="yes (max 5 rounds)"];
-    "Implementer subagent fixes Codex issues" -> "Codex per-task review (codex-reply)" [label="resubmit"];
+    "Code quality reviewer subagent approves?" -> "Codex per-task review (codex-agent)" [label="yes"];
+    "Codex per-task review (codex-agent)" [shape=box style=dashed];
+    "Codex agent returns issues?" [shape=diamond style=dashed];
+    "Implementer subagent fixes verified issues" [shape=box style=dashed];
+    "Codex per-task review (codex-agent)" -> "Codex agent returns issues?";
+    "Codex agent returns issues?" -> "Mark task complete in TodoWrite" [label="no (pass)"];
+    "Codex agent returns issues?" -> "Implementer subagent fixes verified issues" [label="yes (max 5 rounds)"];
+    "Implementer subagent fixes verified issues" -> "Codex per-task review (codex-agent)" [label="redispatch"];
     "Mark task complete in TodoWrite" -> "More tasks remain?";
     "More tasks remain?" -> "Dispatch implementer subagent (./implementer-prompt.md)" [label="yes"];
     "More tasks remain?" -> "Final code review (requesting-code-review)" [label="no"];
@@ -111,21 +101,20 @@ digraph process {
 
 > **Reference:** See `lib/codex-integration.md` for shared patterns (review gate logic, availability).
 
-After the code quality reviewer approves, ensure changes are committed, then send the commit SHAs to Codex via `codex-reply` for a third opinion. This catches cross-cutting issues that subagent reviewers miss because they lack project-wide context.
+After the code quality reviewer approves, ensure changes are committed, then dispatch codex-agent with `mode: review-gate` for a third opinion. This catches cross-cutting issues that subagent reviewers miss because they lack project-wide context.
 
-**Verify before acting:** Codex is a reference, not authority. When Codex flags an issue, CC must read the relevant code and independently confirm the issue exists before fixing it. If Codex's claim doesn't match the code, push back with evidence. See `lib/codex-integration.md` "Core Principle" for details.
+**Important:** The implementer subagent should have already committed as part of its workflow. Verify with `git status` — if uncommitted changes remain, commit them before dispatching the codex-agent.
 
-**Important:** The implementer subagent should have already committed as part of its workflow. Verify with `git status` — if uncommitted changes remain, commit them before sending to Codex.
-
-**What to send** (see `lib/codex-integration.md` "Efficient Codex Communication"):
+**What to include in the review-gate message** (see `lib/codex-integration.md` "Efficient Codex Communication"):
 - The commit SHA(s) covering the task — NOT the raw diff text
 - A short summary of what was implemented and the task spec
 - Test results summary (pass/fail counts)
-- The worktree path note (see `lib/codex-integration.md`)
 
-**Review gate:** Follow the standard review gate pattern from `lib/codex-integration.md` (max 5 rounds, fix and resubmit until pass). If passing with unresolved flags, append them to `docs/unresolved-flags.md` and commit (see `lib/codex-integration.md` for format).
+Also provide `worktree_path` if working in a worktree.
 
-**If Codex is unavailable:** Skip this step and proceed with the subagent results only. Inform the user that Codex per-task review was skipped.
+**Review gate loop:** If the codex-agent returns `fail` with verified issues, fix them and redispatch (max 5 rounds). The agent filters out false positives, so only real issues come back. If passing with unresolved flags, append them to `docs/unresolved-flags.md` and commit (see `lib/codex-integration.md` for format).
+
+**If codex-agent reports `status: unavailable`:** Skip this step and proceed with the subagent results only. Inform the user that Codex per-task review was skipped.
 
 > Dashed nodes in the process diagram are skipped when Codex is unavailable.
 
@@ -178,10 +167,12 @@ Spec reviewer: Spec compliant - all requirements met, nothing extra
 [Get git SHAs, dispatch code quality reviewer]
 Code reviewer: Strengths: Good test coverage, clean. Issues: None. Approved.
 
-[Send commit SHAs + summary to Codex via codex-reply]
-  "Review abc1234..def5678. Implemented install-hook command.
-   Tests: 5 passing. Worktree at /path/.worktrees/hooks."
-Codex: Pass. Minor note: consider adding --dry-run flag for safety.
+[Dispatch codex-agent with mode: review-gate]
+  message: "Review abc1234..def5678. Implemented install-hook command.
+   Tests: 5 passing."
+  worktree_path: /path/.worktrees/hooks
+Codex Agent Report: verdict=pass, 0 issues verified, 1 dismissed (false positive),
+  codex_notes: "consider adding --dry-run flag for safety"
 
 [Mark Task 1 complete]
 
@@ -191,11 +182,11 @@ Task 2: Recovery modes
 [After all tasks]
 [Request final code review via requesting-code-review skill]
   Code-reviewer subagent: All requirements met
-  Codex: Missing input validation on recovery mode parameter
+  Codex agent: verdict=fail, 1 verified issue: missing input validation on recovery mode parameter
   [Fix: add validation]
-  [Re-review]
+  [Re-dispatch codex-agent]
   Code-reviewer subagent: Approved
-  Codex: Pass
+  Codex agent: verdict=pass
 
 Done!
 ```

@@ -16,20 +16,12 @@ Load plan, review critically, execute tasks in batches, report for review betwee
 ## Codex Integration
 
 > **Reference:** See `lib/codex-integration.md` for shared patterns (state directory, availability, review gate logic, working directory awareness, cleanup).
+>
+> **All Codex interactions go through the `codex-agent` subagent** (`agents/codex-agent.md`). This preserves the main session's context window. See `lib/codex-integration.md` "Codex Agent (Preferred Pattern)" for dispatch format.
 
-**Context recovery** — on startup, locate the state directory and read the thread ID. The state directory is at the **main repo root**, not the worktree root. You MUST run this exact command to find it:
+Thread management is handled by the codex-agent automatically — it reads the thread ID from `.codex-state/codex_thread_id`, validates it, and recovers if expired. You do not need to manage the thread ID directly.
 
-```bash
-MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-cat "$MAIN_REPO/.codex-state/codex_thread_id"
-```
-
-Then validate the thread ID with a `codex-reply` ping:
-- If it succeeds: reuse the thread
-- If "Session not found": create new thread via `codex`, save ID to `$MAIN_REPO/.codex-state/codex_thread_id`, re-send context from design doc
-- If other error: skip Codex, inform user
-
-See `lib/codex-integration.md` for full recovery details.
+Codex review for each batch is handled by `superpowers:requesting-code-review`, which dispatches the codex-agent internally.
 
 ## The Process
 

@@ -17,9 +17,9 @@ You are the Codex Intermediary Agent. Your job is to handle all communication wi
 You have structured skill prompts that you include in messages to Codex. These ensure Codex follows a consistent process and returns token-efficient, structured responses every time.
 
 **Skill files** (relative to project root):
-- `agents/skills/verify-design/SKILL.md` — For design document review (brainstorming)
-- `agents/skills/verify-plan/SKILL.md` — For implementation plan review (writing-plans)
-- `agents/skills/code-review/SKILL.md` — For code change review (per-task, batch, final)
+- `codex/skills/verify-design/SKILL.md` — For design document review (brainstorming)
+- `codex/skills/verify-plan/SKILL.md` — For implementation plan review (writing-plans)
+- `codex/skills/code-review/SKILL.md` — For code change review (per-task, batch, final)
 
 **How to use skills:**
 1. Based on the caller's mode and context, determine which skill applies (see Skill Selection below)
@@ -42,7 +42,7 @@ You have structured skill prompts that you include in messages to Codex. These e
 ```
 [SKILL: code-review]
 
-<paste skill instructions from agents/skills/code-review/SKILL.md>
+<paste skill instructions from codex/skills/code-review/SKILL.md>
 
 ---
 
@@ -103,7 +103,7 @@ Send a discussion message to Codex and return a verified response. Used for brai
 Handle a review gate interaction. Codex reviews content and returns a verdict.
 
 1. Recover the thread (see Thread Management below)
-2. **Select the appropriate Codex skill** (see Skill Selection table above). Read the skill's `SKILL.md` from `agents/skills/<skill-name>/`.
+2. **Select the appropriate Codex skill** (see Skill Selection table above). Read the skill's `SKILL.md` from `codex/skills/<skill-name>/`.
 3. Compose the `codex-reply` message: `[SKILL: <name>]` + skill instructions + separator + the caller's review request. Include the worktree path note if provided.
 4. Send via `codex-reply`. Codex will respond in the skill's structured format (VERDICT / FINDINGS / NOTES).
 5. Parse Codex's structured response.

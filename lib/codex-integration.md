@@ -76,7 +76,7 @@ The key benefit: false positives are filtered out by the agent, so the main sess
 
 The codex-agent includes structured skill prompts in its messages to Codex. These ensure Codex follows a consistent process and returns compact, parseable responses every time — saving tokens on both sides.
 
-**Skill files** (in `agents/skills/`, each in its own folder with `SKILL.md`):
+**Skill files** (in `codex/skills/`, each in its own folder with `SKILL.md`):
 - `verify-design/SKILL.md` — Design document review. Used during brainstorming review gate.
 - `verify-plan/SKILL.md` — Implementation plan review. Used during writing-plans review gate.
 - `code-review/SKILL.md` — Code change review. Used during per-task, batch, and final code review gates.

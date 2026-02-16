@@ -2,6 +2,82 @@
 
 Shared patterns for skills that integrate with Codex as a reviewer/thought partner.
 
+## Codex Agent (Preferred Pattern)
+
+**All Codex interactions should go through the `codex-agent` subagent** (`agents/codex-agent.md`). This preserves the main session's context window by offloading thread management, Codex communication, and response verification to a dedicated agent.
+
+### Why Use the Agent
+
+Talking to Codex directly from the main session has two costs:
+1. **Codex responses** consume context (often verbose, may include false positives)
+2. **Verification** of Codex responses (reading code, checking claims) consumes even more context
+
+The codex-agent handles both in a subagent. The main session receives only a clean, verified summary.
+
+### How to Dispatch
+
+Use the Task tool to dispatch the codex-agent. The agent supports four modes:
+
+**`create-thread`** — Start a new Codex conversation (brainstorming only):
+```
+Dispatch codex-agent with:
+  mode: create-thread
+  context: <summary of project and mission for Codex>
+```
+
+**`discuss`** — Send a discussion message and get a verified response:
+```
+Dispatch codex-agent with:
+  mode: discuss
+  message: <your message to Codex>
+  context: <optional additional context>
+  worktree_path: <optional worktree absolute path>
+```
+
+**`review-gate`** — Send content for review, get a verified verdict:
+```
+Dispatch codex-agent with:
+  mode: review-gate
+  message: <review request with commit SHAs, summary, test results>
+  context: <design doc reference, plan task, etc.>
+  worktree_path: <optional worktree absolute path>
+```
+
+**`cross-verify`** — Cross-verify a specific finding with Codex:
+```
+Dispatch codex-agent with:
+  mode: cross-verify
+  finding: <the finding to verify — ID, description, file, line>
+  message: <additional context about the finding>
+  worktree_path: <optional worktree absolute path>
+```
+
+### What the Agent Returns
+
+The agent returns a structured report with:
+- **verdict** (for review-gate): `pass`, `fail`, or `pass-with-flags`
+- **verified_issues**: Only issues confirmed by reading the actual code
+- **dismissed_count**: How many false positives were filtered out
+- **thread_status**: Whether the thread was reused, recovered, or newly created
+- **codex_notes**: Non-blocking suggestions worth passing along
+
+### Review Gate Loop with the Agent
+
+The review gate loop still happens in the calling skill, but each round dispatches the agent:
+
+1. Dispatch codex-agent with `mode: review-gate`
+2. If verdict is `pass`: proceed
+3. If verdict is `fail` with verified issues: fix the issues, then dispatch agent again
+4. Maximum **5 rounds**. If still unresolved, proceed and track flags.
+
+The key benefit: false positives are filtered out by the agent, so the main session only spends context on real issues that need fixing.
+
+### Fallback: Direct Codex Calls
+
+If the codex-agent cannot be dispatched (e.g., Task tool unavailable), skills may fall back to calling `codex` and `codex-reply` MCP tools directly using the patterns documented below. The verification rules in "Core Principle" still apply.
+
+---
+
 ## Core Principle: Codex as Reference, Not Authority
 
 Codex is a **reference**, not a source of truth. CC must **independently verify** every Codex claim against the actual code before accepting it. This applies to all interactions — reviews, cross-verification, brainstorming feedback.

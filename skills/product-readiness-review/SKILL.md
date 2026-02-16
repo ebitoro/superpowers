@@ -11,11 +11,7 @@ Full-project audit for production readiness. CC and Codex review independently, 
 
 ## Codex Integration
 
-> **Reference:** See `lib/codex-integration.md` for shared patterns (state directory, thread management, model selection, availability).
->
-> **All Codex interactions go through the `codex-agent` subagent** (`agents/codex-agent.md`). This preserves the main session's context window. See `lib/codex-integration.md` "Codex Agent (Preferred Pattern)" for dispatch format.
-
-Thread management is handled by the codex-agent automatically. You do not need to manage the thread ID directly.
+> See `lib/codex-integration.md` for Codex patterns. All interactions go through the codex-agent (`agents/codex-agent.md`).
 
 ## Checklist
 

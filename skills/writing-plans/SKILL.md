@@ -19,23 +19,19 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 
 ## Codex Integration
 
-> **Reference:** See `lib/codex-integration.md` for shared patterns (state directory, availability, review gate logic, working directory awareness, cleanup).
->
-> **All Codex interactions go through the `codex-agent` subagent** (`agents/codex-agent.md`). This preserves the main session's context window. See `lib/codex-integration.md` "Codex Agent (Preferred Pattern)" for dispatch format.
+> See `lib/codex-integration.md` for Codex patterns. All interactions go through the codex-agent (`agents/codex-agent.md`).
 
-**Context recovery** — on startup, locate the state directory to read the design doc. The state directory is at the **main repo root**, not the worktree root:
+**Context recovery** — read the design doc from the state directory at the **main repo root**:
 
 ```bash
 MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
 cat "$MAIN_REPO/.codex-state/current_design_doc"
 ```
 
-Read the design doc path from `$MAIN_REPO/.codex-state/current_design_doc` and read that file to rebuild full context. If missing, look for the most recent `*-design.md` in `docs/plans/`. If neither exists, ask the user for the design doc path.
-
-Thread management is handled by the codex-agent automatically — it reads the thread ID from `.codex-state/codex_thread_id`, validates it, and recovers if expired. You do not need to manage the thread ID directly.
+Read the design doc path and load it. If missing, look for the most recent `*-design.md` in `docs/plans/`. If neither exists, ask the user.
 
 **Codex is consulted once:**
-- **Before presenting to user** — Dispatch codex-agent with `mode: review-gate` containing the full plan. Include the worktree path. The agent handles thread recovery, sends to Codex, verifies findings, and returns a clean verdict. If verdict is `fail`, fix verified issues and redispatch (max 5 rounds).
+- **Before presenting to user** — Dispatch codex-agent with `mode: review-gate` containing the full plan and worktree path. If verdict is `fail`, fix verified issues and redispatch (max 5 rounds).
 
 ## Checklist
 

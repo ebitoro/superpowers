@@ -57,25 +57,15 @@ Use Task tool with superpowers:code-reviewer type, fill template at `code-review
 
 ### Step 4: Codex review gate
 
-> **Reference:** See `lib/codex-integration.md` for shared patterns (state directory, availability, review gate logic).
->
-> **All Codex interactions go through the `codex-agent` subagent** (`agents/codex-agent.md`). See `lib/codex-integration.md` "Codex Agent (Preferred Pattern)" for dispatch format.
+> See `lib/codex-integration.md` for Codex patterns and review gate loop.
 
-After the code-reviewer subagent passes, dispatch codex-agent with `mode: review-gate` for a second opinion. The agent handles thread recovery, Codex communication, and response verification internally.
+After the code-reviewer subagent passes, dispatch codex-agent with `mode: review-gate`:
+- Commit SHAs (`{BASE_SHA}..{HEAD_SHA}`) — NOT raw diffs
+- Summary of what was implemented and why
+- Test results (pass/fail counts)
+- `worktree_path` if in a worktree
 
-**What to include in the review-gate message** (see `lib/codex-integration.md` "Efficient Codex Communication"):
-- The commit SHAs (`{BASE_SHA}..{HEAD_SHA}`) — NOT the raw diff text
-- A short summary of what was implemented and why
-- Test results summary (pass/fail counts)
-- Any context the caller provides (design doc, plan reference, etc.)
-
-Also provide `worktree_path` if working in a worktree.
-
-The codex-agent verifies every Codex finding against the actual code, filters out false positives and out-of-scope items, and returns only verified issues. This saves the main session from having to do verification work.
-
-**Review gate loop:** If the codex-agent returns `fail` with verified issues, fix them and redispatch (max 5 rounds). False positives are already filtered by the agent.
-
-**If codex-agent reports `status: unavailable`:** Skip this step and proceed with the subagent's result only. Inform the caller that Codex review was skipped.
+Review gate loop: max 5 rounds. If `status: unavailable`, skip and proceed with subagent result only.
 
 ### Step 5: Track unresolved flags
 

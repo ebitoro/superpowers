@@ -21,11 +21,9 @@ Every project goes through this process. A todo list, a single-function utility,
 
 ## Codex Integration
 
-> **Reference:** See `lib/codex-integration.md` for shared patterns (state directory, availability, review gate logic, cleanup).
->
-> **All Codex interactions go through the `codex-agent` subagent** (`agents/codex-agent.md`). This preserves the main session's context window. See `lib/codex-integration.md` "Codex Agent (Preferred Pattern)" for dispatch format.
+> See `lib/codex-integration.md` for Codex patterns. All interactions go through the codex-agent (`agents/codex-agent.md`).
 
-You use Codex as a reviewer and thought partner throughout the brainstorming process, via the codex-agent.
+Codex is a reviewer and thought partner throughout brainstorming.
 
 **Thread management:**
 - At the start of brainstorming, dispatch codex-agent with `mode: create-thread` and a context message summarizing the project and mission.

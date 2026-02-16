@@ -47,12 +47,7 @@ The agent supports four modes:
 - `review-gate` — Send content for review, get a filtered verdict (false positives removed)
 - `cross-verify` — Cross-verify a specific finding with Codex
 
-Skills dispatch the codex-agent via the Task tool. The agent handles thread recovery, model selection, worktree path notes, and response verification internally. See `lib/codex-integration.md` for full dispatch format.
-
-The agent uses **Codex skills** (`codex/skills/`) — structured prompt templates sent to Codex that ensure consistent process and compact, token-efficient responses:
-- `verify-design` — Design document review (brainstorming)
-- `verify-plan` — Implementation plan review (writing-plans)
-- `code-review` — Code change review (per-task, batch, final)
+Skills dispatch the codex-agent via the Task tool. The agent handles thread recovery, skill selection, and response verification internally. See `lib/codex-integration.md` for dispatch format.
 
 ### State Directory
 

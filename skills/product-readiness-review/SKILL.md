@@ -1,7 +1,6 @@
 ---
 name: product-readiness-review
 description: Comprehensive product readiness review - edge cases, gaps, false positives, security, error handling. CC and Codex review independently then cross-verify findings. 
-disable-model-invocation: true
 ---
 
 # Product Readiness Review

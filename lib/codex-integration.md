@@ -72,6 +72,32 @@ The review gate loop still happens in the calling skill, but each round dispatch
 
 The key benefit: false positives are filtered out by the agent, so the main session only spends context on real issues that need fixing.
 
+### Codex Skills (Structured Prompts)
+
+The codex-agent includes structured skill prompts in its messages to Codex. These ensure Codex follows a consistent process and returns compact, parseable responses every time — saving tokens on both sides.
+
+**Skill files** (in `agents/skills/`):
+- `verify-design.md` — Design document review. Used during brainstorming review gate.
+- `verify-plan.md` — Implementation plan review. Used during writing-plans review gate.
+- `code-review.md` — Code change review. Used during per-task, batch, and final code review gates.
+
+The agent selects the skill automatically based on the review content. For `discuss` and `cross-verify` modes, no skill is used (free-form conversation).
+
+**Codex response format** (enforced by skills):
+```
+VERDICT: PASS | FAIL
+
+FINDINGS:
+- [CRITICAL] <location>: <one-line description>
+- [IMPORTANT] <location>: <one-line description>
+- [MINOR] <location>: <one-line description>
+
+NOTES:
+- <non-blocking suggestion, one line each>
+```
+
+This compact format means the codex-agent can quickly parse findings and verify each one against the code. No verbose prose to wade through.
+
 ### Fallback: Direct Codex Calls
 
 If the codex-agent cannot be dispatched (e.g., Task tool unavailable), skills may fall back to calling `codex` and `codex-reply` MCP tools directly using the patterns documented below. The verification rules in "Core Principle" still apply.

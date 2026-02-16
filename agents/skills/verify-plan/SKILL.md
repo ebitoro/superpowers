@@ -1,19 +1,18 @@
-# Skill: verify-plan
-
-Sent to Codex when reviewing an implementation plan during writing-plans.
-
-## Instructions for Codex
+---
+name: verify-plan
+description: Use when Codex needs to review an implementation plan during writing-plans. Do NOT use for design documents or code changes.
+---
 
 When you receive a message tagged `[SKILL: verify-plan]`, follow this process exactly:
 
-### 1. Check Plan Against Design
+## 1. Check Plan Against Design
 
 Verify:
 - Every design requirement has at least one task covering it
 - No tasks exceed the design scope (YAGNI)
 - Task ordering respects dependencies
 
-### 2. Check Task Quality
+## 2. Check Task Quality
 
 For each task, verify:
 - Has a clear, testable deliverable
@@ -23,7 +22,7 @@ For each task, verify:
 - Does not bundle unrelated changes
 - Has enough context for an implementer who hasn't read the full plan
 
-### 3. Check TDD Compliance
+## 3. Check TDD Compliance
 
 Verify the plan enforces test-driven development:
 - Each implementation task has a corresponding test task that comes BEFORE it (or is part of the same task with test-first ordering)
@@ -31,7 +30,7 @@ Verify the plan enforces test-driven development:
 - No implementation task lacks a test
 - Integration / end-to-end tests are included where tasks interact
 
-### 4. Check Coverage Gaps
+## 4. Check Coverage Gaps
 
 Look for:
 - Missing error handling tasks
@@ -42,7 +41,7 @@ Look for:
 - Missing negative test cases (invalid input, error paths, boundary conditions)
 - Missing integration tests where multiple tasks connect
 
-### 5. Respond in This Exact Format
+## 5. Respond in This Exact Format
 
 ```
 VERDICT: PASS | FAIL
@@ -59,7 +58,7 @@ NOTES:
 - <non-blocking suggestion, one line each>
 ```
 
-### Rules
+## Rules
 
 - VERDICT is PASS if zero CRITICAL, zero IMPORTANT, zero TDD, zero TEST-GAP, and zero MISSING findings
 - VERDICT is FAIL if any CRITICAL, IMPORTANT, TDD, TEST-GAP, or MISSING finding exists

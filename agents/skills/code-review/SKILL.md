@@ -1,19 +1,18 @@
-# Skill: code-review
-
-Sent to Codex when reviewing code changes (per-task review, batch review, final review).
-
-## Instructions for Codex
+---
+name: code-review
+description: Use when Codex needs to review code changes — per-task review, batch review, or final review. Do NOT use for design documents or implementation plans.
+---
 
 When you receive a message tagged `[SKILL: code-review]`, follow this process exactly:
 
-### 1. Inspect the Changes
+## 1. Inspect the Changes
 
 Using the commit SHAs provided:
 - Read the changed files in your sandbox
 - Understand what was implemented and why (from the summary provided)
 - Check the test files for coverage
 
-### 2. Evaluate
+## 2. Evaluate
 
 Check for:
 - **Correctness**: Logic errors, off-by-one, wrong conditions, missing returns
@@ -23,7 +22,7 @@ Check for:
 - **Design alignment**: Does the code match the stated task/design? Over/under-built?
 - **Race conditions**: Shared state, async issues, file system races
 
-### 3. Respond in This Exact Format
+## 3. Respond in This Exact Format
 
 ```
 VERDICT: PASS | FAIL
@@ -37,7 +36,7 @@ NOTES:
 - <non-blocking suggestion, one line each>
 ```
 
-### Rules
+## Rules
 
 - VERDICT is PASS if zero CRITICAL and zero IMPORTANT findings
 - VERDICT is FAIL if any CRITICAL or IMPORTANT finding exists

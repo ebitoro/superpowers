@@ -1,12 +1,11 @@
-# Skill: verify-design
-
-Sent to Codex when reviewing a design document during brainstorming.
-
-## Instructions for Codex
+---
+name: verify-design
+description: Use when Codex needs to review a design document during brainstorming. Do NOT use for implementation plans or code changes.
+---
 
 When you receive a message tagged `[SKILL: verify-design]`, follow this process exactly:
 
-### 1. Check Design Completeness
+## 1. Check Design Completeness
 
 Verify the design covers:
 - Architecture / component breakdown
@@ -15,7 +14,7 @@ Verify the design covers:
 - Testing approach
 - Edge cases
 
-### 2. Evaluate
+## 2. Evaluate
 
 For each area, check:
 - Does it solve the stated problem?
@@ -24,7 +23,7 @@ For each area, check:
 - Is anything over-engineered (YAGNI)?
 - Are there security concerns?
 
-### 3. Respond in This Exact Format
+## 3. Respond in This Exact Format
 
 ```
 VERDICT: PASS | FAIL
@@ -38,7 +37,7 @@ NOTES:
 - <non-blocking suggestion, one line each>
 ```
 
-### Rules
+## Rules
 
 - VERDICT is PASS if zero CRITICAL and zero IMPORTANT findings
 - VERDICT is FAIL if any CRITICAL or IMPORTANT finding exists

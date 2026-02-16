@@ -37,11 +37,7 @@ digraph when_to_use {
 
 ## Codex Integration
 
-> **Reference:** See `lib/codex-integration.md` for shared patterns (state directory, availability, review gate logic, working directory awareness, cleanup).
->
-> **All Codex interactions go through the `codex-agent` subagent** (`agents/codex-agent.md`). This preserves the main session's context window. See `lib/codex-integration.md` "Codex Agent (Preferred Pattern)" for dispatch format.
-
-Thread management is handled by the codex-agent automatically — it reads the thread ID from `.codex-state/codex_thread_id`, validates it, and recovers if expired. You do not need to manage the thread ID directly.
+> See `lib/codex-integration.md` for Codex patterns. All interactions go through the codex-agent (`agents/codex-agent.md`).
 
 ## The Process
 
@@ -99,22 +95,13 @@ digraph process {
 
 ## Per-Task Codex Review
 
-> **Reference:** See `lib/codex-integration.md` for shared patterns (review gate logic, availability).
+After the code quality reviewer approves, ensure changes are committed, then dispatch codex-agent with `mode: review-gate`:
+- Commit SHAs — NOT raw diffs
+- Summary of what was implemented and task spec
+- Test results (pass/fail counts)
+- `worktree_path` if in a worktree
 
-After the code quality reviewer approves, ensure changes are committed, then dispatch codex-agent with `mode: review-gate` for a third opinion. This catches cross-cutting issues that subagent reviewers miss because they lack project-wide context.
-
-**Important:** The implementer subagent should have already committed as part of its workflow. Verify with `git status` — if uncommitted changes remain, commit them before dispatching the codex-agent.
-
-**What to include in the review-gate message** (see `lib/codex-integration.md` "Efficient Codex Communication"):
-- The commit SHA(s) covering the task — NOT the raw diff text
-- A short summary of what was implemented and the task spec
-- Test results summary (pass/fail counts)
-
-Also provide `worktree_path` if working in a worktree.
-
-**Review gate loop:** If the codex-agent returns `fail` with verified issues, fix them and redispatch (max 5 rounds). The agent filters out false positives, so only real issues come back. If passing with unresolved flags, append them to `docs/unresolved-flags.md` and commit (see `lib/codex-integration.md` for format).
-
-**If codex-agent reports `status: unavailable`:** Skip this step and proceed with the subagent results only. Inform the user that Codex per-task review was skipped.
+Review gate loop: max 5 rounds (see `lib/codex-integration.md`). If `status: unavailable`, skip and proceed with subagent results only.
 
 > Dashed nodes in the process diagram are skipped when Codex is unavailable.
 
@@ -190,41 +177,6 @@ Task 2: Recovery modes
 
 Done!
 ```
-
-## Advantages
-
-**vs. Manual execution:**
-- Subagents follow TDD naturally
-- Fresh context per task (no confusion)
-- Parallel-safe (subagents don't interfere)
-- Subagent can ask questions (before AND during work)
-
-**vs. Executing Plans:**
-- Same session (no handoff)
-- Continuous progress (no waiting)
-- Review checkpoints automatic
-
-**Efficiency gains:**
-- No file reading overhead (controller provides full text)
-- Controller curates exactly what context is needed
-- Subagent gets complete information upfront
-- Questions surfaced before work begins (not after)
-
-**Quality gates:**
-- Self-review catches issues before handoff
-- Three-stage review: spec compliance, code quality, then Codex
-- Codex per-task review catches cross-cutting issues subagents miss
-- Final code review (requesting-code-review) catches cross-task issues
-- Review loops ensure fixes actually work
-- Spec compliance prevents over/under-building
-- Code quality ensures implementation is well-built
-
-**Cost:**
-- More subagent invocations (implementer + 2 reviewers per task + Codex per task)
-- Controller does more prep work (extracting all tasks upfront)
-- Review loops add iterations
-- Per-task Codex review + final Codex review adds token cost
-- But catches issues early (cheaper than debugging later)
 
 ## Red Flags
 

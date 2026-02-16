@@ -9,7 +9,7 @@ Custom fork of [superpowers](https://github.com/obra/superpowers) by obra. Adds 
 skills/             # Skill definitions (SKILL.md + supporting files per skill)
 lib/                # Shared references (codex-integration.md, skills-core.js)
 agents/             # Agent prompt templates (code-reviewer.md, codex-agent.md)
-agents/skills/      # Codex skill prompts (verify-design.md, verify-plan.md, code-review.md)
+codex/skills/       # Codex skill prompts (verify-design, verify-plan, code-review)
 commands/           # Slash command definitions (brainstorm, write-plan, execute-plan)
 hooks/              # Session hooks (session-start.sh, hooks.json)
 docs/               # Documentation and plan storage
@@ -47,12 +47,7 @@ The agent supports four modes:
 - `review-gate` — Send content for review, get a filtered verdict (false positives removed)
 - `cross-verify` — Cross-verify a specific finding with Codex
 
-Skills dispatch the codex-agent via the Task tool. The agent handles thread recovery, model selection, worktree path notes, and response verification internally. See `lib/codex-integration.md` for full dispatch format.
-
-The agent uses **Codex skills** (`agents/skills/`) — structured prompt templates sent to Codex that ensure consistent process and compact, token-efficient responses:
-- `verify-design` — Design document review (brainstorming)
-- `verify-plan` — Implementation plan review (writing-plans)
-- `code-review` — Code change review (per-task, batch, final)
+Skills dispatch the codex-agent via the Task tool. The agent handles thread recovery, skill selection, and response verification internally. See `lib/codex-integration.md` for dispatch format.
 
 ### State Directory
 

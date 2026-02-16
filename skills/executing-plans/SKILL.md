@@ -15,11 +15,7 @@ Load plan, review critically, execute tasks in batches, report for review betwee
 
 ## Codex Integration
 
-> **Reference:** See `lib/codex-integration.md` for shared patterns (state directory, availability, review gate logic, working directory awareness, cleanup).
->
-> **All Codex interactions go through the `codex-agent` subagent** (`agents/codex-agent.md`). This preserves the main session's context window. See `lib/codex-integration.md` "Codex Agent (Preferred Pattern)" for dispatch format.
-
-Thread management is handled by the codex-agent automatically — it reads the thread ID from `.codex-state/codex_thread_id`, validates it, and recovers if expired. You do not need to manage the thread ID directly.
+> See `lib/codex-integration.md` for Codex patterns. All interactions go through the codex-agent (`agents/codex-agent.md`).
 
 Codex review for each batch is handled by `superpowers:requesting-code-review`, which dispatches the codex-agent internally.
 

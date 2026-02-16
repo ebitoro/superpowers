@@ -21,39 +21,22 @@ Every project goes through this process. A todo list, a single-function utility,
 
 ## Codex Integration
 
-> **Reference:** See `lib/codex-integration.md` for shared patterns (state directory, availability, review gate logic, cleanup).
+> See `lib/codex-integration.md` for Codex patterns. All interactions go through the codex-agent (`agents/codex-agent.md`).
 
-You use Codex as a reviewer and thought partner via MCP tools throughout the brainstorming process.
+Codex is a reviewer and thought partner throughout brainstorming.
 
 **Thread management:**
-- At the start of brainstorming, call `codex` MCP tool to create a new thread. Save the returned thread ID as `CODEX_THREAD_ID`.
-- All subsequent Codex interactions use `codex-reply` with `CODEX_THREAD_ID` to maintain conversation continuity.
-- Send a single "context + mission" message when starting the thread so Codex has full context of what is being designed.
-
-<CRITICAL>
-**Context window protection — `CODEX_THREAD_ID`:**
-`CODEX_THREAD_ID` must survive compact. After obtaining the thread ID, immediately persist it:
-```bash
-MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-STATE_DIR="$MAIN_REPO/.codex-state"
-mkdir -p "$STATE_DIR"
-grep -q '.codex-state/' "$MAIN_REPO/.gitignore" 2>/dev/null || echo '.codex-state/' >> "$MAIN_REPO/.gitignore"
-echo "<thread-id>" > "$STATE_DIR/codex_thread_id"
-```
-Before any `codex-reply` call, if `CODEX_THREAD_ID` is not in your working memory, read it back:
-```bash
-MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-cat "$MAIN_REPO/.codex-state/codex_thread_id"
-```
-</CRITICAL>
+- At the start of brainstorming, dispatch codex-agent with `mode: create-thread` and a context message summarizing the project and mission.
+- The agent handles thread creation, state file persistence, and `.codex-state/` setup.
+- All subsequent Codex interactions dispatch codex-agent with `mode: discuss` or `mode: review-gate`.
 
 **Codex availability:**
-If Codex is unavailable (MCP not connected, usage limit hit, or any error from `codex` or `codex-reply`), skip all Codex steps and proceed without Codex review. Inform the user that Codex review was skipped and why.
+If the codex-agent reports `status: unavailable`, skip all Codex steps and proceed without Codex review. Inform the user that Codex review was skipped and why.
 
 **Codex is consulted at three points:**
-1. **After idea exploration** — You discuss the refined idea with Codex to validate understanding and surface blind spots.
-2. **After exploring approaches** — You share proposed approaches with Codex. If you and Codex recommend different approaches, present both recommendations to the user with clear attribution (e.g., "I recommend A because X. Codex recommends B because Y.").
-3. **Before presenting design to user** — Codex must review and pass the design. See review gate pattern in `lib/codex-integration.md`.
+1. **After idea exploration** — Dispatch codex-agent with `mode: discuss` to validate understanding and surface blind spots. The agent verifies Codex's claims against the codebase before returning.
+2. **After exploring approaches** — Dispatch codex-agent with `mode: discuss` sharing proposed approaches. If the agent reports that Codex recommends a different approach, present both recommendations to the user with clear attribution (e.g., "I recommend A because X. Codex recommends B because Y.").
+3. **Before presenting design to user** — Dispatch codex-agent with `mode: review-gate` for design review. If verdict is `fail`, fix issues and redispatch (max 5 rounds). The agent filters out false positives so only verified issues come back.
 
 ## Checklist
 
@@ -61,12 +44,12 @@ You MUST create a task for each of these items and complete them in order:
 
 1. **Explore project context** — launch 2-3 subagent code-explorers in parallel (see "Codebase Exploration")
 2. **Read key files** — read all files identified by the explorer agents to build deep understanding
-3. **Start Codex thread** — call `codex` MCP tool, save `CODEX_THREAD_ID` to `.codex-state/codex_thread_id`, send context + mission
+3. **Start Codex thread** — dispatch codex-agent with `mode: create-thread` and project context + mission
 4. **Ask clarifying questions** — one at a time, understand purpose/constraints/success criteria
-5. **Discuss refined idea with Codex** — via `codex-reply`, validate understanding and surface blind spots
+5. **Discuss refined idea with Codex** — dispatch codex-agent with `mode: discuss`, validate understanding and surface blind spots
 6. **Propose 2-3 approaches** — with trade-offs and your recommendation
-7. **Discuss approaches with Codex** — via `codex-reply`, if recommendations differ, note both for user
-8. **Codex review gate** — send design to Codex via `codex-reply`, iterate up to 5 rounds (see `lib/codex-integration.md`)
+7. **Discuss approaches with Codex** — dispatch codex-agent with `mode: discuss`, if recommendations differ, note both for user
+8. **Codex review gate** — dispatch codex-agent with `mode: review-gate`, iterate up to 5 rounds (see `lib/codex-integration.md`)
 9. **Present final design to user** — include any unresolved Codex flags if review gate did not fully pass
 10. **Write design doc** — save to `docs/plans/YYYY-MM-DD-<topic>-design.md`, commit, and write breadcrumb to `.codex-state/current_design_doc`
 
@@ -133,14 +116,12 @@ digraph brainstorming {
 
 ### Starting the Codex Thread
 
-- Call `codex` MCP tool to start a new thread
-- Save the returned thread ID as `CODEX_THREAD_ID`
-- Immediately persist to `.codex-state/codex_thread_id` (see CRITICAL block above)
-- Send a single message via `codex-reply` containing:
+- Dispatch codex-agent with `mode: create-thread` and context containing:
   - Summary of the project context gathered by subagents
   - The user's idea/request
   - Codex's role: reviewer and thought partner for this brainstorming session
-- If `codex` fails, inform the user and proceed without Codex for the rest of the session
+- The agent handles thread creation, state file persistence, and `.codex-state/` setup
+- If the agent reports `status: unavailable`, inform the user and proceed without Codex for the rest of the session
 
 ### Understanding the Idea
 
@@ -148,22 +129,22 @@ digraph brainstorming {
 - Prefer multiple choice questions when possible, but open-ended is fine too
 - Only one question per message — if a topic needs more exploration, break it into multiple questions
 - Focus on understanding: purpose, constraints, success criteria
-- After questions are resolved, discuss the refined idea with Codex via `codex-reply` to validate understanding and surface blind spots
+- After questions are resolved, dispatch codex-agent with `mode: discuss` to validate understanding and surface blind spots
 
 ### Exploring Approaches
 
 - Propose 2-3 different approaches with trade-offs
 - Present options conversationally with your recommendation and reasoning
 - Lead with your recommended option and explain why
-- Discuss approaches with Codex via `codex-reply`
+- Dispatch codex-agent with `mode: discuss` to discuss approaches with Codex
 - If you and Codex recommend different approaches, tell the user: "I recommend [approach] because [reason]. Codex recommends [approach] because [reason]."
 
 ### Presenting the Design
 
 - Draft the design internally first
-- Submit to Codex review gate via `codex-reply` before showing to user
-- Iterate with Codex up to 5 rounds if issues are flagged
-- Once Codex passes (or 5 rounds exhausted), present to user
+- Dispatch codex-agent with `mode: review-gate` before showing to user
+- If verdict is `fail`, fix verified issues and redispatch (up to 5 rounds). False positives are already filtered by the agent.
+- Once codex-agent returns `pass` or `pass-with-flags` (or 5 rounds exhausted), present to user
 - If presenting with unresolved Codex flags, clearly list what remains unresolved
 - Scale each section to its complexity: a few sentences if straightforward, up to 200-300 words if nuanced
 - Ask after each section whether it looks right so far

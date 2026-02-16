@@ -19,36 +19,28 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 
 ## Codex Integration
 
-> **Reference:** See `lib/codex-integration.md` for shared patterns (state directory, availability, review gate logic, working directory awareness, cleanup).
+> See `lib/codex-integration.md` for Codex patterns. All interactions go through the codex-agent (`agents/codex-agent.md`).
 
-**Context recovery** — on startup, locate the state directory. The state directory is at the **main repo root**, not the worktree root. You MUST run this exact command to find it:
+**Context recovery** — read the design doc from the state directory at the **main repo root**:
 
 ```bash
 MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-cat "$MAIN_REPO/.codex-state/codex_thread_id"
 cat "$MAIN_REPO/.codex-state/current_design_doc"
 ```
 
-Then:
-1. Read the design doc path from `$MAIN_REPO/.codex-state/current_design_doc` and read that file to rebuild full context. If missing, look for the most recent `*-design.md` in `docs/plans/`. If neither exists, ask the user for the design doc path.
-2. Validate the thread ID with a `codex-reply` ping:
-   - If it succeeds: reuse the thread. The design context from brainstorming is retained.
-   - If "Session not found": create a new thread via `codex`, save the new ID to `$MAIN_REPO/.codex-state/codex_thread_id`, and send the design doc as context so Codex is caught up.
-   - If Codex is unavailable entirely: proceed without Codex and inform the user.
-
-See `lib/codex-integration.md` for full recovery details.
+Read the design doc path and load it. If missing, look for the most recent `*-design.md` in `docs/plans/`. If neither exists, ask the user.
 
 **Codex is consulted once:**
-- **Before presenting to user** — Send the full plan to Codex via `codex-reply` for review. Follow the review gate pattern from `lib/codex-integration.md` (max 5 rounds). Include the worktree path note.
+- **Before presenting to user** — Dispatch codex-agent with `mode: review-gate` containing the full plan and worktree path. If verdict is `fail`, fix verified issues and redispatch (max 5 rounds).
 
 ## Checklist
 
 You MUST complete these steps in order:
 
 1. **Verify worktree** — check if inside a git worktree (`git worktree list`). If NOT in a worktree, dispatch the `worktree-setup` agent (see `agents/worktree-setup.md`) with the branch name. The agent runs on Sonnet and handles the full setup.
-2. **Recover context** — run `MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"` to find the main repo root, then read `$MAIN_REPO/.codex-state/codex_thread_id` and `$MAIN_REPO/.codex-state/current_design_doc`, load the design doc
+2. **Recover context** — run `MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"` to find the main repo root, then read `$MAIN_REPO/.codex-state/current_design_doc`, load the design doc
 3. **Draft the implementation plan** — following the task structure and granularity rules below
-4. **Codex review gate** — send plan to Codex via `codex-reply` (include worktree path note), iterate up to 5 rounds (see `lib/codex-integration.md`)
+4. **Codex review gate** — dispatch codex-agent with `mode: review-gate` (include worktree path), iterate up to 5 rounds (see `lib/codex-integration.md`)
 5. **Present plan to user** — include any unresolved Codex flags if review gate did not fully pass
 6. **Save plan** — write to `docs/plans/YYYY-MM-DD-<feature-name>.md` and commit
 7. **Offer execution handoff**
@@ -69,7 +61,7 @@ You MUST complete these steps in order:
 ```markdown
 # [Feature Name] Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (same session) or superpowers:executing-plans (separate session) to implement this plan task-by-task.
 
 **Goal:** [One sentence describing what this builds]
 

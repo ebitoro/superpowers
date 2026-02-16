@@ -8,7 +8,8 @@ Custom fork of [superpowers](https://github.com/obra/superpowers) by obra. Adds 
 .claude-plugin/     # Plugin metadata (plugin.json, marketplace.json)
 skills/             # Skill definitions (SKILL.md + supporting files per skill)
 lib/                # Shared references (codex-integration.md, skills-core.js)
-agents/             # Agent prompt templates (code-reviewer.md)
+agents/             # Agent prompt templates (code-reviewer.md, codex-agent.md)
+codex/skills/       # Codex skill prompts (verify-design, verify-plan, code-review)
 commands/           # Slash command definitions (brainstorm, write-plan, execute-plan)
 hooks/              # Session hooks (session-start.sh, hooks.json)
 docs/               # Documentation and plan storage
@@ -36,7 +37,17 @@ All Codex patterns are documented in `lib/codex-integration.md` (single source o
 
 **Core principle:** Codex is a reference, not authority. CC must independently verify every Codex claim against the actual code before accepting it. When Codex and the code contradict, the code is ground truth.
 
-Key points:
+### Codex Agent (Primary Pattern)
+
+**All Codex interactions go through the `codex-agent` subagent** (`agents/codex-agent.md`). This offloads thread management, Codex communication, and response verification to a dedicated agent — preserving the main session's context window.
+
+The agent supports four modes:
+- `create-thread` — Start a new Codex conversation (brainstorming only)
+- `discuss` — Send a message, get a verified response
+- `review-gate` — Send content for review, get a filtered verdict (false positives removed)
+- `cross-verify` — Cross-verify a specific finding with Codex
+
+Skills dispatch the codex-agent via the Task tool. The agent handles thread recovery, skill selection, and response verification internally. See `lib/codex-integration.md` for dispatch format.
 
 ### State Directory
 
@@ -49,25 +60,12 @@ STATE_DIR="$MAIN_REPO/.codex-state"
 Uses `--git-common-dir` (not `--show-toplevel`) so worktrees resolve to the main repo.
 
 ### Files
-- `.codex-state/codex_thread_id` - Codex thread ID for conversation continuity
+- `.codex-state/codex_thread_id` - Codex thread ID for conversation continuity (managed by codex-agent)
 - `.codex-state/current_design_doc` - Path to approved design doc (relative to repo root)
-
-### Thread Recovery
-
-Codex threads can expire (~20min TTL observed). Skills must:
-1. Read thread ID from `.codex-state/codex_thread_id`
-2. Test with a `codex-reply` ping
-3. If valid: reuse
-4. If "Session not found": create new thread, save ID, re-send context from design doc
-5. If other error: skip Codex, inform user
-
-### Model Selection
-
-Never pass the `model` parameter to `codex` or `codex-reply` MCP tools. Let the model be set by `~/.codex/config.toml` or MCP server startup flags. Passing a model override causes account compatibility errors.
 
 ### Review Gate Pattern
 
-Max 5 rounds. Fix and resubmit until pass. If still unresolved after 5 rounds, proceed and report unresolved flags to user.
+Max 5 rounds. Dispatch codex-agent, fix verified issues, redispatch until pass. The agent filters out false positives so only real issues come back. If still unresolved after 5 rounds, proceed and report unresolved flags to user.
 
 ## Editing Skills
 
@@ -102,10 +100,10 @@ Max 5 rounds. Fix and resubmit until pass. If still unresolved after 5 rounds, p
 - Self-documenting names
 
 ### Review Requirements
-- Two-stage review: code-reviewer subagent + Codex review gate
+- Two-stage review: code-reviewer subagent + Codex review gate (via codex-agent)
 - Never skip either stage
 - Fix all Critical and Important issues before proceeding
-- Codex review catches cross-cutting issues the subagent misses
+- Codex review (through codex-agent) catches cross-cutting issues the subagent misses
 
 ## Versioning
 

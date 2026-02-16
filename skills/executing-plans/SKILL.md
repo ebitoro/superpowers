@@ -15,31 +15,23 @@ Load plan, review critically, execute tasks in batches, report for review betwee
 
 ## Codex Integration
 
-> **Reference:** See `lib/codex-integration.md` for shared patterns (state directory, availability, review gate logic, working directory awareness, cleanup).
+> See `lib/codex-integration.md` for Codex patterns. All interactions go through the codex-agent (`agents/codex-agent.md`).
 
-**Context recovery** — on startup, locate the state directory and read the thread ID. The state directory is at the **main repo root**, not the worktree root. You MUST run this exact command to find it:
-
-```bash
-MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-cat "$MAIN_REPO/.codex-state/codex_thread_id"
-```
-
-Then validate the thread ID with a `codex-reply` ping:
-- If it succeeds: reuse the thread
-- If "Session not found": create new thread via `codex`, save ID to `$MAIN_REPO/.codex-state/codex_thread_id`, re-send context from design doc
-- If other error: skip Codex, inform user
-
-See `lib/codex-integration.md` for full recovery details.
+Codex review for each batch is handled by `superpowers:requesting-code-review`, which dispatches the codex-agent internally.
 
 ## The Process
 
-### Step 1: Load and Review Plan
+### Step 1: Verify Worktree
+
+Check if inside a git worktree (`git worktree list`). If NOT in a worktree, dispatch the `worktree-setup` agent (see `agents/worktree-setup.md`) with the branch name. The agent runs on Sonnet and handles the full setup.
+
+### Step 2: Load and Review Plan
 1. Read plan file
 2. Review critically - identify any questions or concerns about the plan
 3. If concerns: Raise them with your human partner before starting
 4. If no concerns: Create TodoWrite and proceed
 
-### Step 2: Execute Batch
+### Step 3: Execute Batch
 **Default: First 3 tasks**
 
 For each task:
@@ -48,26 +40,26 @@ For each task:
 3. Run verifications as specified
 4. Mark as completed
 
-### Step 3: Code Review
+### Step 4: Code Review
 
 When batch complete, request code review before reporting to user.
 
 **REQUIRED SUB-SKILL:** Use superpowers:requesting-code-review with the batch diff. The code review skill handles both the subagent review and the Codex review gate.
 
-### Step 4: Report
+### Step 5: Report
 When batch complete and code review passed:
 - Show what was implemented
 - Show verification output
 - Show code review result (subagent + Codex verdicts)
 - Say: "Ready for feedback."
 
-### Step 5: Continue
+### Step 6: Continue
 Based on feedback:
 - Apply changes if needed
 - Execute next batch
-- Repeat Step 2 -> Step 3 -> Step 4 for each batch
+- Repeat Step 3 -> Step 4 -> Step 5 for each batch
 
-### Step 6: Complete Development
+### Step 7: Complete Development
 
 After all tasks complete and verified:
 - Announce: "I'm using the finishing-a-development-branch skill to complete this work."
@@ -86,7 +78,7 @@ After all tasks complete and verified:
 
 ## When to Revisit Earlier Steps
 
-**Return to Review (Step 1) when:**
+**Return to Review (Step 2) when:**
 - Partner updates the plan based on your feedback
 - Fundamental approach needs rethinking
 

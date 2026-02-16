@@ -155,7 +155,7 @@ Then: Cleanup worktree (Step 6)
 
 ### Step 6: Cleanup Worktree and State
 
-**For Options 1, 2, 4:**
+**Worktree cleanup (Options 1 and 4 only):**
 
 Check if in worktree:
 ```bash
@@ -167,13 +167,15 @@ If yes:
 git worktree remove <worktree-path>
 ```
 
-Clean up Codex state files:
+**Note:** Option 2 (Create PR) keeps the worktree — the user may need it while the PR is open.
+
+**Codex state cleanup (Options 1, 2, and 4):**
 ```bash
 MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
 rm -rf "$MAIN_REPO/.codex-state"
 ```
 
-**For Option 3:** Keep worktree and state files (user may resume later).
+**For Option 3:** Keep both worktree and state files (user may resume later).
 
 ## Quick Reference
 

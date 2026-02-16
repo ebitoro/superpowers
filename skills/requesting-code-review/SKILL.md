@@ -29,8 +29,8 @@ Two-stage review: dispatch superpowers:code-reviewer subagent, then Codex review
 All changes MUST be committed before code review. Codex reviews by commit SHA, not raw diff text. If there are uncommitted changes, commit them first.
 
 ```bash
-# Commit any uncommitted work
-git add -A && git commit -m "feat: <description>"
+# Commit any uncommitted work (add specific files, not -A)
+git add <changed-files> && git commit -m "feat: <description>"
 
 BASE_SHA=$(git rev-parse HEAD~1)  # or origin/main
 HEAD_SHA=$(git rev-parse HEAD)
@@ -57,29 +57,15 @@ Use Task tool with superpowers:code-reviewer type, fill template at `code-review
 
 ### Step 4: Codex review gate
 
-> **Reference:** See `lib/codex-integration.md` for shared patterns (state directory, availability, review gate logic).
+> See `lib/codex-integration.md` for Codex patterns and review gate loop.
 
-After the code-reviewer subagent passes, send the diff to Codex via `codex-reply` for a second opinion. If you don't have `CODEX_THREAD_ID` in working memory, read it from the state directory:
+After the code-reviewer subagent passes, dispatch codex-agent with `mode: review-gate`:
+- Commit SHAs (`{BASE_SHA}..{HEAD_SHA}`) — NOT raw diffs
+- Summary of what was implemented and why
+- Test results (pass/fail counts)
+- `worktree_path` if in a worktree
 
-```bash
-MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-cat "$MAIN_REPO/.codex-state/codex_thread_id"
-```
-
-**What to send to Codex** (see `lib/codex-integration.md` "Efficient Codex Communication"):
-- The commit SHAs (`{BASE_SHA}..{HEAD_SHA}`) — NOT the raw diff text
-- A short summary of what was implemented and why
-- Test results summary (pass/fail counts)
-- Any context the caller provides (design doc, plan reference, etc.)
-- The worktree path note (see `lib/codex-integration.md`)
-
-Codex has filesystem access and can inspect the commits directly. Do NOT paste full diffs into the message.
-
-**Review gate:** Follow the standard review gate pattern from `lib/codex-integration.md` (max 5 rounds, fix and resubmit until pass).
-
-**Verify before acting:** Codex is a reference, not authority. When Codex flags an issue, CC must read the relevant code and independently confirm the issue exists before fixing it. If Codex's claim doesn't match the code, push back with evidence. See `lib/codex-integration.md` "Core Principle" for details.
-
-**If Codex is unavailable:** Skip this step and proceed with the subagent's result only. Inform the caller that Codex review was skipped.
+Review gate loop: max 5 rounds. If `status: unavailable`, skip and proceed with subagent result only.
 
 ### Step 5: Track unresolved flags
 
@@ -89,8 +75,8 @@ If the verdict is **pass with flags**, append the unresolved items to `docs/unre
 
 Report the combined result to the caller:
 - Code-reviewer subagent assessment
-- Codex review result (pass, or unresolved flags, or skipped)
-- Overall verdict: **pass** (both passed), **pass with flags** (subagent passed, Codex had unresolved minor items), or **needs fixes**
+- Codex agent report (verdict, verified issues count, dismissed count, or skipped)
+- Overall verdict: **pass** (both passed), **pass with flags** (subagent passed, codex-agent had unresolved minor items), or **needs fixes**
 - If flags were tracked, mention: "Unresolved flags committed to `docs/unresolved-flags.md`"
 
 ## Example
@@ -119,12 +105,14 @@ HEAD_SHA=$(git rev-parse HEAD)
 [Fix progress indicators, re-dispatch subagent]
 [Subagent returns]: All clear. Ready to proceed.
 
-[Send commit SHAs + summary to Codex via codex-reply]
-  "Review a7981ec..3df7661. Implemented verifyIndex() and repairIndex().
-   Tests: 4 passing. Worktree at /path/.worktrees/deploy."
-Codex: Pass. Minor suggestion: consider adding JSDoc to public API.
+[Dispatch codex-agent with mode: review-gate]
+  message: "Review a7981ec..3df7661. Implemented verifyIndex() and repairIndex().
+   Tests: 4 passing."
+  worktree_path: /path/.worktrees/deploy
+Codex Agent Report: verdict=pass, 0 verified issues, 0 dismissed,
+  codex_notes: "consider adding JSDoc to public API"
 
-Result: Pass (subagent approved, Codex approved with minor note)
+Result: Pass (subagent approved, Codex agent approved with minor note)
 
 [Continue to Task 3]
 ```

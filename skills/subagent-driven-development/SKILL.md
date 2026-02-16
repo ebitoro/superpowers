@@ -37,23 +37,15 @@ digraph when_to_use {
 
 ## Codex Integration
 
-> **Reference:** See `lib/codex-integration.md` for shared patterns (state directory, availability, review gate logic, working directory awareness, cleanup).
-
-**Context recovery** — on startup, locate the state directory and read the thread ID. The state directory is at the **main repo root**, not the worktree root. You MUST run this exact command to find it:
-
-```bash
-MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-cat "$MAIN_REPO/.codex-state/codex_thread_id"
-```
-
-Then validate the thread ID with a `codex-reply` ping:
-- If it succeeds: reuse the thread
-- If "Session not found": create new thread via `codex`, save ID to `$MAIN_REPO/.codex-state/codex_thread_id`, re-send context from design doc
-- If other error: skip Codex, inform user
-
-See `lib/codex-integration.md` for full recovery details.
+> See `lib/codex-integration.md` for Codex patterns. All interactions go through the codex-agent (`agents/codex-agent.md`).
 
 ## The Process
+
+### Verify Worktree (Before Starting)
+
+Check if inside a git worktree (`git worktree list`). If NOT in a worktree, dispatch the `worktree-setup` agent (see `agents/worktree-setup.md`) with the branch name. The agent runs on Sonnet and handles the full setup.
+
+### Per-Task Workflow
 
 ```dot
 digraph process {
@@ -92,14 +84,14 @@ digraph process {
     "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" -> "Code quality reviewer subagent approves?";
     "Code quality reviewer subagent approves?" -> "Implementer subagent fixes quality issues" [label="no"];
     "Implementer subagent fixes quality issues" -> "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" [label="re-review"];
-    "Code quality reviewer subagent approves?" -> "Codex per-task review (codex-reply)" [label="yes"];
-    "Codex per-task review (codex-reply)" [shape=box style=dashed];
-    "Codex flags issues?" [shape=diamond style=dashed];
-    "Implementer subagent fixes Codex issues" [shape=box style=dashed];
-    "Codex per-task review (codex-reply)" -> "Codex flags issues?";
-    "Codex flags issues?" -> "Mark task complete in TodoWrite" [label="no (pass)"];
-    "Codex flags issues?" -> "Implementer subagent fixes Codex issues" [label="yes (max 5 rounds)"];
-    "Implementer subagent fixes Codex issues" -> "Codex per-task review (codex-reply)" [label="resubmit"];
+    "Code quality reviewer subagent approves?" -> "Codex per-task review (codex-agent)" [label="yes"];
+    "Codex per-task review (codex-agent)" [shape=box style=dashed];
+    "Codex agent returns issues?" [shape=diamond style=dashed];
+    "Implementer subagent fixes verified issues" [shape=box style=dashed];
+    "Codex per-task review (codex-agent)" -> "Codex agent returns issues?";
+    "Codex agent returns issues?" -> "Mark task complete in TodoWrite" [label="no (pass)"];
+    "Codex agent returns issues?" -> "Implementer subagent fixes verified issues" [label="yes (max 5 rounds)"];
+    "Implementer subagent fixes verified issues" -> "Codex per-task review (codex-agent)" [label="redispatch"];
     "Mark task complete in TodoWrite" -> "More tasks remain?";
     "More tasks remain?" -> "Dispatch implementer subagent (./implementer-prompt.md)" [label="yes"];
     "More tasks remain?" -> "Final code review (requesting-code-review)" [label="no"];
@@ -109,23 +101,13 @@ digraph process {
 
 ## Per-Task Codex Review
 
-> **Reference:** See `lib/codex-integration.md` for shared patterns (review gate logic, availability).
+After the code quality reviewer approves, ensure changes are committed, then dispatch codex-agent with `mode: review-gate`:
+- Commit SHAs — NOT raw diffs
+- Summary of what was implemented and task spec
+- Test results (pass/fail counts)
+- `worktree_path` if in a worktree
 
-After the code quality reviewer approves, ensure changes are committed, then send the commit SHAs to Codex via `codex-reply` for a third opinion. This catches cross-cutting issues that subagent reviewers miss because they lack project-wide context.
-
-**Verify before acting:** Codex is a reference, not authority. When Codex flags an issue, CC must read the relevant code and independently confirm the issue exists before fixing it. If Codex's claim doesn't match the code, push back with evidence. See `lib/codex-integration.md` "Core Principle" for details.
-
-**Important:** The implementer subagent should have already committed as part of its workflow. Verify with `git status` — if uncommitted changes remain, commit them before sending to Codex.
-
-**What to send** (see `lib/codex-integration.md` "Efficient Codex Communication"):
-- The commit SHA(s) covering the task — NOT the raw diff text
-- A short summary of what was implemented and the task spec
-- Test results summary (pass/fail counts)
-- The worktree path note (see `lib/codex-integration.md`)
-
-**Review gate:** Follow the standard review gate pattern from `lib/codex-integration.md` (max 5 rounds, fix and resubmit until pass). If passing with unresolved flags, append them to `docs/unresolved-flags.md` and commit (see `lib/codex-integration.md` for format).
-
-**If Codex is unavailable:** Skip this step and proceed with the subagent results only. Inform the user that Codex per-task review was skipped.
+Review gate loop: max 5 rounds (see `lib/codex-integration.md`). If `status: unavailable`, skip and proceed with subagent results only.
 
 > Dashed nodes in the process diagram are skipped when Codex is unavailable.
 
@@ -178,10 +160,12 @@ Spec reviewer: Spec compliant - all requirements met, nothing extra
 [Get git SHAs, dispatch code quality reviewer]
 Code reviewer: Strengths: Good test coverage, clean. Issues: None. Approved.
 
-[Send commit SHAs + summary to Codex via codex-reply]
-  "Review abc1234..def5678. Implemented install-hook command.
-   Tests: 5 passing. Worktree at /path/.worktrees/hooks."
-Codex: Pass. Minor note: consider adding --dry-run flag for safety.
+[Dispatch codex-agent with mode: review-gate]
+  message: "Review abc1234..def5678. Implemented install-hook command.
+   Tests: 5 passing."
+  worktree_path: /path/.worktrees/hooks
+Codex Agent Report: verdict=pass, 0 issues verified, 1 dismissed (false positive),
+  codex_notes: "consider adding --dry-run flag for safety"
 
 [Mark Task 1 complete]
 
@@ -191,49 +175,14 @@ Task 2: Recovery modes
 [After all tasks]
 [Request final code review via requesting-code-review skill]
   Code-reviewer subagent: All requirements met
-  Codex: Missing input validation on recovery mode parameter
+  Codex agent: verdict=fail, 1 verified issue: missing input validation on recovery mode parameter
   [Fix: add validation]
-  [Re-review]
+  [Re-dispatch codex-agent]
   Code-reviewer subagent: Approved
-  Codex: Pass
+  Codex agent: verdict=pass
 
 Done!
 ```
-
-## Advantages
-
-**vs. Manual execution:**
-- Subagents follow TDD naturally
-- Fresh context per task (no confusion)
-- Parallel-safe (subagents don't interfere)
-- Subagent can ask questions (before AND during work)
-
-**vs. Executing Plans:**
-- Same session (no handoff)
-- Continuous progress (no waiting)
-- Review checkpoints automatic
-
-**Efficiency gains:**
-- No file reading overhead (controller provides full text)
-- Controller curates exactly what context is needed
-- Subagent gets complete information upfront
-- Questions surfaced before work begins (not after)
-
-**Quality gates:**
-- Self-review catches issues before handoff
-- Three-stage review: spec compliance, code quality, then Codex
-- Codex per-task review catches cross-cutting issues subagents miss
-- Final code review (requesting-code-review) catches cross-task issues
-- Review loops ensure fixes actually work
-- Spec compliance prevents over/under-building
-- Code quality ensures implementation is well-built
-
-**Cost:**
-- More subagent invocations (implementer + 2 reviewers per task + Codex per task)
-- Controller does more prep work (extracting all tasks upfront)
-- Review loops add iterations
-- Per-task Codex review + final Codex review adds token cost
-- But catches issues early (cheaper than debugging later)
 
 ## Red Flags
 

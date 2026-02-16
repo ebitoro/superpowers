@@ -11,26 +11,16 @@ Full-project audit for production readiness. CC and Codex review independently, 
 
 ## Codex Integration
 
-> **Reference:** See `lib/codex-integration.md` for shared patterns (state directory, thread management, model selection, availability).
-
-**Thread setup** — on startup, locate the state directory and check for an existing Codex thread:
-
-```bash
-MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-cat "$MAIN_REPO/.codex-state/codex_thread_id" 2>/dev/null
-```
-
-- If a thread ID exists, validate it with a `codex-reply` ping. Reuse if valid, create new if expired (see `lib/codex-integration.md` for recovery steps).
-- If no thread ID exists, create a new thread via `codex` MCP tool, save to `$MAIN_REPO/.codex-state/codex_thread_id`.
+> See `lib/codex-integration.md` for Codex patterns. All interactions go through the codex-agent (`agents/codex-agent.md`).
 
 ## Checklist
 
 You MUST create a task for each of these items and complete them in order:
 
-1. **Set up Codex thread** — recover or create thread, send project context
-2. **Parallel review** — CC explores codebase while Codex reviews independently
+1. **Start Codex review** — dispatch codex-agent with `mode: discuss` to send project context and request independent review
+2. **Parallel review** — CC explores codebase while Codex reviews independently (via codex-agent)
 3. **Create findings document** — merge CC findings + Codex findings
-4. **Cross-verification** — CC and Codex discuss each finding via `codex-reply`
+4. **Cross-verification** — dispatch codex-agent with `mode: cross-verify` for each finding
 5. **Update document** — mark each finding as confirmed, dismissed, or downgraded
 6. **Write summary** — add summary section at bottom of document
 7. **Commit** — commit the document to git
@@ -38,9 +28,9 @@ You MUST create a task for each of these items and complete them in order:
 
 ## The Process
 
-### Step 1: Set Up Codex Thread
+### Step 1: Start Codex Review
 
-Recover or create a Codex thread (see Codex Integration above). Then send a context message:
+Dispatch codex-agent with `mode: discuss` (not `review-gate` — this is an open-ended review request, not a pass/fail gate) and the following message:
 
 ```
 Product readiness review for this project.
@@ -62,6 +52,8 @@ Report your findings organized by severity:
 For each finding, include: file path, line reference, description,
 and suggested fix.
 ```
+
+The codex-agent handles thread creation/recovery automatically. It will also do an initial verification of Codex's findings before returning them.
 
 ### Step 2: Parallel Review
 
@@ -144,25 +136,20 @@ After both CC and Codex complete their reviews, create `docs/product-readiness-r
 
 ### Step 4: Cross-Verification
 
-Go through every finding (both CC's and Codex's) one by one via `codex-reply`. **Codex is a reference, not authority** — CC must independently verify every Codex finding against the actual code before accepting it, and verify Codex's assessment of CC findings against the code before agreeing. See `lib/codex-integration.md` "Core Principle" for details.
+Go through every finding (both CC's and Codex's) one by one by dispatching codex-agent with `mode: cross-verify`. The agent handles the discussion with Codex and independent code verification, returning a clean verdict for each finding. This keeps the cross-verification work out of the main session's context.
 
-For each finding:
+For each finding, dispatch codex-agent with:
+- `mode: cross-verify`
+- `finding`: the finding ID, description, file, and line reference
+- `message`: additional context (e.g., "This is a CC finding" or "This is a Codex finding")
 
-1. **CC findings** — send each CC finding to Codex: "I found [finding]. Do you agree this is a real issue? Can you verify by checking the code at [file:line]?"
-2. **Codex findings** — CC independently verifies each Codex finding by reading the code and checking if the issue is real.
+The codex-agent will:
+1. Send the finding to Codex for assessment
+2. Independently verify against the actual code
+3. Resolve any disagreements with Codex (max 3 rounds in the agent)
+4. Return a verdict: **Confirmed**, **Dismissed**, **Downgraded**, **Escalated**, or **Disputed**
 
-For each finding, determine:
-- **Confirmed** — both agree it's a real issue
-- **Dismissed** — both agree it's a false positive (explain why)
-- **Downgraded** — real but less severe than initially rated (explain why)
-- **Escalated** — more severe than initially rated (explain why)
-
-**Discussion protocol:**
-- Send one finding at a time to Codex
-- Wait for Codex's assessment
-- If both agree, mark the finding and move to the next one
-- If CC and Codex disagree, continue exchanging reasoning until both agree (max 5 attempts per finding)
-- If still disagreeing after 5 attempts, mark as "Disputed" and update the document with both perspectives including each side's reasoning
+If the agent returns **Disputed**, record both CC reasoning and Codex reasoning in the document.
 
 ### Step 5: Update Document
 
@@ -240,5 +227,5 @@ rm -rf "$MAIN_REPO/.codex-state"
 
 **Uses:**
 - Explorer subagents for codebase analysis
-- Codex via `codex-reply` for independent review and cross-verification
-- `lib/codex-integration.md` for thread management patterns
+- codex-agent (`agents/codex-agent.md`) for Codex review and cross-verification
+- `lib/codex-integration.md` for shared patterns

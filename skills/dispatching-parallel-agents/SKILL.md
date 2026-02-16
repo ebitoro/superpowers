@@ -155,13 +155,6 @@ Agent 3 → Fix tool-approval-race-conditions.test.ts
 
 **Time saved:** 3 problems solved in parallel vs sequentially
 
-## Key Benefits
-
-1. **Parallelization** - Multiple investigations happen simultaneously
-2. **Focus** - Each agent has narrow scope, less context to track
-3. **Independence** - Agents don't interfere with each other
-4. **Speed** - 3 problems solved in time of 1
-
 ## Verification
 
 After agents return:

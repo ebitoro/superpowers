@@ -61,7 +61,7 @@ You MUST complete these steps in order:
 ```markdown
 # [Feature Name] Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (same session) or superpowers:executing-plans (separate session) to implement this plan task-by-task.
 
 **Goal:** [One sentence describing what this builds]
 

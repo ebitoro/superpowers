@@ -21,13 +21,17 @@ Codex review for each batch is handled by `superpowers:requesting-code-review`, 
 
 ## The Process
 
-### Step 1: Load and Review Plan
+### Step 1: Verify Worktree
+
+Check if inside a git worktree (`git worktree list`). If NOT in a worktree, dispatch the `worktree-setup` agent (see `agents/worktree-setup.md`) with the branch name. The agent runs on Sonnet and handles the full setup.
+
+### Step 2: Load and Review Plan
 1. Read plan file
 2. Review critically - identify any questions or concerns about the plan
 3. If concerns: Raise them with your human partner before starting
 4. If no concerns: Create TodoWrite and proceed
 
-### Step 2: Execute Batch
+### Step 3: Execute Batch
 **Default: First 3 tasks**
 
 For each task:
@@ -36,26 +40,26 @@ For each task:
 3. Run verifications as specified
 4. Mark as completed
 
-### Step 3: Code Review
+### Step 4: Code Review
 
 When batch complete, request code review before reporting to user.
 
 **REQUIRED SUB-SKILL:** Use superpowers:requesting-code-review with the batch diff. The code review skill handles both the subagent review and the Codex review gate.
 
-### Step 4: Report
+### Step 5: Report
 When batch complete and code review passed:
 - Show what was implemented
 - Show verification output
 - Show code review result (subagent + Codex verdicts)
 - Say: "Ready for feedback."
 
-### Step 5: Continue
+### Step 6: Continue
 Based on feedback:
 - Apply changes if needed
 - Execute next batch
-- Repeat Step 2 -> Step 3 -> Step 4 for each batch
+- Repeat Step 3 -> Step 4 -> Step 5 for each batch
 
-### Step 6: Complete Development
+### Step 7: Complete Development
 
 After all tasks complete and verified:
 - Announce: "I'm using the finishing-a-development-branch skill to complete this work."
@@ -74,7 +78,7 @@ After all tasks complete and verified:
 
 ## When to Revisit Earlier Steps
 
-**Return to Review (Step 1) when:**
+**Return to Review (Step 2) when:**
 - Partner updates the plan based on your feedback
 - Fundamental approach needs rethinking
 

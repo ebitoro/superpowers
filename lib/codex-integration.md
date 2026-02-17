@@ -62,7 +62,7 @@ The **caller** owns thread lifecycle, not the codex-agent. The agent is a statel
 - **`thread_id: "new"`**: Agent creates a fresh thread and returns the ID. Does NOT save to disk — caller manages persistence.
 - **`thread_id: <specific-id>`**: Agent uses that thread (for retries within a review gate)
 
-**Compaction safety:** Callers that need thread IDs to survive compaction should save the returned `thread_id` to a file in `.codex-state/`. The agent always returns `thread_id` in its response.
+**Compaction safety:** Callers MUST echo the returned `thread_id` as `**Active Codex thread_id:** <id>` into the conversation. This ensures compaction preserves it (see CLAUDE.md compaction rule).
 
 ### What to Include in review-gate Messages
 
@@ -87,7 +87,7 @@ Codex inspects actual files and git log in its sandbox. Sending SHAs instead of 
 ### Review Gate Loop
 
 1. Dispatch codex-agent with `mode: review-gate` and `thread_id: "new"` (or a saved ID for retries)
-2. Save the returned `thread_id` for retries (to disk if compaction is a concern)
+2. Echo the returned `thread_id` as `**Active Codex thread_id:** <id>` (compaction rule)
 3. If verdict is `pass`: done
 4. If verdict is `fail` with verified issues: fix the issues, dispatch agent again with the saved `thread_id`
 5. Maximum **5 rounds**. If still unresolved, proceed and track flags.
@@ -109,7 +109,7 @@ mkdir -p "$STATE_DIR"
 - `$STATE_DIR/codex_thread_id` — Codex thread ID for design/plan phases (managed by codex-agent for brainstorming/writing-plans)
 - `$STATE_DIR/current_design_doc` — path to the approved design doc (relative to repo root)
 
-Implementation review thread IDs are caller-managed. Skills that need compaction survival can save them here too, but there is no standardized filename — each skill manages its own.
+Implementation review thread IDs are caller-managed. They survive compaction via the echo rule (see CLAUDE.md), not via disk files.
 
 **Ensure `.codex-state/` is gitignored:**
 ```bash

@@ -65,7 +65,7 @@ After the code-reviewer subagent passes, dispatch codex-agent with `mode: review
 - Test results (pass/fail counts)
 - `worktree_path` if in a worktree
 
-Save the returned `thread_id` for retries (to disk if compaction is a concern). Max 5 rounds — pass the saved `thread_id` on retries. If `status: unavailable`, skip and proceed with subagent result only.
+Echo the returned `thread_id` as `**Active Codex thread_id:** <id>` (compaction rule — see CLAUDE.md). Max 5 rounds — pass the saved `thread_id` on retries. If `status: unavailable`, skip and proceed with subagent result only.
 
 ### Step 5: Track unresolved flags
 

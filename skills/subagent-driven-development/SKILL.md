@@ -130,13 +130,7 @@ After the code quality reviewer approves, ensure changes are committed, then dis
 - Test results (pass/fail counts)
 - `worktree_path` if in a worktree
 
-Save the returned `thread_id` for retries. If compaction is a concern, write it to a file:
-```bash
-MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-echo "$THREAD_ID" > "$MAIN_REPO/.codex-state/review_thread_id"
-```
-
-**Retries**: pass the saved `thread_id` so Codex has context from prior rounds. Max 5 rounds (see `lib/codex-integration.md`). If `status: unavailable`, skip and proceed with subagent results only.
+Echo the returned `thread_id` as `**Active Codex thread_id:** <id>` (compaction rule — see CLAUDE.md). Pass it on retries so Codex has context from prior rounds. Max 5 rounds (see `lib/codex-integration.md`). If `status: unavailable`, skip and proceed with subagent results only.
 
 Each task naturally gets a fresh thread because the first dispatch always uses `thread_id: "new"`.
 

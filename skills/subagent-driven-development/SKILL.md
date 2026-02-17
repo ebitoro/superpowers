@@ -54,11 +54,9 @@ WORKTREE_BREADCRUMB="$MAIN_REPO/.codex-state/current_worktree"
 **If breadcrumbs exist** (post-`/clear` or new session):
 1. Read the worktree path from `$WORKTREE_BREADCRUMB` and `cd` into it
 2. Read the plan file path from `$PLAN_BREADCRUMB`
-3. **Clean up both breadcrumb files immediately** — prevents stale state from leaking into other sessions:
-   ```bash
-   rm -f "$PLAN_BREADCRUMB" "$WORKTREE_BREADCRUMB"
-   ```
-4. Load and parse the plan file
+3. Load and parse the plan file
+
+> Breadcrumbs persist in `.codex-state/` — other skills (Codex agent, requesting-code-review) reference them downstream. Cleanup happens in `finishing-a-development-branch`.
 
 **If breadcrumbs do not exist** (same-session handoff from `writing-plans`):
 - The plan is already in context from the current session

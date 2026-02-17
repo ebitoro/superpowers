@@ -30,8 +30,10 @@ cat "$MAIN_REPO/.codex-state/current_design_doc"
 
 Read the design doc path and load it. If missing, look for the most recent `*-design.md` in `docs/plans/`. If neither exists, ask the user.
 
+**Thread strategy:** Plan review uses `thread: persistent` — it shares the design thread from brainstorming, giving Codex continuity from design through planning.
+
 **Codex is consulted once:**
-- **Before presenting to user** — Dispatch codex-agent with `mode: review-gate` containing the full plan and worktree path. If verdict is `fail`, fix verified issues and redispatch (max 5 rounds).
+- **Before presenting to user** — Dispatch codex-agent with `mode: review-gate`, `thread: persistent` containing the full plan and worktree path. If verdict is `fail`, fix verified issues and redispatch (max 5 rounds).
 
 ## Checklist
 
@@ -40,7 +42,7 @@ You MUST complete these steps in order:
 1. **Verify worktree** — check if inside a git worktree (`git worktree list`). If NOT in a worktree, dispatch the `worktree-setup` agent (see `agents/worktree-setup.md`) with the branch name. The agent runs on Sonnet and handles the full setup.
 2. **Recover context** — run `MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"` to find the main repo root, then read `$MAIN_REPO/.codex-state/current_design_doc`, load the design doc
 3. **Draft the implementation plan** — following the task structure and granularity rules below
-4. **Codex review gate** — dispatch codex-agent with `mode: review-gate` (include worktree path), iterate up to 5 rounds (see `lib/codex-integration.md`)
+4. **Codex review gate** — dispatch codex-agent with `mode: review-gate`, `thread: persistent` (include worktree path), iterate up to 5 rounds (see `lib/codex-integration.md`)
 5. **Present plan to user** — include any unresolved Codex flags if review gate did not fully pass
 6. **Save plan** — write to `docs/plans/YYYY-MM-DD-<feature-name>.md` and commit
 7. **Write session breadcrumbs** — persist plan path and worktree path so the next session can recover context after `/clear`:

@@ -30,7 +30,7 @@ You MUST create a task for each of these items and complete them in order:
 
 ### Step 1: Start Codex Review
 
-Dispatch codex-agent with `mode: discuss` (not `review-gate` — this is an open-ended review request, not a pass/fail gate) and the following message:
+Dispatch codex-agent with `mode: discuss`, `thread: ephemeral` (not `review-gate` — this is an open-ended review request, not a pass/fail gate) and the following message:
 
 ```
 Product readiness review for this project.
@@ -140,6 +140,7 @@ Go through every finding (both CC's and Codex's) one by one by dispatching codex
 
 For each finding, dispatch codex-agent with:
 - `mode: cross-verify`
+- `thread: ephemeral` (reuses the same ephemeral thread created in Step 1 for the duration of this review)
 - `finding`: the finding ID, description, file, and line reference
 - `message`: additional context (e.g., "This is a CC finding" or "This is a Codex finding")
 
@@ -200,7 +201,7 @@ git commit -m "docs: product readiness review YYYY-MM-DD"
 
 ### Step 8: Cleanup
 
-Remove the `.codex-state/` directory. The review is complete and the thread is no longer needed.
+Remove the `.codex-state/` directory. The review is complete and all threads (persistent and ephemeral) are no longer needed.
 
 ```bash
 MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"

@@ -20,7 +20,11 @@ Codex is a **reference**, not a source of truth. CC must **independently verify*
 
 ### How to Dispatch
 
-Use the Task tool to dispatch the codex-agent. Four modes:
+Use the Task tool to dispatch the codex-agent. Four modes, plus a `thread` parameter:
+
+**Thread parameter** (optional, defaults to `persistent`):
+- `persistent` — Reuses the long-lived design/plan thread (`codex_thread_id`). Use for brainstorming, writing-plans, and `discuss` mode.
+- `ephemeral` — Uses a short-lived review thread (`codex_review_thread_id`). Creates a fresh thread on first call; retries within the same gate reuse it. Use for implementation `review-gate` and `cross-verify` calls.
 
 **`create-thread`** — Start a new Codex conversation (brainstorming only):
 ```
@@ -31,6 +35,7 @@ context: <summary of project and mission for Codex>
 **`discuss`** — Send a discussion message and get a verified response:
 ```
 mode: discuss
+thread: persistent
 message: <your message to Codex>
 context: <optional additional context>
 worktree_path: <optional worktree absolute path>
@@ -39,6 +44,8 @@ worktree_path: <optional worktree absolute path>
 **`review-gate`** — Send content for review, get a verified verdict:
 ```
 mode: review-gate
+thread: ephemeral          # for implementation reviews (code-review, per-task)
+       persistent          # for design/plan reviews (verify-design, verify-plan)
 message: <review request — see "What to Include" below>
 context: <design doc reference, plan task, etc.>
 worktree_path: <optional worktree absolute path>
@@ -47,6 +54,7 @@ worktree_path: <optional worktree absolute path>
 **`cross-verify`** — Cross-verify a specific finding with Codex:
 ```
 mode: cross-verify
+thread: ephemeral
 finding: <the finding — ID, description, file, line>
 message: <additional context>
 worktree_path: <optional worktree absolute path>
@@ -73,10 +81,16 @@ Codex inspects actual files and git log in its sandbox. Sending SHAs instead of 
 
 ### Review Gate Loop
 
-1. Dispatch codex-agent with `mode: review-gate`
-2. If verdict is `pass`: proceed
-3. If verdict is `fail` with verified issues: fix the issues, then dispatch agent again
+1. Dispatch codex-agent with `mode: review-gate` (include `thread: ephemeral` for implementation reviews)
+2. If verdict is `pass`: proceed to cleanup
+3. If verdict is `fail` with verified issues: fix the issues, then dispatch agent again (retries reuse the ephemeral thread automatically)
 4. Maximum **5 rounds**. If still unresolved, proceed and track flags.
+5. **After the gate resolves** (pass, pass-with-flags, or 5 rounds exhausted), delete the ephemeral thread file:
+   ```bash
+   MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+   rm -f "$MAIN_REPO/.codex-state/codex_review_thread_id"
+   ```
+   This ensures the next review gate gets a fresh Codex thread with zero accumulated context.
 
 False positives are filtered by the agent — only real issues come back.
 
@@ -92,7 +106,8 @@ mkdir -p "$STATE_DIR"
 ```
 
 **Files:**
-- `$STATE_DIR/codex_thread_id` — Codex thread ID (managed by codex-agent)
+- `$STATE_DIR/codex_thread_id` — Persistent Codex thread ID for design/plan phases (managed by codex-agent)
+- `$STATE_DIR/codex_review_thread_id` — Ephemeral Codex thread ID for implementation reviews. Created per review gate, deleted after gate resolves. Survives compaction.
 - `$STATE_DIR/current_design_doc` — path to the approved design doc (relative to repo root)
 
 **Ensure `.codex-state/` is gitignored:**

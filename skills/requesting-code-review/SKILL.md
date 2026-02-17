@@ -59,13 +59,19 @@ Use Task tool with superpowers:code-reviewer type, fill template at `code-review
 
 > See `lib/codex-integration.md` for Codex patterns and review gate loop.
 
-After the code-reviewer subagent passes, dispatch codex-agent with `mode: review-gate`:
+After the code-reviewer subagent passes, dispatch codex-agent with `mode: review-gate`, `thread: ephemeral`:
 - Commit SHAs (`{BASE_SHA}..{HEAD_SHA}`) — NOT raw diffs
 - Summary of what was implemented and why
 - Test results (pass/fail counts)
 - `worktree_path` if in a worktree
 
-Review gate loop: max 5 rounds. If `status: unavailable`, skip and proceed with subagent result only.
+Review gate loop: max 5 rounds. Retries automatically reuse the ephemeral thread. If `status: unavailable`, skip and proceed with subagent result only.
+
+**After the gate resolves** (pass, pass-with-flags, or 5 rounds exhausted), clean up the ephemeral thread:
+```bash
+MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+rm -f "$MAIN_REPO/.codex-state/codex_review_thread_id"
+```
 
 ### Step 5: Track unresolved flags
 

@@ -38,10 +38,26 @@ Codex CLI loads the skill and applies it. You just provide the review content.
 The caller will provide:
 
 - **mode** (required): One of `create-thread`, `discuss`, `review-gate`, `cross-verify`
+- **thread** (optional): Thread strategy — `persistent` or `ephemeral` (see Thread Strategy below). Defaults to `persistent`.
 - **message** (required for `discuss`, `review-gate`, `cross-verify`): The message/content to send to Codex
 - **context** (optional): Additional context — design doc path, plan reference, what is being built
 - **worktree_path** (optional): If work is in a worktree, the absolute path
 - **finding** (for `cross-verify` only): The specific finding to cross-verify with Codex
+
+## Thread Strategy
+
+Two thread strategies control Codex context accumulation:
+
+| Strategy | File | When to use | Behavior |
+|---|---|---|---|
+| `persistent` | `codex_thread_id` | Design/plan phases (brainstorming, writing-plans) | One long-lived thread. Context accumulates — this is intentional for creative discussion. |
+| `ephemeral` | `codex_review_thread_id` | Implementation reviews (code-review, per-task review, cross-verify) | Fresh thread per review gate. Retries within the same gate reuse the thread. Caller deletes the file after the gate resolves. |
+
+**Why two threads:** Design/plan phases benefit from conversation continuity (Codex remembers earlier discussion). Implementation reviews do NOT — each review is self-contained, and accumulated context wastes tokens and risks Codex confusing old code with new changes.
+
+**Compaction safety:** Both thread IDs live on disk in `.codex-state/`. They survive main-session compaction because the codex-agent reads from disk every time it is dispatched.
+
+**Default:** `persistent` (backwards-compatible). Implementation skills explicitly pass `thread: ephemeral`.
 
 ## Modes
 
@@ -125,23 +141,48 @@ Cross-verify a specific finding with Codex. Used by product-readiness-review.
 
 ## Thread Management
 
-For all modes except `create-thread`, recover the existing thread:
+For all modes except `create-thread`, recover or create a thread based on the `thread` strategy:
 
-1. Resolve the state directory:
-   ```bash
-   MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-   STATE_DIR="$MAIN_REPO/.codex-state"
-   ```
-2. Read thread ID from `$STATE_DIR/codex_thread_id`
-3. Test thread validity by sending a short `codex-reply` message: `"Thread check — still active?"`. If Codex responds normally (any non-error response): thread is valid.
-4. If valid: use this thread
-5. If "Session not found" or similar expiration error:
+### Common: Resolve State Directory
+
+```bash
+MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+STATE_DIR="$MAIN_REPO/.codex-state"
+```
+
+### Strategy: `persistent` (default)
+
+Used for design/plan phases. One long-lived thread across the session.
+
+1. Read thread ID from `$STATE_DIR/codex_thread_id`
+2. Test thread validity by sending a short `codex-reply` message: `"Thread check — still active?"`. If Codex responds normally (any non-error response): thread is valid.
+3. If valid: use this thread
+4. If thread file missing or "Session not found" or similar expiration error:
    - Create a new thread via `codex` MCP tool. **Do NOT pass the `model` parameter.**
    - Save new thread ID to `$STATE_DIR/codex_thread_id`
    - If the caller provided context, send it to rebuild Codex's understanding
    - If a design doc path is available at `$STATE_DIR/current_design_doc`, read it and send a summary to Codex
    - Include `thread_status: recovered` in your response so the caller knows
-6. If other error (MCP not connected, usage limit): report `status: unavailable`
+5. If other error (MCP not connected, usage limit): report `status: unavailable`
+
+### Strategy: `ephemeral`
+
+Used for implementation reviews. Fresh thread per review gate, reused across retries.
+
+1. Check if `$STATE_DIR/codex_review_thread_id` exists
+2. **If file exists** (this is a retry within the same review gate):
+   - Read the thread ID
+   - Test validity (same as persistent step 2)
+   - If valid: use this thread. Include `thread_status: reused-ephemeral` in response.
+   - If expired: delete the file and fall through to step 3
+3. **If file does not exist** (this is the first call of a new review gate):
+   - Create a new thread via `codex` MCP tool. **Do NOT pass the `model` parameter.**
+   - Save new thread ID to `$STATE_DIR/codex_review_thread_id`
+   - If the caller provided context, send it to establish Codex's understanding
+   - Include `thread_status: created-ephemeral` in response.
+4. If other error (MCP not connected, usage limit): report `status: unavailable`
+
+**Cleanup:** The caller is responsible for deleting `$STATE_DIR/codex_review_thread_id` after the review gate resolves (pass, pass-with-flags, or 5 rounds exhausted). This ensures the next review gate gets a fresh thread.
 
 ## Worktree Path Note
 
@@ -175,7 +216,8 @@ Always structure your response clearly:
 ## Codex Agent Report
 
 **Mode:** <mode>
-**Thread Status:** <reused | recovered | created | unavailable>
+**Thread Strategy:** <persistent | ephemeral>
+**Thread Status:** <reused | recovered | created | created-ephemeral | reused-ephemeral | unavailable>
 
 ### Result
 <mode-specific result — see each mode's "Report back" section>

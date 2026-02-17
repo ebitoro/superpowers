@@ -33,10 +33,12 @@ Codex is a reviewer and thought partner throughout brainstorming.
 **Codex availability:**
 If the codex-agent reports `status: unavailable`, skip all Codex steps and proceed without Codex review. Inform the user that Codex review was skipped and why.
 
+**Thread strategy:** All Codex interactions during brainstorming use `thread: persistent` — the long-lived design thread. Conversation continuity matters here; Codex should remember earlier discussion context.
+
 **Codex is consulted at three points:**
-1. **After idea exploration** — Dispatch codex-agent with `mode: discuss` to validate understanding and surface blind spots. The agent verifies Codex's claims against the codebase before returning.
-2. **After exploring approaches** — Dispatch codex-agent with `mode: discuss` sharing proposed approaches. If the agent reports that Codex recommends a different approach, present both recommendations to the user with clear attribution (e.g., "I recommend A because X. Codex recommends B because Y.").
-3. **Before presenting design to user** — Dispatch codex-agent with `mode: review-gate` for design review. If verdict is `fail`, fix issues and redispatch (max 5 rounds). The agent filters out false positives so only verified issues come back.
+1. **After idea exploration** — Dispatch codex-agent with `mode: discuss`, `thread: persistent` to validate understanding and surface blind spots. The agent verifies Codex's claims against the codebase before returning.
+2. **After exploring approaches** — Dispatch codex-agent with `mode: discuss`, `thread: persistent` sharing proposed approaches. If the agent reports that Codex recommends a different approach, present both recommendations to the user with clear attribution (e.g., "I recommend A because X. Codex recommends B because Y.").
+3. **Before presenting design to user** — Dispatch codex-agent with `mode: review-gate`, `thread: persistent` for design review. If verdict is `fail`, fix issues and redispatch (max 5 rounds). The agent filters out false positives so only verified issues come back.
 
 ## Checklist
 
@@ -46,10 +48,10 @@ You MUST create a task for each of these items and complete them in order:
 2. **Read key files** — read all files identified by the explorer agents to build deep understanding
 3. **Start Codex thread** — dispatch codex-agent with `mode: create-thread` and project context + mission
 4. **Ask clarifying questions** — one at a time, understand purpose/constraints/success criteria
-5. **Discuss refined idea with Codex** — dispatch codex-agent with `mode: discuss`, validate understanding and surface blind spots
+5. **Discuss refined idea with Codex** — dispatch codex-agent with `mode: discuss`, `thread: persistent`, validate understanding and surface blind spots
 6. **Propose 2-3 approaches** — with trade-offs and your recommendation
-7. **Discuss approaches with Codex** — dispatch codex-agent with `mode: discuss`, if recommendations differ, note both for user
-8. **Codex review gate** — dispatch codex-agent with `mode: review-gate`, iterate up to 5 rounds (see `lib/codex-integration.md`)
+7. **Discuss approaches with Codex** — dispatch codex-agent with `mode: discuss`, `thread: persistent`, if recommendations differ, note both for user
+8. **Codex review gate** — dispatch codex-agent with `mode: review-gate`, `thread: persistent`, iterate up to 5 rounds (see `lib/codex-integration.md`)
 9. **Present final design to user** — include any unresolved Codex flags if review gate did not fully pass
 10. **Write design doc** — save to `docs/plans/YYYY-MM-DD-<topic>-design.md`, commit, and write breadcrumb to `.codex-state/current_design_doc`
 
@@ -129,20 +131,20 @@ digraph brainstorming {
 - Prefer multiple choice questions when possible, but open-ended is fine too
 - Only one question per message — if a topic needs more exploration, break it into multiple questions
 - Focus on understanding: purpose, constraints, success criteria
-- After questions are resolved, dispatch codex-agent with `mode: discuss` to validate understanding and surface blind spots
+- After questions are resolved, dispatch codex-agent with `mode: discuss`, `thread: persistent` to validate understanding and surface blind spots
 
 ### Exploring Approaches
 
 - Propose 2-3 different approaches with trade-offs
 - Present options conversationally with your recommendation and reasoning
 - Lead with your recommended option and explain why
-- Dispatch codex-agent with `mode: discuss` to discuss approaches with Codex
+- Dispatch codex-agent with `mode: discuss`, `thread: persistent` to discuss approaches with Codex
 - If you and Codex recommend different approaches, tell the user: "I recommend [approach] because [reason]. Codex recommends [approach] because [reason]."
 
 ### Presenting the Design
 
 - Draft the design internally first
-- Dispatch codex-agent with `mode: review-gate` before showing to user
+- Dispatch codex-agent with `mode: review-gate`, `thread: persistent` before showing to user
 - If verdict is `fail`, fix verified issues and redispatch (up to 5 rounds). False positives are already filtered by the agent.
 - Once codex-agent returns `pass` or `pass-with-flags` (or 5 rounds exhausted), present to user
 - If presenting with unresolved Codex flags, clearly list what remains unresolved

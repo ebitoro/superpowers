@@ -25,9 +25,9 @@ brainstorming -> writing-plans -> [executing-plans | subagent-driven-development
 ```
 
 - **brainstorming**: Explores idea, consults Codex, produces design doc. Terminal state = committed design doc (context window is typically full after brainstorming; fresh session avoids compaction loss).
-- **writing-plans**: Reads design doc from `.codex-state/current_design_doc`, creates bite-sized TDD implementation plan. Enforces worktree before starting.
+- **writing-plans**: Reads design doc from `.codex-state/current_design_doc`, creates bite-sized TDD implementation plan. Enforces worktree before starting. Writes breadcrumbs (`current_plan`, `current_worktree`) to enable `/clear` before execution.
 - **executing-plans**: Batch execution (3 tasks/batch) with code review checkpoints between batches.
-- **subagent-driven-development**: Fresh subagent per task + three-stage review (spec compliance, code quality, Codex per-task) in the same session.
+- **subagent-driven-development**: Fresh subagent per task + three-stage review (spec compliance, code quality, Codex per-task). Recovers plan path and worktree from breadcrumbs if context was cleared; cleans up breadcrumbs after reading.
 - **requesting-code-review**: Two-stage gate: code-reviewer subagent first, then Codex review gate. Both must pass.
 - **finishing-a-development-branch**: Verify tests, present 4 options (merge/PR/keep/discard), cleanup worktree and state.
 
@@ -62,6 +62,8 @@ Uses `--git-common-dir` (not `--show-toplevel`) so worktrees resolve to the main
 ### Files
 - `.codex-state/codex_thread_id` - Codex thread ID for conversation continuity (managed by codex-agent)
 - `.codex-state/current_design_doc` - Path to approved design doc (relative to repo root)
+- `.codex-state/current_plan` - Path to implementation plan (relative to repo root). Written by `writing-plans`, consumed and deleted by `subagent-driven-development`.
+- `.codex-state/current_worktree` - Absolute path to worktree. Written by `writing-plans`, consumed and deleted by `subagent-driven-development`.
 
 ### Review Gate Pattern
 

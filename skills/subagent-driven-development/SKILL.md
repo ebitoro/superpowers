@@ -41,7 +41,30 @@ digraph when_to_use {
 
 ## The Process
 
-### Verify Worktree (Before Starting)
+### Recover Context (Before Starting)
+
+Check for session breadcrumbs left by `writing-plans`. This enables `/clear` between planning and execution without losing state:
+
+```bash
+MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+PLAN_BREADCRUMB="$MAIN_REPO/.codex-state/current_plan"
+WORKTREE_BREADCRUMB="$MAIN_REPO/.codex-state/current_worktree"
+```
+
+**If breadcrumbs exist** (post-`/clear` or new session):
+1. Read the worktree path from `$WORKTREE_BREADCRUMB` and `cd` into it
+2. Read the plan file path from `$PLAN_BREADCRUMB`
+3. **Clean up both breadcrumb files immediately** — prevents stale state from leaking into other sessions:
+   ```bash
+   rm -f "$PLAN_BREADCRUMB" "$WORKTREE_BREADCRUMB"
+   ```
+4. Load and parse the plan file
+
+**If breadcrumbs do not exist** (same-session handoff from `writing-plans`):
+- The plan is already in context from the current session
+- Ask the user for the plan file path if it is not in context
+
+### Verify Worktree
 
 Check if inside a git worktree (`git worktree list`). If NOT in a worktree, dispatch the `worktree-setup` agent (see `agents/worktree-setup.md`) with the branch name. The agent runs on Sonnet and handles the full setup.
 

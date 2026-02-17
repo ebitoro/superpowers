@@ -20,11 +20,7 @@ Codex is a **reference**, not a source of truth. CC must **independently verify*
 
 ### How to Dispatch
 
-Use the Task tool to dispatch the codex-agent. Four modes, plus a `thread` parameter:
-
-**Thread parameter** (optional, defaults to `persistent`):
-- `persistent` — Reuses the long-lived design/plan thread (`codex_thread_id`). Use for brainstorming, writing-plans, and `discuss` mode.
-- `ephemeral` — Uses a short-lived review thread (`codex_review_thread_id`). Creates a fresh thread on first call; retries within the same gate reuse it. Use for implementation `review-gate` and `cross-verify` calls.
+Use the Task tool to dispatch the codex-agent. Four modes:
 
 **`create-thread`** — Start a new Codex conversation (brainstorming only):
 ```
@@ -35,7 +31,6 @@ context: <summary of project and mission for Codex>
 **`discuss`** — Send a discussion message and get a verified response:
 ```
 mode: discuss
-thread: persistent
 message: <your message to Codex>
 context: <optional additional context>
 worktree_path: <optional worktree absolute path>
@@ -44,8 +39,7 @@ worktree_path: <optional worktree absolute path>
 **`review-gate`** — Send content for review, get a verified verdict:
 ```
 mode: review-gate
-thread: ephemeral          # for implementation reviews (code-review, per-task)
-       persistent          # for design/plan reviews (verify-design, verify-plan)
+thread_id: <optional — "new" for fresh thread, or a specific ID for retries>
 message: <review request — see "What to Include" below>
 context: <design doc reference, plan task, etc.>
 worktree_path: <optional worktree absolute path>
@@ -54,11 +48,21 @@ worktree_path: <optional worktree absolute path>
 **`cross-verify`** — Cross-verify a specific finding with Codex:
 ```
 mode: cross-verify
-thread: ephemeral
+thread_id: <optional — specific ID to continue on same thread>
 finding: <the finding — ID, description, file, line>
 message: <additional context>
 worktree_path: <optional worktree absolute path>
 ```
+
+### Thread Ownership
+
+The **caller** owns thread lifecycle, not the codex-agent. The agent is a stateless proxy — it uses whatever thread the caller provides.
+
+- **No `thread_id`**: Agent falls back to persistent `codex_thread_id` file (design/plan phases — brainstorming, writing-plans)
+- **`thread_id: "new"`**: Agent creates a fresh thread and returns the ID. Does NOT save to disk — caller manages persistence.
+- **`thread_id: <specific-id>`**: Agent uses that thread (for retries within a review gate)
+
+**Compaction safety:** Callers that need thread IDs to survive compaction should save the returned `thread_id` to a file in `.codex-state/`. The agent always returns `thread_id` in its response.
 
 ### What to Include in review-gate Messages
 
@@ -76,21 +80,17 @@ Codex inspects actual files and git log in its sandbox. Sending SHAs instead of 
 - **verdict** (for review-gate): `pass`, `fail`, or `pass-with-flags`
 - **verified_issues**: Only issues confirmed by reading the actual code
 - **dismissed_count**: How many false positives were filtered out
+- **thread_id**: The Codex thread ID used (save it for retries)
 - **thread_status**: Whether the thread was reused, recovered, or newly created
 - **codex_notes**: Non-blocking suggestions worth passing along
 
 ### Review Gate Loop
 
-1. Dispatch codex-agent with `mode: review-gate` (include `thread: ephemeral` for implementation reviews)
-2. If verdict is `pass`: proceed to cleanup
-3. If verdict is `fail` with verified issues: fix the issues, then dispatch agent again (retries reuse the ephemeral thread automatically)
-4. Maximum **5 rounds**. If still unresolved, proceed and track flags.
-5. **After the gate resolves** (pass, pass-with-flags, or 5 rounds exhausted), delete the ephemeral thread file:
-   ```bash
-   MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-   rm -f "$MAIN_REPO/.codex-state/codex_review_thread_id"
-   ```
-   This ensures the next review gate gets a fresh Codex thread with zero accumulated context.
+1. Dispatch codex-agent with `mode: review-gate` and `thread_id: "new"` (or a saved ID for retries)
+2. Save the returned `thread_id` for retries (to disk if compaction is a concern)
+3. If verdict is `pass`: done
+4. If verdict is `fail` with verified issues: fix the issues, dispatch agent again with the saved `thread_id`
+5. Maximum **5 rounds**. If still unresolved, proceed and track flags.
 
 False positives are filtered by the agent — only real issues come back.
 
@@ -106,9 +106,10 @@ mkdir -p "$STATE_DIR"
 ```
 
 **Files:**
-- `$STATE_DIR/codex_thread_id` — Persistent Codex thread ID for design/plan phases (managed by codex-agent)
-- `$STATE_DIR/codex_review_thread_id` — Ephemeral Codex thread ID for implementation reviews. Created per review gate, deleted after gate resolves. Survives compaction.
+- `$STATE_DIR/codex_thread_id` — Codex thread ID for design/plan phases (managed by codex-agent for brainstorming/writing-plans)
 - `$STATE_DIR/current_design_doc` — path to the approved design doc (relative to repo root)
+
+Implementation review thread IDs are caller-managed. Skills that need compaction survival can save them here too, but there is no standardized filename — each skill manages its own.
 
 **Ensure `.codex-state/` is gitignored:**
 ```bash

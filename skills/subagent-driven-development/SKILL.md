@@ -122,19 +122,23 @@ digraph process {
 
 ## Per-Task Codex Review
 
-After the code quality reviewer approves, ensure changes are committed, then dispatch codex-agent with `mode: review-gate`, `thread: ephemeral`:
+After the code quality reviewer approves, ensure changes are committed, then dispatch codex-agent for a review gate. Each task gets a **fresh Codex thread** — the caller manages the thread ID.
+
+**First dispatch** (per task): `thread_id: "new"` — agent creates a fresh thread
 - Commit SHAs — NOT raw diffs
 - Summary of what was implemented and task spec
 - Test results (pass/fail counts)
 - `worktree_path` if in a worktree
 
-Review gate loop: max 5 rounds (see `lib/codex-integration.md`). Retries automatically reuse the ephemeral thread. If `status: unavailable`, skip and proceed with subagent results only.
-
-**After each per-task gate resolves**, clean up the ephemeral thread so the next task gets a fresh Codex session:
+Save the returned `thread_id` for retries. If compaction is a concern, write it to a file:
 ```bash
 MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-rm -f "$MAIN_REPO/.codex-state/codex_review_thread_id"
+echo "$THREAD_ID" > "$MAIN_REPO/.codex-state/review_thread_id"
 ```
+
+**Retries**: pass the saved `thread_id` so Codex has context from prior rounds. Max 5 rounds (see `lib/codex-integration.md`). If `status: unavailable`, skip and proceed with subagent results only.
+
+Each task naturally gets a fresh thread because the first dispatch always uses `thread_id: "new"`.
 
 > Dashed nodes in the process diagram are skipped when Codex is unavailable.
 

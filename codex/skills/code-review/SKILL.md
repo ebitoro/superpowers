@@ -5,6 +5,23 @@ description: Use when Codex needs to review code changes — per-task review, ba
 
 When you receive a message tagged `[SKILL: code-review]`, follow this process exactly:
 
+## 0. Resolve Context from Breadcrumbs
+
+Before reviewing, check for breadcrumb files to self-resolve context not provided in the message:
+
+```bash
+MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+STATE_DIR="$MAIN_REPO/.codex-state"
+```
+
+| Breadcrumb | What it provides |
+|---|---|
+| `$STATE_DIR/current_worktree` | Absolute path to worktree — `cd` here before inspecting changes |
+| `$STATE_DIR/current_plan` | Path to the implementation plan — read for design alignment checks |
+| `$STATE_DIR/current_design_doc` | Path to the design doc — read for design intent |
+
+If context was provided in the message (commit SHAs, summary, worktree path), use that. Otherwise resolve from breadcrumbs. Commit SHAs must still be provided in the message — breadcrumbs only supplement the surrounding context.
+
 ## 1. Inspect the Changes
 
 Using the commit SHAs provided:

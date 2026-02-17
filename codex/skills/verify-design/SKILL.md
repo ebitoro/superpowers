@@ -5,6 +5,21 @@ description: Use when Codex needs to review a design document during brainstormi
 
 When you receive a message tagged `[SKILL: verify-design]`, follow this process exactly:
 
+## 0. Resolve Context from Breadcrumbs
+
+Before reviewing, check for breadcrumb files to self-resolve context not provided in the message:
+
+```bash
+MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+STATE_DIR="$MAIN_REPO/.codex-state"
+```
+
+| Breadcrumb | What it provides |
+|---|---|
+| `$STATE_DIR/current_design_doc` | Path to the design doc (relative to repo root) — read and review this file |
+
+If the design doc content was provided in the message, use that. Otherwise read the file from the breadcrumb path. If neither exists, respond with `VERDICT: ERROR` and note that no design doc was found.
+
 ## 1. Check Design Completeness
 
 Verify the design covers:

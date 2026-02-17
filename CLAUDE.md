@@ -67,10 +67,6 @@ Uses `--git-common-dir` (not `--show-toplevel`) so worktrees resolve to the main
 
 Implementation review thread IDs are caller-managed — each skill saves/retrieves its own `thread_id` as needed (see `lib/codex-integration.md` for the pattern).
 
-### Compaction Rule
-
-When a codex-agent dispatch returns a `thread_id`, the caller MUST echo it into the conversation as: `**Active Codex thread_id:** <id>`. This ensures compaction preserves the value. The codex-agent always returns `thread_id` in its report — the caller's job is to surface it so it survives summarization.
-
 ### Review Gate Pattern
 
 Max 5 rounds. Dispatch codex-agent, fix verified issues, redispatch until pass. The agent filters out false positives so only real issues come back. If still unresolved after 5 rounds, proceed and report unresolved flags to user.

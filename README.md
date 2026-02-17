@@ -76,6 +76,7 @@ All Codex patterns live in `lib/codex-integration.md` (single source of truth).
 - **State directory**: `.codex-state/` at main repo root (not per-worktree)
 - **Thread recovery**: test thread on startup, recreate if expired (~20min TTL), re-send context from design doc
 - **Model selection**: never pass `model` parameter to MCP tools; use `~/.codex/config.toml`
+- **Compaction rule**: when a codex-agent dispatch returns a `thread_id`, the caller must echo `**Active Codex thread_id:** <id>` into the conversation so compaction preserves it
 - **Review gate**: max 5 rounds, fix and resubmit until pass
 - **Graceful degradation**: if Codex unavailable, skip Codex steps and proceed
 

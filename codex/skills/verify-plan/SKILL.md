@@ -5,6 +5,22 @@ description: Use when Codex needs to review an implementation plan during writin
 
 When you receive a message tagged `[SKILL: verify-plan]`, follow this process exactly:
 
+## 0. Resolve Context from Breadcrumbs
+
+Before reviewing, check for breadcrumb files to self-resolve context not provided in the message:
+
+```bash
+MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+STATE_DIR="$MAIN_REPO/.codex-state"
+```
+
+| Breadcrumb | What it provides |
+|---|---|
+| `$STATE_DIR/current_plan` | Path to the implementation plan (relative to repo root) — read and review this file |
+| `$STATE_DIR/current_design_doc` | Path to the design doc (relative to repo root) — read to verify plan coverage |
+
+If content was provided in the message, use that. Otherwise read the files from the breadcrumb paths. If the plan cannot be found, respond with `VERDICT: ERROR` and note that no plan was found.
+
 ## 1. Check Plan Against Design
 
 Verify:

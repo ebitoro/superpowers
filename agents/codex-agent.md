@@ -38,6 +38,7 @@ Codex CLI loads the skill and applies it. You just provide the review content.
 The caller will provide:
 
 - **mode** (required): One of `create-thread`, `discuss`, `review-gate`, `cross-verify`
+- **thread_id** (optional): A specific Codex thread ID to use, or `"new"` to create a fresh thread. See Thread Management below.
 - **message** (required for `discuss`, `review-gate`, `cross-verify`): The message/content to send to Codex
 - **context** (optional): Additional context — design doc path, plan reference, what is being built
 - **worktree_path** (optional): If work is in a worktree, the absolute path
@@ -104,6 +105,7 @@ Handle a review gate interaction. Codex reviews content and returns a verdict.
    - **dismissed_count**: How many false positives were filtered out
    - **out_of_scope_count**: How many out-of-scope items were filtered out
    - **codex_notes**: Any non-blocking suggestions from Codex worth passing along
+   - **thread_id**: The thread ID used (so the caller can reuse it for retries)
    - **thread_status**: Whether thread was reused, recovered, or newly created
 
 ### `cross-verify`
@@ -125,23 +127,31 @@ Cross-verify a specific finding with Codex. Used by product-readiness-review.
 
 ## Thread Management
 
-For all modes except `create-thread`, recover the existing thread:
+For all modes except `create-thread`, resolve the thread to use. The caller controls which thread is used via the `thread_id` parameter.
 
-1. Resolve the state directory:
+### Resolution order
+
+1. **`thread_id` is a specific ID** (e.g., `"sess_abc123"`): Use that thread directly. Validate it — if expired, report `thread_status: expired` so the caller can handle it.
+2. **`thread_id` is `"new"`**: Create a fresh thread via `codex` MCP tool. **Do NOT pass the `model` parameter.** Return the new thread ID in the response. Do NOT save it to any file — the caller manages persistence.
+3. **`thread_id` not provided**: Fall back to the persistent state file:
    ```bash
    MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
    STATE_DIR="$MAIN_REPO/.codex-state"
    ```
-2. Read thread ID from `$STATE_DIR/codex_thread_id`
-3. Test thread validity by sending a short `codex-reply` message: `"Thread check — still active?"`. If Codex responds normally (any non-error response): thread is valid.
-4. If valid: use this thread
-5. If "Session not found" or similar expiration error:
-   - Create a new thread via `codex` MCP tool. **Do NOT pass the `model` parameter.**
-   - Save new thread ID to `$STATE_DIR/codex_thread_id`
-   - If the caller provided context, send it to rebuild Codex's understanding
-   - If a design doc path is available at `$STATE_DIR/current_design_doc`, read it and send a summary to Codex
-   - Include `thread_status: recovered` in your response so the caller knows
-6. If other error (MCP not connected, usage limit): report `status: unavailable`
+   - Read thread ID from `$STATE_DIR/codex_thread_id`
+   - Test thread validity by sending a short `codex-reply` message: `"Thread check — still active?"`
+   - If valid: use this thread
+   - If file missing or thread expired:
+     - Create a new thread via `codex` MCP tool. **Do NOT pass the `model` parameter.**
+     - Save new thread ID to `$STATE_DIR/codex_thread_id`
+     - If the caller provided context, send it to rebuild Codex's understanding
+     - If a design doc path is available at `$STATE_DIR/current_design_doc`, read it and send a summary to Codex
+     - Include `thread_status: recovered` in your response
+   - If other error (MCP not connected, usage limit): report `status: unavailable`
+
+### Always return `thread_id`
+
+Every response MUST include the `thread_id` that was used. This lets callers save it for retries or compaction survival without the agent needing to manage files.
 
 ## Worktree Path Note
 
@@ -175,7 +185,8 @@ Always structure your response clearly:
 ## Codex Agent Report
 
 **Mode:** <mode>
-**Thread Status:** <reused | recovered | created | unavailable>
+**Thread ID:** <the thread ID used>
+**Thread Status:** <reused | recovered | created | expired | unavailable>
 
 ### Result
 <mode-specific result — see each mode's "Report back" section>

@@ -43,7 +43,13 @@ You MUST complete these steps in order:
 4. **Codex review gate** — dispatch codex-agent with `mode: review-gate` (include worktree path), iterate up to 5 rounds (see `lib/codex-integration.md`)
 5. **Present plan to user** — include any unresolved Codex flags if review gate did not fully pass
 6. **Save plan** — write to `docs/plans/YYYY-MM-DD-<feature-name>.md` and commit
-7. **Offer execution handoff**
+7. **Write session breadcrumbs** — persist plan path and worktree path so the next session can recover context after `/clear`:
+   ```bash
+   MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+   echo "docs/plans/YYYY-MM-DD-<feature-name>.md" > "$MAIN_REPO/.codex-state/current_plan"
+   pwd > "$MAIN_REPO/.codex-state/current_worktree"
+   ```
+8. **Offer execution handoff**
 
 ## Bite-Sized Task Granularity
 
@@ -124,21 +130,28 @@ git commit -m "feat: add specific feature"
 
 ## Execution Handoff
 
-After saving the plan, offer execution choice:
+After saving the plan and writing breadcrumbs, offer execution choice:
 
-**"Plan complete and saved to `docs/plans/<filename>.md`. Two execution options:**
+**"Plan complete and saved to `docs/plans/<filename>.md`. Three execution options:**
 
 **1. Subagent-Driven (this session)** - I dispatch fresh subagent per task, review between tasks, fast iteration
 
-**2. Parallel Session (separate)** - Open new session with executing-plans, batch execution with checkpoints
+**2. Subagent-Driven (fresh context)** - `/clear` then call `superpowers:subagent-driven-development`. Breadcrumbs are saved so I'll recover the plan path and worktree automatically.
+
+**3. Parallel Session (separate)** - Open new session with executing-plans, batch execution with checkpoints
 
 **Which approach?"**
 
-**If Subagent-Driven chosen:**
+**If option 1 (same session):**
 - **REQUIRED SUB-SKILL:** Use superpowers:subagent-driven-development
 - Stay in this session
 - Fresh subagent per task + code review
 
-**If Parallel Session chosen:**
+**If option 2 (clear + continue):**
+- User runs `/clear`
+- User invokes `superpowers:subagent-driven-development`
+- Skill reads breadcrumbs from `.codex-state/current_plan` and `.codex-state/current_worktree`, recovers context, and cleans up
+
+**If option 3 (parallel session):**
 - Guide them to open new session in worktree
 - **REQUIRED SUB-SKILL:** New session uses superpowers:executing-plans

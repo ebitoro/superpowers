@@ -41,7 +41,28 @@ digraph when_to_use {
 
 ## The Process
 
-### Verify Worktree (Before Starting)
+### Recover Context (Before Starting)
+
+Check for session breadcrumbs left by `writing-plans`. This enables `/clear` between planning and execution without losing state:
+
+```bash
+MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+PLAN_BREADCRUMB="$MAIN_REPO/.codex-state/current_plan"
+WORKTREE_BREADCRUMB="$MAIN_REPO/.codex-state/current_worktree"
+```
+
+**If breadcrumbs exist** (post-`/clear` or new session):
+1. Read the worktree path from `$WORKTREE_BREADCRUMB` and `cd` into it
+2. Read the plan file path from `$PLAN_BREADCRUMB`
+3. Load and parse the plan file
+
+> Breadcrumbs persist in `.codex-state/` — other skills (Codex agent, requesting-code-review) reference them downstream. Cleanup happens in `finishing-a-development-branch`.
+
+**If breadcrumbs do not exist** (same-session handoff from `writing-plans`):
+- The plan is already in context from the current session
+- Ask the user for the plan file path if it is not in context
+
+### Verify Worktree
 
 Check if inside a git worktree (`git worktree list`). If NOT in a worktree, dispatch the `worktree-setup` agent (see `agents/worktree-setup.md`) with the branch name. The agent runs on Sonnet and handles the full setup.
 
@@ -101,13 +122,17 @@ digraph process {
 
 ## Per-Task Codex Review
 
-After the code quality reviewer approves, ensure changes are committed, then dispatch codex-agent with `mode: review-gate`:
+After the code quality reviewer approves, ensure changes are committed, then dispatch codex-agent for a review gate. Each task gets a **fresh Codex thread** — the caller manages the thread ID.
+
+**First dispatch** (per task): `thread_id: "new"` — agent creates a fresh thread
 - Commit SHAs — NOT raw diffs
 - Summary of what was implemented and task spec
 - Test results (pass/fail counts)
 - `worktree_path` if in a worktree
 
-Review gate loop: max 5 rounds (see `lib/codex-integration.md`). If `status: unavailable`, skip and proceed with subagent results only.
+Echo the returned `thread_id` as `**Active Codex thread_id:** <id>` (compaction rule — see CLAUDE.md). Pass it on retries so Codex has context from prior rounds. Max 5 rounds (see `lib/codex-integration.md`). If `status: unavailable`, skip and proceed with subagent results only.
+
+Each task naturally gets a fresh thread because the first dispatch always uses `thread_id: "new"`.
 
 > Dashed nodes in the process diagram are skipped when Codex is unavailable.
 

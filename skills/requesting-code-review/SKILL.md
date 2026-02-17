@@ -59,13 +59,13 @@ Use Task tool with superpowers:code-reviewer type, fill template at `code-review
 
 > See `lib/codex-integration.md` for Codex patterns and review gate loop.
 
-After the code-reviewer subagent passes, dispatch codex-agent with `mode: review-gate`:
+After the code-reviewer subagent passes, dispatch codex-agent with `mode: review-gate` and `thread_id: "new"`:
 - Commit SHAs (`{BASE_SHA}..{HEAD_SHA}`) — NOT raw diffs
 - Summary of what was implemented and why
 - Test results (pass/fail counts)
 - `worktree_path` if in a worktree
 
-Review gate loop: max 5 rounds. If `status: unavailable`, skip and proceed with subagent result only.
+Echo the returned `thread_id` as `**Active Codex thread_id:** <id>` (compaction rule — see CLAUDE.md). Max 5 rounds — pass the saved `thread_id` on retries. If `status: unavailable`, skip and proceed with subagent result only.
 
 ### Step 5: Track unresolved flags
 

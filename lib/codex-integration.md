@@ -39,6 +39,7 @@ worktree_path: <optional worktree absolute path>
 **`review-gate`** — Send content for review, get a verified verdict:
 ```
 mode: review-gate
+thread_id: <optional — "new" for fresh thread, or a specific ID for retries>
 message: <review request — see "What to Include" below>
 context: <design doc reference, plan task, etc.>
 worktree_path: <optional worktree absolute path>
@@ -47,10 +48,21 @@ worktree_path: <optional worktree absolute path>
 **`cross-verify`** — Cross-verify a specific finding with Codex:
 ```
 mode: cross-verify
+thread_id: <optional — specific ID to continue on same thread>
 finding: <the finding — ID, description, file, line>
 message: <additional context>
 worktree_path: <optional worktree absolute path>
 ```
+
+### Thread Ownership
+
+The **caller** owns thread lifecycle, not the codex-agent. The agent is a stateless proxy — it uses whatever thread the caller provides.
+
+- **No `thread_id`**: Agent falls back to persistent `codex_thread_id` file (design/plan phases — brainstorming, writing-plans)
+- **`thread_id: "new"`**: Agent creates a fresh thread and returns the ID. Does NOT save to disk — caller manages persistence.
+- **`thread_id: <specific-id>`**: Agent uses that thread (for retries within a review gate)
+
+**Compaction safety:** Callers MUST echo the returned `thread_id` as `**Active Codex thread_id:** <id>` into the conversation. This ensures compaction preserves it (see CLAUDE.md compaction rule).
 
 ### What to Include in review-gate Messages
 
@@ -68,15 +80,17 @@ Codex inspects actual files and git log in its sandbox. Sending SHAs instead of 
 - **verdict** (for review-gate): `pass`, `fail`, or `pass-with-flags`
 - **verified_issues**: Only issues confirmed by reading the actual code
 - **dismissed_count**: How many false positives were filtered out
+- **thread_id**: The Codex thread ID used (save it for retries)
 - **thread_status**: Whether the thread was reused, recovered, or newly created
 - **codex_notes**: Non-blocking suggestions worth passing along
 
 ### Review Gate Loop
 
-1. Dispatch codex-agent with `mode: review-gate`
-2. If verdict is `pass`: proceed
-3. If verdict is `fail` with verified issues: fix the issues, then dispatch agent again
-4. Maximum **5 rounds**. If still unresolved, proceed and track flags.
+1. Dispatch codex-agent with `mode: review-gate` and `thread_id: "new"` (or a saved ID for retries)
+2. Echo the returned `thread_id` as `**Active Codex thread_id:** <id>` (compaction rule)
+3. If verdict is `pass`: done
+4. If verdict is `fail` with verified issues: fix the issues, dispatch agent again with the saved `thread_id`
+5. Maximum **5 rounds**. If still unresolved, proceed and track flags.
 
 False positives are filtered by the agent — only real issues come back.
 
@@ -92,8 +106,10 @@ mkdir -p "$STATE_DIR"
 ```
 
 **Files:**
-- `$STATE_DIR/codex_thread_id` — Codex thread ID (managed by codex-agent)
+- `$STATE_DIR/codex_thread_id` — Codex thread ID for design/plan phases (managed by codex-agent for brainstorming/writing-plans)
 - `$STATE_DIR/current_design_doc` — path to the approved design doc (relative to repo root)
+
+Implementation review thread IDs are caller-managed. They survive compaction via the echo rule (see CLAUDE.md), not via disk files.
 
 **Ensure `.codex-state/` is gitignored:**
 ```bash

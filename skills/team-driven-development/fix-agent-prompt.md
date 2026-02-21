@@ -36,7 +36,7 @@ After all fixes pass tests, commit:
 
 ```bash
 cd {WORKING_DIRECTORY}
-git add -A
+git add [list the specific files you changed]
 git commit -m "fix: address review issues (round {ROUND})"
 ```
 

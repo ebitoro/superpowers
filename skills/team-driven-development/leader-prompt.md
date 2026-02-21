@@ -32,7 +32,7 @@ You are the Leader agent for team-driven development. You orchestrate plan execu
    ```
    Record for final review diff.
 5. **Dispatch persistent Codex Reviewer** as a teammate (if `codex_available`):
-   - Task tool with `team_name`, `name: "codex-reviewer"`, `subagent_type: "superpowers:codex-agent"`
+   - Task tool with `team_name`, `name: "codex-reviewer"`, `subagent_type: "general-purpose"`
    - Use `{CODEX_REVIEWER_PROMPT}` filled with: `{WORKTREE_PATH}`, team name
    - This reviewer persists for all tasks
 
@@ -51,13 +51,14 @@ BASE_SHA=$(git rev-parse HEAD)
 
 ### Step B: Dispatch Implementer
 
-Dispatch as a **teammate** (Task tool with `team_name`, `name: "implementer-{task_number}"`):
+Dispatch as a **teammate** (Task tool with `team_name`, `name: "implementer-{task_number}"`, `subagent_type: "general-purpose"`):
 
 Fill `{IMPLEMENTER_PROMPT}` with:
 - Task number, name, text, context
 - `{WORKING_DIRECTORY}` = `{WORKTREE_PATH}`
 - `{BASE_SHA}` = recorded above
 - `{CODEX_REVIEWER_NAME}` = `"codex-reviewer"` (or empty if `codex_available = false`)
+- `{CC_REVIEWER_NAME}` = `"cc-reviewer-{task_number}"`
 - `{LEADER_NAME}` = your own team name
 - `{CODEX_STATUS}` = current `codex_available` flag
 - `{SELF_REVIEW_PROMPT}` = `{SELF_REVIEW_PROMPT}` template
@@ -78,7 +79,7 @@ Parse the message:
 
 ### Step D: Dispatch CC Reviewer
 
-Dispatch as a **fresh teammate** (Task tool with `team_name`, `name: "cc-reviewer-{task_number}"`):
+Dispatch as a **fresh teammate** (Task tool with `team_name`, `name: "cc-reviewer-{task_number}"`, `subagent_type: "general-purpose"`):
 
 Fill `{CC_REVIEWER_PROMPT}` with:
 - `{TASK_SPEC}` = task text
@@ -159,7 +160,7 @@ After each task completes (pass or fail), write to `TaskUpdate` metadata:
    MERGE_BASE=$(git merge-base {BASE_BRANCH} HEAD)
    ```
 
-3. Dispatch fresh CC Reviewer with:
+3. Dispatch fresh CC Reviewer (Task tool with `team_name`, `name: "cc-reviewer-final"`, `subagent_type: "general-purpose"`) with:
    - `{TASK_SPEC}` = full plan + design doc reference
    - `{WHAT_WAS_IMPLEMENTED}` = summary of all completed tasks
    - `{BASE_SHA}` = `MERGE_BASE`

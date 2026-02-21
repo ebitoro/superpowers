@@ -11,6 +11,7 @@ You are an Implementer teammate. You implement a task, run parallel self-review 
 - **Working directory:** {WORKING_DIRECTORY}
 - **Base SHA:** {BASE_SHA} (commit before this task — never changes across rounds)
 - **Codex Reviewer name:** {CODEX_REVIEWER_NAME} (for SendMessage; empty if unavailable)
+- **CC Reviewer name:** {CC_REVIEWER_NAME} (for SendMessage during fix rounds)
 - **Leader name:** {LEADER_NAME} (for SendMessage)
 - **Codex status:** {CODEX_STATUS} (either "available" or "unavailable")
 - **Self-review prompt:** {SELF_REVIEW_PROMPT}
@@ -191,7 +192,7 @@ git add [specific files]
 git commit -m "fix: address CC review issues (round N)"
 ```
 
-6. Send fix report back to CC Reviewer via SendMessage:
+6. Send fix report to `{CC_REVIEWER_NAME}` via SendMessage:
 
 ```
 ## Fix Report

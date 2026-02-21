@@ -1,0 +1,1 @@
+I have an implementation plan with 12 tasks and I want to execute it using a team of agents to minimize context window usage. The plan is at docs/plans/my-plan.md.

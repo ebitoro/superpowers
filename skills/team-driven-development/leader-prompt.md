@@ -28,7 +28,7 @@ You are the Leader agent for team-driven development. You orchestrate plan execu
    MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
    BASE_BRANCH="$(cat "$MAIN_REPO/.codex-state/base_branch" 2>/dev/null)"
    # 2. Read worktree tracking branch
-   [ -z "$BASE_BRANCH" ] && BASE_BRANCH="$(git config --worktree "branch.$(git branch --show-current).merge" 2>/dev/null | sed 's|refs/heads/||')"
+   [ -z "$BASE_BRANCH" ] && BASE_BRANCH="$(git config "branch.$(git branch --show-current).merge" 2>/dev/null | sed 's|refs/heads/||')"
    # 3. Fallback to main
    [ -z "$BASE_BRANCH" ] && BASE_BRANCH="main"
    ```
@@ -159,7 +159,7 @@ Return this to the main session:
 
 ## Message Protocol Rules
 
-1. Only accept structured verdicts from CC Reviewer (verdict/issues/codex/round format)
+1. Only accept structured verdicts from CC Reviewer (verdict/issues/codex/thread_id/round format)
 2. Never read full review content — only verdict + one-line issue summaries
 3. Echo `**Active Codex thread_id:** <id>` when receiving Codex thread IDs (compaction safety)
 4. When dispatching teammates, always specify `team_name` so they join the team

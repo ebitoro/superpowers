@@ -152,9 +152,11 @@ When the Fix Agent contacts you via SendMessage with a fix report:
 
 ### Step 1: Parse Fix Report
 
-Extract:
-- Which issues were addressed (by severity/description)
-- New commit SHA (the new HEAD after fixes)
+Extract from the structured report:
+- `head_sha` — the new HEAD after fixes (use for diff)
+- `addressed` — which issues were fixed (by issue ID)
+- `unable_to_fix` — any issues the agent could not resolve (if present)
+- `tests` — pass/fail counts
 
 ### Step 2: Re-Read the Diff
 

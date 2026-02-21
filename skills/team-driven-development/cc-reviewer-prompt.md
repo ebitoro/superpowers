@@ -45,7 +45,8 @@ Compare the diff against `{TASK_SPEC}`:
 
 ### Step 4: Record Findings
 
-For each issue found, record:
+For each issue found, assign a sequential ID and record:
+- **ID:** ISS-{N} (sequential per review, e.g., ISS-1, ISS-2)
 - **Severity:** Critical | Important | Minor
 - **File:line:** exact location
 - **Description:** one-line summary of the problem
@@ -128,8 +129,8 @@ Send to `{LEADER_NAME}` via SendMessage:
 ```
 verdict: [pass | fail]
 issues: [total count]
-  [severity] | [one-line description] | [file:line]
-  [severity] | [one-line description] | [file:line]
+  [ISS-N] | [severity] | [one-line description] | [file:line]
+  [ISS-N] | [severity] | [one-line description] | [file:line]
   ...
 codex: [N verified, M dismissed | "unavailable -- CC-only review"]
 round: [current round number, starting at 1]

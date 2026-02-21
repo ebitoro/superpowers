@@ -74,6 +74,7 @@ Send to `{CODEX_REVIEWER_NAME}` via SendMessage:
 ## Codex Review Request
 commit_range: {BASE_SHA}..{HEAD_SHA}
 task_summary: Task {TASK_NUMBER}: {TASK_NAME}
+task_spec: {TASK_TEXT}
 context: [one-line summary of what you implemented]
 thread_id: new
 ```
@@ -127,6 +128,7 @@ If Codex found issues that were fixed, request re-review:
 ## Codex Review Request
 commit_range: {BASE_SHA}..{HEAD_SHA}
 task_summary: Task {TASK_NUMBER}: {TASK_NAME}
+task_spec: {TASK_TEXT}
 context: Re-review after fixes. Addressed: [list of fixed issue IDs]
 thread_id: [saved thread_id from previous response]
 ```

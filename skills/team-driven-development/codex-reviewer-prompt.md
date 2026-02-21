@@ -20,6 +20,7 @@ When you receive a `## Codex Review Request` via SendMessage:
 Extract these fields:
 - `commit_range` — e.g., `abc123..def456`
 - `task_summary` — one-line description
+- `task_spec` — full task specification (requirements, acceptance criteria)
 - `context` — what was implemented or changed
 - `thread_id` — `new` for first review, or saved ID for re-reviews
 
@@ -43,6 +44,7 @@ mode: review-gate
 thread_id: [from request]
 commit_range: [from request]
 task_summary: [from request]
+task_spec: [from request]
 context: [from request]
 worktree_path: {WORKTREE_PATH}
 ```

@@ -7,7 +7,7 @@ description: Use when executing implementation plans with independent tasks usin
 
 Execute plan by dispatching a Leader agent that manages a team of implementers and reviewers. Main session context stays minimal — only the final result flows back.
 
-**Core principle:** Leader orchestrates via AgentTeam. Fresh agents per task. CC Reviewer commands Codex Reviewer directly. Agent-to-agent communication keeps main session lean.
+**Core principle:** Leader orchestrates via AgentTeam. Implementer handles its own review loop (self-review subagent + persistent Codex Reviewer, in parallel). CC Reviewer focuses on spec+quality only, communicating directly with Implementer for fixes. Agent-to-agent communication keeps main session lean.
 
 ## When to Use
 
@@ -22,7 +22,7 @@ Use `subagent-driven-development` instead when:
 
 ## Codex Integration
 
-> See `lib/codex-integration.md` for Codex patterns. All Codex interactions go through the codex-agent (`agents/codex-agent.md`), dispatched as a team member by the Leader.
+> See `lib/codex-integration.md` for Codex patterns. All Codex interactions go through a persistent Codex Reviewer teammate that dispatches the codex-agent (`agents/codex-agent.md`) internally.
 
 ## The Process
 
@@ -51,7 +51,7 @@ Read these files from `skills/team-driven-development/`:
 - `leader-prompt.md`
 - `cc-reviewer-prompt.md`
 - `implementer-prompt.md`
-- `fix-agent-prompt.md`
+- `codex-reviewer-prompt.md`
 
 ### Dispatch Leader
 
@@ -64,7 +64,8 @@ Use the Task tool to dispatch the Leader as a `general-purpose` subagent:
   - `{DESIGN_DOC_PATH}` — Path to design doc (from `.codex-state/current_design_doc`)
   - `{CC_REVIEWER_PROMPT}` — Full content of `cc-reviewer-prompt.md`
   - `{IMPLEMENTER_PROMPT}` — Full content of `implementer-prompt.md`
-  - `{FIX_AGENT_PROMPT}` — Full content of `fix-agent-prompt.md`
+  - `{CODEX_REVIEWER_PROMPT}` — Full content of `codex-reviewer-prompt.md`
+  - `{SELF_REVIEW_PROMPT}` — Prompt for the code-reviewer subagent (from `agents/code-reviewer.md`)
 
 The Leader handles team creation, task execution, review cycles, and cleanup internally.
 
@@ -90,7 +91,7 @@ If tasks failed or were escalated:
 - `./leader-prompt.md` — Leader orchestration instructions
 - `./cc-reviewer-prompt.md` — CC Reviewer dispatch template
 - `./implementer-prompt.md` — Implementer dispatch template
-- `./fix-agent-prompt.md` — Fix Agent dispatch template
+- `./codex-reviewer-prompt.md` — Persistent Codex Reviewer dispatch template
 
 ## Red Flags
 
@@ -99,6 +100,7 @@ If tasks failed or were escalated:
 - Skip review (CC Reviewer is mandatory for every task)
 - Dispatch multiple implementation agents in parallel (file conflicts)
 - Manually orchestrate tasks from main session (defeats the purpose)
+- Dispatch CC Reviewer before Implementer signals readiness
 
 ## Integration
 

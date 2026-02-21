@@ -1,29 +1,27 @@
-# Leader Agent — Team-Driven Development
+# Leader Instructions — Team-Driven Development
 
-You are the Leader agent for team-driven development. You orchestrate plan execution by dispatching Implementer and Reviewer teammates and managing the task lifecycle.
+These are the orchestration instructions for team-driven development. The team has already been created by the SKILL.md entry point — you operate within it.
 
 ## Inputs
 
+- **Team name:** {TEAM_NAME} (already created — use for all teammate dispatches)
 - **Plan tasks:** {PLAN_TASKS}
 - **Worktree path:** {WORKTREE_PATH}
 - **Design doc:** {DESIGN_DOC_PATH}
 
-### Agent Templates (filled by main session)
+### Prompt Templates
 
-- **Codex Reviewer prompt:** {CODEX_REVIEWER_PROMPT}
-- **CC Reviewer prompt:** {CC_REVIEWER_PROMPT}
-- **Implementer prompt:** {IMPLEMENTER_PROMPT}
-- **Self-review prompt:** {SELF_REVIEW_PROMPT}
+Read these from `skills/team-driven-development/`:
+- `cc-reviewer-prompt.md` — CC Reviewer teammate dispatch prompt
+- `implementer-prompt.md` — Implementer teammate dispatch prompt
+- `codex-reviewer-prompt.md` — Codex Reviewer teammate dispatch prompt
+- `agents/code-reviewer.md` — Self-review subagent prompt (used as `{SELF_REVIEW_PROMPT}`)
 
 ## Setup
 
-1. Create the team:
-   ```
-   TeamCreate with team_name: "tdd-{timestamp}"
-   ```
-2. Parse `{PLAN_TASKS}` — create a `TaskCreate` for each task (preserve order).
-3. Set internal flag: `codex_available = true`.
-4. Determine `BASE_BRANCH` (try in order, use first that succeeds):
+1. Parse `{PLAN_TASKS}` — create a `TaskCreate` for each task (preserve order).
+2. Set internal flag: `codex_available = true`.
+3. Determine `BASE_BRANCH` (try in order, use first that succeeds):
    ```bash
    MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
    BASE_BRANCH="$(cat "$MAIN_REPO/.codex-state/base_branch" 2>/dev/null)"
@@ -31,9 +29,9 @@ You are the Leader agent for team-driven development. You orchestrate plan execu
    [ -z "$BASE_BRANCH" ] && BASE_BRANCH="main"
    ```
    Record for final review diff.
-5. **Dispatch persistent Codex Reviewer** as a teammate (if `codex_available`):
-   - Task tool with `team_name`, `name: "codex-reviewer"`, `subagent_type: "general-purpose"`
-   - Use `{CODEX_REVIEWER_PROMPT}` filled with: `{WORKTREE_PATH}`, team name
+4. **Dispatch persistent Codex Reviewer** as a teammate (if `codex_available`):
+   - Task tool with `team_name: "{TEAM_NAME}"`, `name: "codex-reviewer"`, `subagent_type: "general-purpose"`
+   - Use `codex-reviewer-prompt.md` filled with: `{WORKTREE_PATH}`, `{TEAM_NAME}`
    - This reviewer persists for all tasks
 
 ## Per-Task Workflow
@@ -51,7 +49,7 @@ BASE_SHA=$(git rev-parse HEAD)
 
 ### Step B: Dispatch Implementer
 
-Dispatch as a **teammate** (Task tool with `team_name`, `name: "implementer-{task_number}"`, `subagent_type: "general-purpose"`):
+Dispatch as a **teammate** (Task tool with `team_name: "{TEAM_NAME}"`, `name: "implementer-{task_number}"`, `subagent_type: "general-purpose"`):
 
 Fill `{IMPLEMENTER_PROMPT}` with:
 - Task number, name, text, context
@@ -79,7 +77,7 @@ Parse the message:
 
 ### Step D: Dispatch CC Reviewer
 
-Dispatch as a **fresh teammate** (Task tool with `team_name`, `name: "cc-reviewer-{task_number}"`, `subagent_type: "general-purpose"`):
+Dispatch as a **fresh teammate** (Task tool with `team_name: "{TEAM_NAME}"`, `name: "cc-reviewer-{task_number}"`, `subagent_type: "general-purpose"`):
 
 Fill `{CC_REVIEWER_PROMPT}` with:
 - `{TASK_SPEC}` = task text
@@ -160,7 +158,7 @@ After each task completes (pass or fail), write to `TaskUpdate` metadata:
    MERGE_BASE=$(git merge-base {BASE_BRANCH} HEAD)
    ```
 
-3. Dispatch fresh CC Reviewer (Task tool with `team_name`, `name: "cc-reviewer-final"`, `subagent_type: "general-purpose"`) with:
+3. Dispatch fresh CC Reviewer (Task tool with `team_name: "{TEAM_NAME}"`, `name: "cc-reviewer-final"`, `subagent_type: "general-purpose"`) with:
    - `{TASK_SPEC}` = full plan + design doc reference
    - `{WHAT_WAS_IMPLEMENTED}` = summary of all completed tasks
    - `{BASE_SHA}` = `MERGE_BASE`
@@ -190,7 +188,8 @@ After each task completes (pass or fail), write to `TaskUpdate` metadata:
 1. Send `shutdown_request` to persistent Codex Reviewer
 2. Send `shutdown_request` to any remaining teammates
 3. Wait for shutdown confirmations
-4. Call `TeamDelete`
+
+> TeamDelete is handled by the SKILL.md entry point after these instructions complete.
 
 ## Report Format
 

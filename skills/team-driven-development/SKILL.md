@@ -30,16 +30,20 @@ Use `subagent-driven-development` instead when:
 
 Check for session breadcrumbs left by `writing-plans`:
 
+```bash
 MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
 PLAN_BREADCRUMB="$MAIN_REPO/.codex-state/current_plan"
 WORKTREE_BREADCRUMB="$MAIN_REPO/.codex-state/current_worktree"
+```
 
 **If breadcrumbs exist:** Read plan path and worktree path, `cd` into worktree, load plan.
 **If not:** Ask user for plan file path.
 
+> Breadcrumbs persist in `.codex-state/` — other skills (Codex agent, requesting-code-review) reference them downstream. Cleanup happens in `finishing-a-development-branch`.
+
 ### Verify Worktree
 
-Check if inside a git worktree (`git worktree list`). If NOT in a worktree, dispatch the `worktree-setup` agent.
+Check if inside a git worktree (`git worktree list`). If NOT in a worktree, dispatch the `worktree-setup` agent (see `agents/worktree-setup.md`).
 
 ### Read Prompt Templates
 

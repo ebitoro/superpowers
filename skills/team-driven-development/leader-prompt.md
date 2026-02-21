@@ -120,7 +120,11 @@ Update the `rounds` array after each fix-loop iteration. Use issue IDs across ro
 ## After All Tasks
 
 1. Dispatch **fresh** CC Reviewer + **fresh** Codex Reviewer for final branch review (respects `codex_available` flag)
-2. Review scope: `git diff {BASE_BRANCH}...HEAD`
+2. Compute merge-base for final review scope:
+   ```bash
+   MERGE_BASE=$(git merge-base {BASE_BRANCH} HEAD)
+   ```
+   Pass `MERGE_BASE` as `{BASE_SHA}` and `HEAD` as `{HEAD_SHA}` to the CC Reviewer. This ensures the two-dot diff in the CC Reviewer template covers exactly the branch changes.
 3. Design doc reference: `{DESIGN_DOC_PATH}`
 4. Same CC-as-orchestrator pattern (CC commands Codex, consolidates, sends verdict to Leader)
 5. **If final review passes:** Report success to main session

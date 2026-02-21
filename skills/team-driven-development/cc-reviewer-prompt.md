@@ -45,8 +45,8 @@ Compare the diff against `{TASK_SPEC}`:
 
 ### Step 4: Record Findings
 
-For each issue found, assign a sequential ID and record:
-- **ID:** ISS-{N} (sequential per review, e.g., ISS-1, ISS-2)
+For each issue found, assign a stable ID and record:
+- **ID:** ISS-{N} (e.g., ISS-1, ISS-2). On re-reviews: retain the original ID for unresolved issues from prior rounds; assign new sequential IDs only for newly discovered findings.
 - **Severity:** Critical | Important | Minor
 - **File:line:** exact location
 - **Description:** one-line summary of the problem
@@ -133,6 +133,7 @@ issues: [total count]
   [ISS-N] | [severity] | [one-line description] | [file:line]
   ...
 codex: [N verified, M dismissed | "unavailable -- CC-only review"]
+thread_id: [saved Codex thread_id | "none"]
 round: [current round number, starting at 1]
 ```
 
@@ -141,6 +142,7 @@ If there are zero issues, omit the issue lines:
 verdict: pass
 issues: 0
 codex: [N verified, M dismissed | "unavailable -- CC-only review"]
+thread_id: [saved Codex thread_id | "none"]
 round: [round number]
 ```
 

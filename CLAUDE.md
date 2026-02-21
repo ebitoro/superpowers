@@ -63,8 +63,8 @@ Uses `--git-common-dir` (not `--show-toplevel`) so worktrees resolve to the main
 ### Files
 - `.codex-state/codex_thread_id` - Codex thread ID for design/plan phases (managed by codex-agent for brainstorming/writing-plans)
 - `.codex-state/current_design_doc` - Path to approved design doc (relative to repo root)
-- `.codex-state/current_plan` - Path to implementation plan (relative to repo root). Written by `writing-plans`, read by `subagent-driven-development`. Cleaned up by `finishing-a-development-branch`.
-- `.codex-state/current_worktree` - Absolute path to worktree. Written by `writing-plans`, read by `subagent-driven-development`. Cleaned up by `finishing-a-development-branch`.
+- `.codex-state/current_plan` - Path to implementation plan (relative to repo root). Written by `writing-plans`, read by `subagent-driven-development` and `team-driven-development`. Cleaned up by `finishing-a-development-branch`.
+- `.codex-state/current_worktree` - Absolute path to worktree. Written by `writing-plans`, read by `subagent-driven-development` and `team-driven-development`. Cleaned up by `finishing-a-development-branch`.
 
 Implementation review thread IDs are caller-managed — each skill saves/retrieves its own `thread_id` as needed (see `lib/codex-integration.md` for the pattern).
 

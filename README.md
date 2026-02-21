@@ -25,6 +25,8 @@ Skills trigger automatically. You don't invoke them manually.
 
 ## Installation
 
+**Note:** Installation differs by platform. Claude Code or Cursor have built-in plugin marketplaces. Codex and OpenCode require manual setup.
+
 ### Claude Code (via Plugin Marketplace)
 
 Register the marketplace:
@@ -47,9 +49,13 @@ Add Codex as an MCP server (model is configured in `~/.codex/config.toml`, do NO
 claude mcp add --transport stdio --scope user codex -- codex -c model_reasoning_effort=xhigh --sandbox read-only --ask-for-approval never mcp-server
 ```
 
-### Verify Installation
+### Cursor (via Plugin Marketplace)
 
-Start a new session and try "help me plan this feature". Claude should invoke the brainstorming skill and consult Codex.
+In Cursor Agent chat, install from marketplace:
+
+```text
+/plugin-add superpowers
+```
 
 ## The Workflow
 
@@ -68,6 +74,10 @@ brainstorming -> writing-plans -> [executing-plans | subagent-driven-development
 4. **requesting-code-review** -- Two-stage gate: code-reviewer subagent first, then Codex review gate. Both must pass.
 
 5. **finishing-a-development-branch** -- Verifies tests, presents 4 options (merge/PR/keep/discard), cleans up worktree and `.codex-state/`.
+
+### Verify Installation
+
+Start a new session in your chosen platform and ask for something that should trigger a skill (for example, "help me plan this feature" or "let's debug this issue"). The agent should automatically invoke the relevant superpowers skill.
 
 ## Codex Integration
 

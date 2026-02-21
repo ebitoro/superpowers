@@ -22,11 +22,17 @@ You are the Leader agent for team-driven development. You orchestrate plan execu
    ```
 2. Parse `{PLAN_TASKS}` — create a `TaskCreate` for each task (preserve order).
 3. Set internal flag: `codex_available = true`.
-4. Determine `BASE_BRANCH`:
+4. Determine `BASE_BRANCH` (try in order, use first that succeeds):
    ```bash
-   BASE_BRANCH="$(git log --oneline --all --decorate | grep 'HEAD' | sed 's/.*origin\///' | head -1)"
+   # 1. Check .codex-state/ (populated by writing-plans)
+   MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+   BASE_BRANCH="$(cat "$MAIN_REPO/.codex-state/base_branch" 2>/dev/null)"
+   # 2. Read worktree tracking branch
+   [ -z "$BASE_BRANCH" ] && BASE_BRANCH="$(git config --worktree "branch.$(git branch --show-current).merge" 2>/dev/null | sed 's|refs/heads/||')"
+   # 3. Fallback to main
+   [ -z "$BASE_BRANCH" ] && BASE_BRANCH="main"
    ```
-   Fallback: read from `.codex-state/` if available, or use `main`. Record for final review diff.
+   Record for final review diff.
 
 ## Per-Task Workflow
 
@@ -96,7 +102,9 @@ After each task completes (pass or fail), write an audit record to `TaskUpdate` 
     {
       "round": 1,
       "verdict": "fail",
-      "issues": ["ISS-1", "ISS-2"],
+      "issues": [
+        {"id": "ISS-1", "severity": "important", "file": "path", "line": 42, "description": "missing validation", "disposition": "open"}
+      ],
       "codex_thread_id": "sess_abc",
       "head_sha": "abc1234",
       "codex_status": "available"

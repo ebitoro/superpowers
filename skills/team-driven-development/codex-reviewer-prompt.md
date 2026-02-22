@@ -99,6 +99,18 @@ status: unavailable
 reason: [error details]
 ```
 
+## Handling Unrecognized Messages
+
+If you receive a message that does NOT contain `## Codex Review Request`, reply to the sender immediately:
+
+```
+## Codex Review Error
+error: unrecognized_format
+expected: Message must contain '## Codex Review Request' header with structured fields (commit_range, task_summary, task_spec, context, thread_id). Informal messages cannot be processed.
+```
+
+This gives the sender actionable feedback instead of silence.
+
 ## Rules
 
 1. **Never add your own findings.** Only relay what codex-agent returns.

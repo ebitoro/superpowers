@@ -54,7 +54,7 @@ Send the Codex review request **first**, then do your self-review while waiting 
 
 **Skip if `{CODEX_STATUS}` is "unavailable".**
 
-Send to `{CODEX_REVIEWER_NAME}` via SendMessage:
+Send to `{CODEX_REVIEWER_NAME}` via SendMessage. You MUST use this exact format — the codex-reviewer parses the `## Codex Review Request` header to identify review requests. Informal or free-form messages are silently ignored and the review will never happen:
 
 ```
 ## Codex Review Request
@@ -91,11 +91,17 @@ Review your own work with fresh eyes. Go through each category:
 
 If self-review finds issues, fix them now before collecting Codex results.
 
-Wait for Codex response before proceeding to Phase 3.
+### Wait for Codex Response (BLOCKING)
+
+**If Codex is available:** After self-review completes, STOP. End your current turn and wait for the `## Codex Review Response` message from `{CODEX_REVIEWER_NAME}`. The codex-reviewer runs in parallel — its response will arrive as a new conversation turn. Do NOT continue processing in the current turn. Phase 3 begins only after this response is received.
+
+**If Codex is unavailable (`{CODEX_STATUS}` = "unavailable"):** Proceed directly to Phase 3 with self-review findings only.
 
 ---
 
 ## Phase 3 — Fix Self-Review + Codex Issues
+
+**Gate:** You MUST have received `## Codex Review Response` from `{CODEX_REVIEWER_NAME}` before entering this phase (unless Codex is unavailable). If you haven't received it yet, do NOT proceed — go back and wait.
 
 ### Step 1: Collect Findings
 
@@ -146,7 +152,7 @@ context: Re-review after fixes. Addressed: [list of fixed issue IDs]
 thread_id: [saved thread_id from previous response]
 ```
 
-Verify new findings, fix, re-request until clean or cap reached.
+Send via SendMessage to `{CODEX_REVIEWER_NAME}` using the exact format above. Wait for `## Codex Review Response` before continuing (same blocking rule as Phase 2). Verify new findings, fix, re-request until clean or cap reached.
 
 **If Codex becomes unavailable during re-review:** Note the status change. Continue with self-review only. Report unavailability to Leader in Phase 6.
 
@@ -289,12 +295,14 @@ concerns: [any risks or "none"]
 2. **Codex before spec.** Catches cross-cutting issues early.
 3. **Spec compliance before code quality.** Never start code quality until spec passes.
 4. **Parallel execution is mandatory in Phase 2.** Send Codex first, do self-review while waiting.
-5. **Always re-run reviews after any fixes.** Even minor Codex note fixes require re-review.
-6. **Never message Leader about issues.** Fix them yourself. Leader only receives `## Task Verdict`.
-7. **Never guess at Codex findings.** Verify every finding against actual code.
-8. **Fix ONLY listed issues during fix phases.** No additional refactoring.
-9. **Always run tests before committing.** Never commit broken code.
-10. **Always use conventional commit format.**
-11. **If Codex becomes unavailable:** Proceed with self-review results. Report status change to Leader.
-12. **One commit per fix round.** Keep history clean.
-13. **Use {BASE_SHA} for all diffs.** It never changes.
+5. **Codex requests MUST use exact `## Codex Review Request` format.** The codex-reviewer only parses this header with structured fields. Informal messages are silently ignored.
+6. **BLOCK on Codex response.** After self-review, end your turn and wait for `## Codex Review Response`. Never proceed to Phase 3 without it (unless Codex is unavailable).
+7. **Always re-run reviews after any fixes.** Even minor Codex note fixes require re-review.
+8. **Never message Leader about issues.** Fix them yourself. Leader only receives `## Task Verdict`.
+9. **Never guess at Codex findings.** Verify every finding against actual code.
+10. **Fix ONLY listed issues during fix phases.** No additional refactoring.
+11. **Always run tests before committing.** Never commit broken code.
+12. **Always use conventional commit format.**
+13. **If Codex becomes unavailable:** Proceed with self-review results. Report status change to Leader.
+14. **One commit per fix round.** Keep history clean.
+15. **Use {BASE_SHA} for all diffs.** It never changes.

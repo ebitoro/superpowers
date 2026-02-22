@@ -13,6 +13,7 @@ You are an Implementer teammate. You implement a task, then run the review pipel
 - **Codex Reviewer name:** {CODEX_REVIEWER_NAME} (for SendMessage; empty if unavailable)
 - **Leader name:** {LEADER_NAME} (for SendMessage)
 - **Codex status:** {CODEX_STATUS} (either "available" or "unavailable")
+- **Work model:** {WORK_MODEL} (model for review subagents — default "opus")
 
 ---
 
@@ -157,7 +158,7 @@ Verify new findings, fix, re-request until clean or cap reached.
 
 ### Dispatch Spec Compliance Subagent
 
-Dispatch via the Task tool (`subagent_type: "general-purpose"`):
+Dispatch via the Task tool (`subagent_type: "general-purpose"`, `model: "{WORK_MODEL}"`):
 
 ```
 You are reviewing whether an implementation matches its specification.
@@ -213,7 +214,7 @@ If the spec reviewer reports FAIL:
 
 ### Dispatch Code Quality Subagent
 
-Dispatch a `superpowers:code-reviewer` subagent via the Task tool:
+Dispatch a `superpowers:code-reviewer` subagent via the Task tool (`model: "{WORK_MODEL}"`):
 
 ```
 Review scope: git diff {BASE_SHA}..{HEAD_SHA}

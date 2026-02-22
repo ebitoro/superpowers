@@ -10,6 +10,7 @@ These are the orchestration instructions for team-driven development. The team h
 - **Plan tasks:** {PLAN_TASKS}
 - **Worktree path:** {WORKTREE_PATH}
 - **Design doc:** {DESIGN_DOC_PATH}
+- **Work model:** {WORK_MODEL} (model for implementers, review subagents, fixer — default "opus")
 
 ### Prompt Templates
 
@@ -50,7 +51,7 @@ BASE_SHA=$(git rev-parse HEAD)
 
 ### Step B: Dispatch Implementer
 
-Dispatch as a **teammate** (Task tool with `team_name: "{TEAM_NAME}"`, `name: "implementer-{task_number}"`, `subagent_type: "general-purpose"`):
+Dispatch as a **teammate** (Task tool with `team_name: "{TEAM_NAME}"`, `name: "implementer-{task_number}"`, `subagent_type: "general-purpose"`, `model: "{WORK_MODEL}"`):
 
 Fill `{IMPLEMENTER_PROMPT}` with:
 - Task number, name, text, context
@@ -59,6 +60,7 @@ Fill `{IMPLEMENTER_PROMPT}` with:
 - `{CODEX_REVIEWER_NAME}` = `"codex-reviewer"` (or empty if `codex_available = false`)
 - `{LEADER_NAME}` = your own team name
 - `{CODEX_STATUS}` = current `codex_available` flag
+- `{WORK_MODEL}` = `"{WORK_MODEL}"`
 
 ### Step C: Wait for Implementer Verdict
 
@@ -160,7 +162,7 @@ HEAD_SHA=$(git rev-parse HEAD)
 
 ### Step 2: Dispatch Final Reviewer
 
-Dispatch a persistent `final-reviewer` teammate (Task tool with `team_name: "{TEAM_NAME}"`, `name: "final-reviewer"`, `subagent_type: "general-purpose"`, `model: "sonnet"`).
+Dispatch a persistent `final-reviewer` teammate (Task tool with `team_name: "{TEAM_NAME}"`, `name: "final-reviewer"`, `subagent_type: "general-purpose"`, `model: "opus"`).
 
 Fill `final-reviewer-prompt.md` with:
 - `{WORKTREE_PATH}`, `{TEAM_NAME}`, `{BASE_BRANCH}`, `{DESIGN_DOC_PATH}`
@@ -168,6 +170,7 @@ Fill `final-reviewer-prompt.md` with:
 - `{COMPLETED_TASKS_SUMMARY}` — summary of all completed tasks and their verdicts
 - `{CODEX_REVIEWER_NAME}` = `"codex-reviewer"` (or empty if `codex_available = false`)
 - `{LEADER_NAME}` = your own team name
+- `{WORK_MODEL}` = `"{WORK_MODEL}"`
 
 ### Step 3: Send Initial Review Request
 
@@ -188,7 +191,7 @@ Wait for `## Final Review Verdict` from the Final Reviewer.
 
 **If `overall_verdict: fail`:**
 
-1. Dispatch a `fixer` teammate (Task tool with `team_name: "{TEAM_NAME}"`, `name: "fixer"`, `subagent_type: "general-purpose"`). Reuse the same fixer across rounds.
+1. Dispatch a `fixer` teammate (Task tool with `team_name: "{TEAM_NAME}"`, `name: "fixer"`, `subagent_type: "general-purpose"`, `model: "{WORK_MODEL}"`). Reuse the same fixer across rounds.
 2. Send the specific issues to the fixer with instructions to fix, test, and commit.
 3. Wait for the fixer to report `FIXED: [head_sha]`.
 4. Send a re-review request to `final-reviewer`:

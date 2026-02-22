@@ -147,14 +147,15 @@ For each task, the main session:
 BASE_SHA=$(git rev-parse HEAD)
 ```
 
-### Step 2: Determine CODEX_STATUS
+### Step 2: Determine CODEX_STATUS and CODEX_THREAD_ID
 
-- Start with `codex_status = "available"`
+- Start with `codex_status = "available"` and `codex_thread_id = "new"`
 - If a previous task's verdict reported `codex_review.status: unavailable`, set `codex_status = "unavailable"` for all subsequent tasks
+- If a previous task's verdict returned `codex_review.thread_id`, use that value as `codex_thread_id` for all subsequent tasks (reusing one thread avoids Codex hanging on new thread creation)
 
 ### Step 3: Dispatch Implementer
 
-Fill the template from `./implementer-prompt.md` with these 7 inputs:
+Fill the template from `./implementer-prompt.md` with these 8 inputs:
 
 | Variable | Source |
 |----------|--------|
@@ -165,6 +166,7 @@ Fill the template from `./implementer-prompt.md` with these 7 inputs:
 | `{WORKING_DIRECTORY}` | Worktree absolute path |
 | `{BASE_SHA}` | From Step 1 |
 | `{CODEX_STATUS}` | From Step 2 |
+| `{CODEX_THREAD_ID}` | From Step 2 (`"new"` for first task, then reused from verdict) |
 
 Dispatch via Task tool (`subagent_type: "general-purpose"`). If `work_model` is set, add `model: "{work_model}"` to the Task tool call.
 
@@ -177,6 +179,7 @@ Scan the implementer's response for `## Task Verdict`. Extract:
 - **`verdict`**: `pass` or `fail`
 - **`head_sha`**: The commit after all implementation and fixes
 - **`codex_review.status`**: `available` or `unavailable` — propagate to subsequent tasks
+- **`codex_review.thread_id`**: The Codex thread ID — propagate to subsequent tasks and final review
 - **`concerns`**: Non-blocking risks worth noting
 
 **If `verdict: pass`:**
@@ -194,6 +197,9 @@ Scan the implementer's response for `## Task Verdict`. Extract:
 **If `codex_review.status: unavailable`:**
 - Set `codex_status = "unavailable"` for remaining tasks
 - Inform user that Codex review was skipped
+
+**If `codex_review.thread_id` is present and not "none":**
+- Set `codex_thread_id` to this value for all subsequent tasks
 
 ## Final Code Review
 
@@ -213,7 +219,7 @@ Fill the template from `./final-review-prompt.md` with these inputs:
 | `{PLAN_FILE_PATH}` | Plan file path |
 | `{CODEX_STATUS}` | Current codex_status value |
 
-Dispatch via Task tool (`subagent_type: "general-purpose"`, `model: "opus"`).
+Dispatch via Task tool (`subagent_type: "general-purpose"`, `model: "opus"`). The final review starts a fresh Codex thread (separate from the implementation thread) but reuses it for fix iterations within the review.
 
 ### Parse the Final Review Verdict
 
@@ -248,12 +254,12 @@ You: I'm using Subagent-Driven Development to execute this plan.
 [Read plan file once: docs/plans/feature-plan.md]
 [Extract all 5 tasks with full text and context]
 [Create TodoWrite with all tasks]
-[Set codex_status = "available"]
+[Set codex_status = "available", codex_thread_id = "new"]
 
 Task 1: Hook installation script
 BASE_SHA=$(git rev-parse HEAD)
 
-[Dispatch implementer subagent with full task text + context + BASE_SHA + codex_status]
+[Dispatch implementer subagent with full task text + context + BASE_SHA + codex_status + codex_thread_id="new"]
 
 Implementer: "Before I begin - should the hook be installed at user or system level?"
 
@@ -284,11 +290,11 @@ code_quality: pass (round 1)
 tests: 5/5 passing
 concerns: none
 
-[Mark Task 1 complete]
+[Mark Task 1 complete, save codex_thread_id = thread_abc123]
 
 Task 2: Recovery modes
 BASE_SHA=$(git rev-parse HEAD)
-[Dispatch implementer...]
+[Dispatch implementer with codex_thread_id = thread_abc123 (reused from Task 1)]
 ...
 
 [After all tasks]

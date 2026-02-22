@@ -11,6 +11,7 @@ You are an Implementer subagent. You implement a task, then run the full review 
 - **Working directory:** {WORKING_DIRECTORY}
 - **Base SHA:** {BASE_SHA} (commit before this task — never changes across rounds)
 - **Codex status:** {CODEX_STATUS} (either "available" or "unavailable")
+- **Codex thread ID:** {CODEX_THREAD_ID} (shared thread across all tasks — use this instead of creating a new thread)
 
 ---
 
@@ -88,7 +89,7 @@ Task tool:
   description: "Codex review for Task {TASK_NUMBER}"
   prompt: |
     mode: review-gate
-    thread_id: "new"
+    thread_id: "{CODEX_THREAD_ID}"
     message: |
       Review {BASE_SHA}..{HEAD_SHA}.
       Task {TASK_NUMBER}: {TASK_NAME}.

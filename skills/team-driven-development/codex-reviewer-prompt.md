@@ -37,17 +37,23 @@ status: unavailable
 
 ### Step 3: Dispatch codex-agent
 
-Use the Task tool with `subagent_type: "superpowers:codex-agent"`:
+Dispatch via the Task tool with `subagent_type: "superpowers:codex-agent"`.
+
+Compose the prompt with the fields codex-agent expects (`mode`, `thread_id`, `message`, `context`, `worktree_path`). The `message` field must contain the review content — commit SHAs, summary, spec, and test results — so codex-agent can select the right Codex skill automatically.
 
 ```
 mode: review-gate
-thread_id: [from request]
-commit_range: [from request]
-task_summary: [from request]
-task_spec: [from request]
-context: [from request]
+thread_id: [from request — "new" or saved ID]
+message: |
+  Review commits [commit_range].
+  Task: [task_summary]
+  Spec: [task_spec]
+  What changed: [context]
+context: [task_spec]
 worktree_path: {WORKTREE_PATH}
 ```
+
+**Do NOT** pass `commit_range`, `task_summary`, `task_spec` as separate top-level fields — codex-agent does not recognize them. Everything goes in `message`.
 
 ### Step 4: Process Response
 
@@ -100,3 +106,4 @@ reason: [error details]
 3. **One dispatch per request.** Do not batch reviews.
 4. **Preserve thread continuity.** Pass the correct thread_id for re-reviews within a task.
 5. **Always reply to the requester.** Use SendMessage with their name.
+6. **Compose message field correctly.** All review content goes in `message`, not as separate fields.

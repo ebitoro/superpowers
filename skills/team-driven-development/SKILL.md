@@ -5,9 +5,9 @@ description: Use when executing implementation plans with independent tasks usin
 
 # Team-Driven Development
 
-Execute plan by acting as team Leader via AgentTeam, dispatching Implementer and Reviewer teammates for each task. Heavy work (implementation, code review, Codex review) runs in teammate contexts — main session only handles structured orchestration messages.
+Execute plan by acting as team Leader via AgentTeam, dispatching Implementer and Codex Reviewer teammates for each task. Implementer handles the full review cycle (self-review, Codex review, spec compliance, code quality) — Leader only orchestrates and tracks verdicts.
 
-**Core principle:** This session creates the team and orchestrates via AgentTeam tools. Implementer handles its own review loop (self-review subagent + persistent Codex Reviewer, in parallel). CC Reviewer focuses on spec+quality only, communicating directly with Implementer for fixes. Agent-to-agent communication offloads the heavy context.
+**Core principle:** Implementer owns the entire review pipeline per task. Leader dispatches, waits for verdict, and moves to next task. Codex Reviewer persists across tasks as a shared service. No CC Reviewer teammate — spec compliance and code quality run as subagents inside the Implementer.
 
 ## When to Use
 
@@ -20,9 +20,15 @@ Use `subagent-driven-development` instead when:
 - Plan has < 5 tasks (team overhead not worth it)
 - You need tight human-in-loop control per task
 
+## Model Recommendations
+
+- **Leader (this session):** Sonnet is sufficient — orchestration only, no heavy analysis
+- **Codex Reviewer:** Sonnet — dispatches codex-agent and relays results
+- **Implementer:** Default (Opus) — handles implementation, TDD, and all review phases
+
 ## Codex Integration
 
-> See `lib/codex-integration.md` for Codex patterns. All Codex interactions go through a persistent Codex Reviewer teammate that dispatches the codex-agent (`agents/codex-agent.md`) internally.
+> See `lib/codex-integration.md` for Codex patterns. All Codex interactions go through a persistent Codex Reviewer teammate that dispatches the codex-agent (`agents/codex-agent.md`) internally. The codex-agent selects the right Codex skill automatically based on message content.
 
 ## The Process
 
@@ -66,7 +72,6 @@ Read `leader-prompt.md` from `skills/team-driven-development/` and follow its in
 - `{DESIGN_DOC_PATH}` — path to design doc (from `.codex-state/current_design_doc`)
 
 Read the prompt templates as the Leader instructions direct:
-- `cc-reviewer-prompt.md` — used when dispatching CC Reviewer teammates
 - `implementer-prompt.md` — used when dispatching Implementer teammates
 - `codex-reviewer-prompt.md` — used when dispatching persistent Codex Reviewer
 - `agents/code-reviewer.md` — used as `{SELF_REVIEW_PROMPT}` for Implementer's self-review subagent
@@ -88,7 +93,6 @@ If tasks failed or were escalated:
 ## Prompt Templates
 
 - `./leader-prompt.md` — Leader orchestration reference (followed by this session)
-- `./cc-reviewer-prompt.md` — CC Reviewer teammate dispatch prompt
 - `./implementer-prompt.md` — Implementer teammate dispatch prompt
 - `./codex-reviewer-prompt.md` — Persistent Codex Reviewer teammate dispatch prompt
 
@@ -96,10 +100,9 @@ If tasks failed or were escalated:
 
 **Never:**
 - Start implementation on main/master branch without explicit user consent
-- Skip review (CC Reviewer is mandatory for every task)
 - Dispatch multiple implementation agents in parallel (file conflicts)
-- Dispatch CC Reviewer before Implementer signals readiness
 - Dispatch the Leader as a regular subagent (it won't have team tool access)
+- Skip any review phase (self-review, Codex, spec compliance, code quality — all mandatory)
 
 ## Integration
 

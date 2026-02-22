@@ -2,6 +2,8 @@
 
 These are the orchestration instructions for team-driven development. The team has already been created by the SKILL.md entry point — you operate within it.
 
+**Model note:** Leader orchestration is lightweight — sonnet is sufficient for this session.
+
 ## Inputs
 
 - **Team name:** {TEAM_NAME} (already created — use for all teammate dispatches)
@@ -12,7 +14,6 @@ These are the orchestration instructions for team-driven development. The team h
 ### Prompt Templates
 
 Read these from `skills/team-driven-development/`:
-- `cc-reviewer-prompt.md` — CC Reviewer teammate dispatch prompt
 - `implementer-prompt.md` — Implementer teammate dispatch prompt
 - `codex-reviewer-prompt.md` — Codex Reviewer teammate dispatch prompt
 - `agents/code-reviewer.md` — Self-review subagent prompt (used as `{SELF_REVIEW_PROMPT}`)
@@ -30,7 +31,7 @@ Read these from `skills/team-driven-development/`:
    ```
    Record for final review diff.
 4. **Dispatch persistent Codex Reviewer** as a teammate (if `codex_available`):
-   - Task tool with `team_name: "{TEAM_NAME}"`, `name: "codex-reviewer"`, `subagent_type: "general-purpose"`
+   - Task tool with `team_name: "{TEAM_NAME}"`, `name: "codex-reviewer"`, `subagent_type: "general-purpose"`, `model: "sonnet"`
    - Use `codex-reviewer-prompt.md` filled with: `{WORKTREE_PATH}`, `{TEAM_NAME}`
    - This reviewer persists for all tasks
 
@@ -56,70 +57,51 @@ Fill `{IMPLEMENTER_PROMPT}` with:
 - `{WORKING_DIRECTORY}` = `{WORKTREE_PATH}`
 - `{BASE_SHA}` = recorded above
 - `{CODEX_REVIEWER_NAME}` = `"codex-reviewer"` (or empty if `codex_available = false`)
-- `{CC_REVIEWER_NAME}` = `"cc-reviewer-{task_number}"`
 - `{LEADER_NAME}` = your own team name
 - `{CODEX_STATUS}` = current `codex_available` flag
 - `{SELF_REVIEW_PROMPT}` = `{SELF_REVIEW_PROMPT}` template
 
-### Step C: Wait for Implementer
+### Step C: Wait for Implementer Verdict
 
-Wait for `## Ready for CC Review` from the Implementer via SendMessage.
+Wait for `## Task Verdict` from the Implementer via SendMessage.
 
 Parse the message:
-- `head_sha` — current HEAD after implementation + self-fixes
+- `verdict` — `pass` or `fail`
+- `head_sha` — current HEAD after all review phases
 - `implementation_summary`
-- `self_review` — rounds, findings fixed, unresolved
+- `self_review` — rounds, findings fixed
 - `codex_review` — status, rounds, thread_id, findings fixed, unresolved
+- `spec_compliance` — pass/fail, round count
+- `code_quality` — pass/fail, round count
 - `tests` — pass/fail count
 - `concerns`
 
 **If Codex status changed to unavailable:** Update `codex_available = false`.
 
-### Step D: Dispatch CC Reviewer
-
-Dispatch as a **fresh teammate** (Task tool with `team_name: "{TEAM_NAME}"`, `name: "cc-reviewer-{task_number}"`, `subagent_type: "general-purpose"`):
-
-Fill `{CC_REVIEWER_PROMPT}` with:
-- `{TASK_SPEC}` = task text
-- `{WHAT_WAS_IMPLEMENTED}` = Implementer's summary
-- `{BASE_SHA}` = task's base SHA
-- `{HEAD_SHA}` = Implementer's reported head_sha
-- `{WORKTREE_PATH}`
-- `{LEADER_NAME}` = your own team name
-- `{IMPLEMENTER_NAME}` = `"implementer-{task_number}"`
-
-### Step E: Process Verdict
-
-Wait for CC Reviewer's verdict via SendMessage.
+### Step D: Process Verdict
 
 **If `verdict: pass`:**
 - Mark task `completed`
-- Record audit (see Step G)
-- Send `shutdown_request` to Implementer and CC Reviewer
+- Record audit (see Step F)
+- Send `shutdown_request` to Implementer
 - Proceed to next task
 
-**If `verdict: fail` with `cap_reached: true` or `stagnation: true`:**
+**If `verdict: fail`:**
 - Check severity of unresolved issues
 - **Critical/Important unresolved:** Mark task `failed`, report to user
 - **Minor only:** Proceed with flags — append to `docs/unresolved-flags.md`, commit
-
-**If CC Reviewer sends `## Stagnation Report`:**
-- Escalate to user immediately
-- Mark task `failed`
 
 **If Codex Reviewer sends `## Codex Status Update` (at any time):**
 - Update `codex_available = false`
 - No action needed — Implementer already handles Codex unavailability internally
 
-### Step F: Cleanup After Task
+### Step E: Cleanup After Task
 
-Send `shutdown_request` to:
-- Implementer (`implementer-{task_number}`)
-- CC Reviewer (`cc-reviewer-{task_number}`)
+Send `shutdown_request` to Implementer (`implementer-{task_number}`).
 
-Wait for shutdown confirmations before proceeding to next task.
+Wait for shutdown confirmation before proceeding to next task.
 
-### Step G: Audit Record
+### Step F: Audit Record
 
 After each task completes (pass or fail), write to `TaskUpdate` metadata:
 
@@ -137,12 +119,13 @@ After each task completes (pass or fail), write to `TaskUpdate` metadata:
     "findings_fixed": 2,
     "unresolved": []
   },
-  "cc_review": {
-    "rounds": 1,
+  "spec_compliance": {
     "verdict": "pass",
-    "findings_fixed": 0,
-    "cap_reached": false,
-    "stagnation": false
+    "rounds": 1
+  },
+  "code_quality": {
+    "verdict": "pass",
+    "rounds": 1
   },
   "final_verdict": "pass",
   "head_sha": "def5678"
@@ -151,23 +134,43 @@ After each task completes (pass or fail), write to `TaskUpdate` metadata:
 
 ## After All Tasks
 
-1. **Final branch review:** Dispatch a **fresh** CC Reviewer + use the persistent Codex Reviewer for a full branch review.
+1. **Final branch review:** Dispatch spec compliance + code quality subagents and use the persistent Codex Reviewer for a full branch review.
 
 2. Compute merge-base:
    ```bash
    MERGE_BASE=$(git merge-base {BASE_BRANCH} HEAD)
    ```
 
-3. Dispatch fresh CC Reviewer (Task tool with `team_name: "{TEAM_NAME}"`, `name: "cc-reviewer-final"`, `subagent_type: "general-purpose"`) with:
-   - `{TASK_SPEC}` = full plan + design doc reference
-   - `{WHAT_WAS_IMPLEMENTED}` = summary of all completed tasks
-   - `{BASE_SHA}` = `MERGE_BASE`
-   - `{HEAD_SHA}` = `HEAD`
-   - `{WORKTREE_PATH}`
-   - `{LEADER_NAME}` = your own team name
-   - `{IMPLEMENTER_NAME}` = `""` (no Implementer for final review — issues reported to Leader)
+3. Dispatch **spec compliance subagent** (Task tool, `subagent_type: "general-purpose"`, `model: "haiku"`):
+   ```
+   You are reviewing whether the full branch implementation matches its specification.
 
-4. Send `## Codex Review Request` to persistent Codex Reviewer:
+   ## What Was Requested
+
+   [full plan text + design doc reference]
+
+   ## What Was Implemented
+
+   [summary of all completed tasks]
+
+   ## Your Job
+
+   Read the diff and verify all requirements are met, nothing is missing, nothing extra:
+
+   ```bash
+   cd {WORKTREE_PATH}
+   git diff {MERGE_BASE}..HEAD
+   ```
+
+   Report: PASS or FAIL with specific issues.
+   ```
+
+4. Dispatch **code quality subagent** (Task tool, `subagent_type: "superpowers:code-reviewer"`, `model: "sonnet"`):
+   - Full branch diff: `{MERGE_BASE}..HEAD`
+   - Working directory: `{WORKTREE_PATH}`
+   - Plan + design doc reference as context
+
+5. Send `## Codex Review Request` to persistent Codex Reviewer:
    ```
    ## Codex Review Request
    commit_range: {MERGE_BASE}..HEAD
@@ -176,12 +179,13 @@ After each task completes (pass or fail), write to `TaskUpdate` metadata:
    thread_id: new
    ```
 
-5. Wait for both reviews.
-   - If CC Reviewer finds issues in final review (no Implementer to fix), report to user.
+6. Wait for all three reviews.
+   - If spec compliance finds issues, report to user (no Implementer to fix).
+   - If code quality finds issues, report to user.
    - If Codex finds issues, include in final report.
 
-6. **If final review passes:** Report success to main session.
-7. **If final review fails:** Report failures to main session with details.
+7. **If final review passes:** Report success to main session.
+8. **If final review fails:** Report failures to main session with details.
 
 ## Cleanup
 
@@ -216,8 +220,6 @@ Return this to the main session:
 
 - **Never** dispatch multiple Implementers in parallel
 - **Never** transition task state from any agent except Leader
-- **Never** skip CC Reviewer (mandatory for every task)
 - **Never** proceed with unresolved Critical/Important issues after cap — escalate
 - **Never** retry Codex automatically after unavailability — user must request it
-- **Never** dispatch CC Reviewer before Implementer signals readiness
-- If stagnation detected, escalate immediately — do not continue looping
+- If stagnation detected (same issues across 3+ tasks), escalate immediately

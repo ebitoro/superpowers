@@ -1,5 +1,7 @@
 # Code Quality Reviewer Prompt Template
 
+> **Dispatched by:** The implementer subagent (`./implementer-prompt.md`), not the main session.
+
 Use this template when dispatching a code quality reviewer subagent.
 
 **Purpose:** Verify implementation is well-built (clean, tested, maintainable)

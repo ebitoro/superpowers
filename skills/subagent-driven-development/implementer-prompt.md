@@ -82,6 +82,7 @@ Dispatch codex-agent via the Task tool:
 ```
 Task tool:
   subagent_type: "superpowers:codex-agent"
+  model: "sonnet"
   description: "Codex review for Task {TASK_NUMBER}"
   prompt: |
     mode: review-gate
@@ -141,6 +142,7 @@ If Codex found issues that were fixed, re-dispatch with saved thread_id:
 ```
 Task tool:
   subagent_type: "superpowers:codex-agent"
+  model: "sonnet"
   description: "Codex re-review for Task {TASK_NUMBER}"
   prompt: |
     mode: review-gate
@@ -165,7 +167,7 @@ Verify new findings, fix, re-dispatch until clean or cap reached.
 
 ### Dispatch Spec Compliance Subagent
 
-Dispatch via the Task tool (`subagent_type: "general-purpose"`):
+Dispatch via the Task tool (`subagent_type: "general-purpose"`, `model: "opus"`):
 
 ```
 You are reviewing whether an implementation matches its specification.
@@ -221,7 +223,7 @@ If the spec reviewer reports FAIL:
 
 ### Dispatch Code Quality Subagent
 
-Dispatch a `superpowers:code-reviewer` subagent via the Task tool:
+Dispatch a `superpowers:code-reviewer` subagent via the Task tool (`model: "opus"`):
 
 ```
 Review scope: git diff {BASE_SHA}..{HEAD_SHA}

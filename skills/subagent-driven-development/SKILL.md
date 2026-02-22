@@ -35,6 +35,21 @@ digraph when_to_use {
 - Implementer handles full review pipeline internally (minimal main session context)
 - Faster iteration (no human-in-loop between tasks)
 
+## Model Configuration
+
+| Role | Default | Overridable | Rationale |
+|------|---------|-------------|-----------|
+| **Implementer** | **Inherits from session** | **Yes** | User controls cost/quality tradeoff |
+| Spec compliance reviewer | Opus | No | Deep analysis needs strongest model |
+| Code quality reviewer | Opus | No | Deep analysis needs strongest model |
+| Codex reviewer | Sonnet | No | Relay to Codex MCP, lightweight |
+
+**Model override:** Include a model preference in your prompt when invoking this skill. Examples:
+- "execute this plan using sonnet for implementers"
+- "run with sonnet model"
+
+The override applies to the implementer only. Review subagents always use their fixed models.
+
 ## Codex Integration
 
 > See `lib/codex-integration.md` for Codex patterns. The implementer subagent dispatches codex-agent directly via the Task tool — no persistent teammate needed.
@@ -61,6 +76,15 @@ WORKTREE_BREADCRUMB="$MAIN_REPO/.codex-state/current_worktree"
 **If breadcrumbs do not exist** (same-session handoff from `writing-plans`):
 - The plan is already in context from the current session
 - Ask the user for the plan file path if it is not in context
+
+### Parse Model Override
+
+Check the user's prompt for a model preference. Look for patterns like "use sonnet", "using sonnet for implement", "with sonnet", etc.
+
+- **If found:** Set `work_model` to the specified model (e.g., "sonnet", "haiku")
+- **If not found:** Leave `work_model` unset (implementer inherits from session)
+
+This only affects the implementer. Review subagents (spec, quality, codex) use fixed models regardless.
 
 ### Verify Worktree
 
@@ -137,9 +161,9 @@ Fill the template from `./implementer-prompt.md` with these 7 inputs:
 | `{BASE_SHA}` | From Step 1 |
 | `{CODEX_STATUS}` | From Step 2 |
 
-Dispatch via Task tool (`subagent_type: "general-purpose"`).
+Dispatch via Task tool (`subagent_type: "general-purpose"`). If `work_model` is set, add `model: "{work_model}"` to the Task tool call.
 
-The implementer handles the full review pipeline internally (self-review → Codex → spec compliance → code quality) and returns a `## Task Verdict`.
+The implementer handles the full review pipeline internally (self-review → Codex → spec compliance → code quality) and returns a `## Task Verdict`. Review subagents dispatched by the implementer use fixed models (opus for spec/quality, sonnet for codex) regardless of the implementer's model.
 
 ## Parsing the Task Verdict
 

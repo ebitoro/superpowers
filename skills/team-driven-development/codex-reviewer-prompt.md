@@ -37,21 +37,37 @@ status: unavailable
 
 ### Step 3: Dispatch codex-agent
 
-Dispatch via the Task tool with `subagent_type: "superpowers:codex-agent"`.
+Dispatch via the Task tool with `subagent_type: "superpowers:codex-agent"`, using background + timeout to prevent hanging (Codex MCP can hang — see `lib/codex-integration.md`).
 
 Compose the prompt with the fields codex-agent expects (`mode`, `thread_id`, `message`, `context`, `worktree_path`). The `message` field must contain the review content — commit SHAs, summary, spec, and test results — so codex-agent can select the right Codex skill automatically.
 
 ```
-mode: review-gate
-thread_id: [from request — "new" or saved ID]
-message: |
-  Review commits [commit_range].
-  Task: [task_summary]
-  Spec: [task_spec]
-  What changed: [context]
-context: [task_spec]
-worktree_path: {WORKTREE_PATH}
+Task tool:
+  subagent_type: "superpowers:codex-agent"
+  max_turns: 25
+  run_in_background: true
+  prompt: |
+    mode: review-gate
+    thread_id: [from request — "new" or saved ID]
+    message: |
+      Review commits [commit_range].
+      Task: [task_summary]
+      Spec: [task_spec]
+      What changed: [context]
+    context: [task_spec]
+    worktree_path: {WORKTREE_PATH}
 ```
+
+Then wait with a 60-minute timeout:
+
+```
+TaskOutput:
+  task_id: <returned task_id>
+  block: true
+  timeout: 3600000
+```
+
+**If timeout is reached:** `TaskStop(task_id)`, mark Codex as `unavailable`, reply to requester with `status: unavailable, reason: timeout after 60 minutes`.
 
 **Do NOT** pass `commit_range`, `task_summary`, `task_spec` as separate top-level fields — codex-agent does not recognize them. Everything goes in `message`.
 

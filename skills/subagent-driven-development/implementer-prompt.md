@@ -77,12 +77,14 @@ If self-review finds issues, fix them now before proceeding.
 
 **Skip if `{CODEX_STATUS}` is "unavailable".**
 
-Dispatch codex-agent via the Task tool:
+Dispatch codex-agent via the Task tool with background + timeout (Codex MCP can hang — see `lib/codex-integration.md`):
 
 ```
 Task tool:
   subagent_type: "superpowers:codex-agent"
   model: "sonnet"
+  max_turns: 25
+  run_in_background: true
   description: "Codex review for Task {TASK_NUMBER}"
   prompt: |
     mode: review-gate
@@ -95,7 +97,18 @@ Task tool:
     worktree_path: {WORKING_DIRECTORY}
 ```
 
-Save the returned `thread_id` for re-reviews. If the agent reports `status: unavailable`, skip Codex for remaining phases and note in verdict.
+Then wait with a 60-minute timeout:
+
+```
+TaskOutput:
+  task_id: <returned task_id>
+  block: true
+  timeout: 3600000
+```
+
+**If timeout is reached:** `TaskStop(task_id)`, mark Codex as `unavailable`, skip Codex for remaining phases and note in verdict.
+
+**If result received:** Save the returned `thread_id` for re-reviews. If the agent reports `status: unavailable`, skip Codex for remaining phases and note in verdict.
 
 ---
 
@@ -137,12 +150,14 @@ Update `HEAD_SHA`.
 **Self-review re-run:** Re-do the checklist (Completeness, Quality, Discipline, Testing) against the updated diff (`{BASE_SHA}..{HEAD_SHA}`). Fix any new issues found.
 
 **Codex re-review** (max 5 rounds total):
-If Codex found issues that were fixed, re-dispatch with saved thread_id:
+If Codex found issues that were fixed, re-dispatch with saved thread_id using background + timeout:
 
 ```
 Task tool:
   subagent_type: "superpowers:codex-agent"
   model: "sonnet"
+  max_turns: 25
+  run_in_background: true
   description: "Codex re-review for Task {TASK_NUMBER}"
   prompt: |
     mode: review-gate
@@ -154,6 +169,8 @@ Task tool:
       Tests: [pass/fail count]
     worktree_path: {WORKING_DIRECTORY}
 ```
+
+Wait with 60-minute timeout (`TaskOutput` with `timeout: 3600000`). If timeout, `TaskStop` and mark Codex unavailable.
 
 Verify new findings, fix, re-dispatch until clean or cap reached.
 

@@ -57,9 +57,11 @@ Use Task tool with superpowers:code-reviewer type, fill template at `code-review
 
 ### Step 4: Codex review gate
 
-> See `lib/codex-integration.md` for Codex patterns and review gate loop.
+> See `lib/codex-integration.md` for Codex patterns, review gate loop, and timeout handling.
 
-After the code-reviewer subagent passes, dispatch codex-agent with `mode: review-gate` and `thread_id: "new"`:
+After the code-reviewer subagent passes, dispatch codex-agent with `mode: review-gate` and `thread_id: "new"` using **background dispatch + 60-minute timeout** (`max_turns: 25`, `run_in_background: true`, then `TaskOutput` with `timeout: 3600000`). If timeout, `TaskStop` and treat as unavailable.
+
+Include:
 - Commit SHAs (`{BASE_SHA}..{HEAD_SHA}`) — NOT raw diffs
 - Summary of what was implemented and why
 - Test results (pass/fail counts)

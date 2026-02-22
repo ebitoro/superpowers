@@ -120,6 +120,47 @@ grep -q '.codex-state/' "$MAIN_REPO/.gitignore" 2>/dev/null || echo '.codex-stat
 
 If the codex-agent reports `status: unavailable` (MCP not connected, usage limit, or any error), skip all Codex steps and proceed without Codex review. Inform the user that Codex review was skipped and why.
 
+## Timeout Handling
+
+Codex MCP calls can hang indefinitely. To prevent blocking the pipeline, all codex-agent dispatches MUST use background dispatch with a 60-minute wall-clock timeout and a turn cap.
+
+### Dispatch Pattern
+
+Every codex-agent dispatch should use `run_in_background: true` and `max_turns: 25`:
+
+```
+Task tool:
+  subagent_type: "superpowers:codex-agent"
+  model: "sonnet"
+  max_turns: 25
+  run_in_background: true
+  description: "Codex review for Task N"
+  prompt: |
+    mode: review-gate
+    ...
+```
+
+After dispatching, wait with a 60-minute wall-clock timeout:
+
+```
+TaskOutput:
+  task_id: <returned task_id>
+  block: true
+  timeout: 3600000
+```
+
+**If TaskOutput returns within timeout:** Read the result normally.
+
+**If timeout is reached (no result after 60 minutes):**
+1. Stop the agent: `TaskStop(task_id: <task_id>)`
+2. Mark Codex as `unavailable` for remaining tasks
+3. Proceed without Codex review
+4. Inform the user: "Codex review timed out after 60 minutes"
+
+### When `max_turns` Is Hit
+
+If the codex-agent exhausts its 25 turns, it returns a partial response. If the response does not contain the expected structured fields (verdict, verified_issues, thread_id), treat it as a timeout — mark Codex as `unavailable` and proceed.
+
 ## Tracking Unresolved Flags
 
 When the review gate passes with unresolved flags (5-round limit hit, or pass-with-flags), append them to `docs/unresolved-flags.md` and **commit the change**. This file is version-controlled so flags survive across sessions.

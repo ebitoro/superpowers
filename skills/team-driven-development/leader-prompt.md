@@ -16,7 +16,6 @@ These are the orchestration instructions for team-driven development. The team h
 Read these from `skills/team-driven-development/`:
 - `implementer-prompt.md` — Implementer teammate dispatch prompt
 - `codex-reviewer-prompt.md` — Codex Reviewer teammate dispatch prompt
-- `agents/code-reviewer.md` — Self-review subagent prompt (used as `{SELF_REVIEW_PROMPT}`)
 
 ## Setup
 
@@ -59,7 +58,6 @@ Fill `{IMPLEMENTER_PROMPT}` with:
 - `{CODEX_REVIEWER_NAME}` = `"codex-reviewer"` (or empty if `codex_available = false`)
 - `{LEADER_NAME}` = your own team name
 - `{CODEX_STATUS}` = current `codex_available` flag
-- `{SELF_REVIEW_PROMPT}` = `{SELF_REVIEW_PROMPT}` template
 
 ### Step C: Wait for Implementer Verdict
 
@@ -69,7 +67,6 @@ Parse the message:
 - `verdict` — `pass` or `fail`
 - `head_sha` — current HEAD after all review phases
 - `implementation_summary`
-- `self_review` — rounds, findings fixed
 - `codex_review` — status, rounds, thread_id, findings fixed, unresolved
 - `spec_compliance` — pass/fail, round count
 - `code_quality` — pass/fail, round count

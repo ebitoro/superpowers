@@ -5,9 +5,9 @@ description: Use when executing implementation plans with independent tasks usin
 
 # Team-Driven Development
 
-Execute plan by acting as team Leader via AgentTeam, dispatching Implementer and Codex Reviewer teammates for each task. Implementer handles the full review cycle (self-review, Codex review, spec compliance, code quality) — Leader only orchestrates and tracks verdicts.
+Execute plan by acting as team Leader via AgentTeam, dispatching Implementer and Codex Reviewer teammates for each task. Same review pipeline as subagent-driven-development (Codex → spec compliance → code quality), but runs inside the Implementer teammate instead of the main session.
 
-**Core principle:** Implementer owns the entire review pipeline per task. Leader dispatches, waits for verdict, and moves to next task. Codex Reviewer persists across tasks as a shared service. No CC Reviewer teammate — spec compliance and code quality run as subagents inside the Implementer.
+**Core principle:** Same process as subagent-driven-development — the only difference is team vs subagent orchestration. Implementer owns the full review pipeline (self-review+Codex parallel → spec → quality). Leader dispatches, waits for verdict, moves to next task. Codex Reviewer persists across tasks as a shared service.
 
 ## When to Use
 
@@ -74,7 +74,6 @@ Read `leader-prompt.md` from `skills/team-driven-development/` and follow its in
 Read the prompt templates as the Leader instructions direct:
 - `implementer-prompt.md` — used when dispatching Implementer teammates
 - `codex-reviewer-prompt.md` — used when dispatching persistent Codex Reviewer
-- `agents/code-reviewer.md` — used as `{SELF_REVIEW_PROMPT}` for Implementer's self-review subagent
 
 ### After All Tasks Complete
 
@@ -102,7 +101,7 @@ If tasks failed or were escalated:
 - Start implementation on main/master branch without explicit user consent
 - Dispatch multiple implementation agents in parallel (file conflicts)
 - Dispatch the Leader as a regular subagent (it won't have team tool access)
-- Skip any review phase (self-review, Codex, spec compliance, code quality — all mandatory)
+- Skip any review phase (self-review+Codex → spec compliance → code quality — same order as subagent-driven-development)
 
 ## Integration
 

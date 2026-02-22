@@ -5,9 +5,9 @@ description: Use when executing implementation plans with independent tasks in t
 
 # Subagent-Driven Development
 
-Execute plan by dispatching fresh subagent per task, with three-stage review after each: spec compliance, code quality, then Codex review.
+Execute plan by dispatching fresh subagent per task, with three-stage review after each: Codex, spec compliance, then code quality.
 
-**Core principle:** Fresh subagent per task + three-stage review (spec, quality, Codex) = high quality, fast iteration
+**Core principle:** Fresh subagent per task + three-stage review (Codex, spec, quality) = high quality, fast iteration
 
 ## When to Use
 
@@ -32,7 +32,7 @@ digraph when_to_use {
 **vs. Executing Plans (parallel session):**
 - Same session (no context switch)
 - Fresh subagent per task (no context pollution)
-- Three-stage review after each task: spec compliance, code quality, then Codex
+- Three-stage review after each task: Codex, spec compliance, then code quality
 - Faster iteration (no human-in-loop between tasks)
 
 ## Codex Integration
@@ -78,6 +78,9 @@ digraph process {
         "Implementer subagent asks questions?" [shape=diamond];
         "Answer questions, provide context" [shape=box];
         "Implementer subagent implements, tests, commits, self-reviews" [shape=box];
+        "Codex per-task review (codex-agent)" [shape=box style=dashed];
+        "Codex agent returns issues?" [shape=diamond style=dashed];
+        "Implementer subagent fixes verified Codex issues" [shape=box style=dashed];
         "Dispatch spec reviewer subagent (./spec-reviewer-prompt.md)" [shape=box];
         "Spec reviewer subagent confirms code matches spec?" [shape=diamond];
         "Implementer subagent fixes spec gaps" [shape=box];
@@ -97,7 +100,11 @@ digraph process {
     "Implementer subagent asks questions?" -> "Answer questions, provide context" [label="yes"];
     "Answer questions, provide context" -> "Dispatch implementer subagent (./implementer-prompt.md)";
     "Implementer subagent asks questions?" -> "Implementer subagent implements, tests, commits, self-reviews" [label="no"];
-    "Implementer subagent implements, tests, commits, self-reviews" -> "Dispatch spec reviewer subagent (./spec-reviewer-prompt.md)";
+    "Implementer subagent implements, tests, commits, self-reviews" -> "Codex per-task review (codex-agent)";
+    "Codex per-task review (codex-agent)" -> "Codex agent returns issues?";
+    "Codex agent returns issues?" -> "Implementer subagent fixes verified Codex issues" [label="yes (max 5 rounds)"];
+    "Implementer subagent fixes verified Codex issues" -> "Codex per-task review (codex-agent)" [label="redispatch"];
+    "Codex agent returns issues?" -> "Dispatch spec reviewer subagent (./spec-reviewer-prompt.md)" [label="no (pass)"];
     "Dispatch spec reviewer subagent (./spec-reviewer-prompt.md)" -> "Spec reviewer subagent confirms code matches spec?";
     "Spec reviewer subagent confirms code matches spec?" -> "Implementer subagent fixes spec gaps" [label="no"];
     "Implementer subagent fixes spec gaps" -> "Dispatch spec reviewer subagent (./spec-reviewer-prompt.md)" [label="re-review"];
@@ -105,14 +112,7 @@ digraph process {
     "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" -> "Code quality reviewer subagent approves?";
     "Code quality reviewer subagent approves?" -> "Implementer subagent fixes quality issues" [label="no"];
     "Implementer subagent fixes quality issues" -> "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" [label="re-review"];
-    "Code quality reviewer subagent approves?" -> "Codex per-task review (codex-agent)" [label="yes"];
-    "Codex per-task review (codex-agent)" [shape=box style=dashed];
-    "Codex agent returns issues?" [shape=diamond style=dashed];
-    "Implementer subagent fixes verified issues" [shape=box style=dashed];
-    "Codex per-task review (codex-agent)" -> "Codex agent returns issues?";
-    "Codex agent returns issues?" -> "Mark task complete in TodoWrite" [label="no (pass)"];
-    "Codex agent returns issues?" -> "Implementer subagent fixes verified issues" [label="yes (max 5 rounds)"];
-    "Implementer subagent fixes verified issues" -> "Codex per-task review (codex-agent)" [label="redispatch"];
+    "Code quality reviewer subagent approves?" -> "Mark task complete in TodoWrite" [label="yes"];
     "Mark task complete in TodoWrite" -> "More tasks remain?";
     "More tasks remain?" -> "Dispatch implementer subagent (./implementer-prompt.md)" [label="yes"];
     "More tasks remain?" -> "Final code review (requesting-code-review)" [label="no"];
@@ -122,7 +122,7 @@ digraph process {
 
 ## Per-Task Codex Review
 
-After the code quality reviewer approves, ensure changes are committed, then dispatch codex-agent for a review gate. Each task gets a **fresh Codex thread** — the caller manages the thread ID.
+After the implementer finishes (implements, tests, commits, self-reviews), dispatch codex-agent for a review gate **before** spec compliance. Each task gets a **fresh Codex thread** — the caller manages the thread ID.
 
 **First dispatch** (per task): `thread_id: "new"` — agent creates a fresh thread
 - Commit SHAs — NOT raw diffs
@@ -130,7 +130,7 @@ After the code quality reviewer approves, ensure changes are committed, then dis
 - Test results (pass/fail counts)
 - `worktree_path` if in a worktree
 
-Echo the returned `thread_id` as `**Active Codex thread_id:** <id>` (compaction rule — see CLAUDE.md). Pass it on retries so Codex has context from prior rounds. Max 5 rounds (see `lib/codex-integration.md`). If `status: unavailable`, skip and proceed with subagent results only.
+Echo the returned `thread_id` as `**Active Codex thread_id:** <id>` (compaction rule — see CLAUDE.md). Pass it on retries so Codex has context from prior rounds. Max 5 rounds (see `lib/codex-integration.md`). If `status: unavailable`, skip and proceed with spec compliance.
 
 Each task naturally gets a fresh thread because the first dispatch always uses `thread_id: "new"`.
 
@@ -179,18 +179,18 @@ Implementer: "Got it. Implementing now..."
   - Self-review: Found I missed --force flag, added it
   - Committed
 
-[Dispatch spec compliance reviewer]
-Spec reviewer: Spec compliant - all requirements met, nothing extra
-
-[Get git SHAs, dispatch code quality reviewer]
-Code reviewer: Strengths: Good test coverage, clean. Issues: None. Approved.
-
 [Dispatch codex-agent with mode: review-gate]
   message: "Review abc1234..def5678. Implemented install-hook command.
    Tests: 5 passing."
   worktree_path: /path/.worktrees/hooks
 Codex Agent Report: verdict=pass, 0 issues verified, 1 dismissed (false positive),
   codex_notes: "consider adding --dry-run flag for safety"
+
+[Dispatch spec compliance reviewer]
+Spec reviewer: Spec compliant - all requirements met, nothing extra
+
+[Dispatch code quality reviewer]
+Code reviewer: Strengths: Good test coverage, clean. Issues: None. Approved.
 
 [Mark Task 1 complete]
 
@@ -213,7 +213,7 @@ Done!
 
 **Never:**
 - Start implementation on main/master branch without explicit user consent
-- Skip reviews (spec compliance OR code quality OR Codex per-task OR final review)
+- Skip reviews (Codex per-task OR spec compliance OR code quality OR final review)
 - Proceed with unfixed issues
 - Dispatch multiple implementation subagents in parallel (conflicts)
 - Make subagent read plan file (provide full text instead)
@@ -222,8 +222,8 @@ Done!
 - Accept "close enough" on spec compliance (spec reviewer found issues = not done)
 - Skip review loops (reviewer found issues = implementer fixes = review again)
 - Let implementer self-review replace actual review (both are needed)
+- **Start spec compliance before Codex review passes** (wrong order)
 - **Start code quality review before spec compliance is approved** (wrong order)
-- **Start Codex review before code quality is approved** (wrong order)
 - **Start final code review before all tasks are complete** (wrong order)
 - Move to next task while any review has open issues
 

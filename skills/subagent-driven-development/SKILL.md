@@ -111,7 +111,9 @@ digraph process {
 
     "Read plan, extract all tasks with full text, note context, create TodoWrite" [shape=box];
     "More tasks remain?" [shape=diamond];
-    "Final code review (requesting-code-review)" [shape=box];
+    "Dispatch final-review subagent (./final-review-prompt.md)" [shape=box];
+    "Parse ## Final Review Verdict" [shape=box];
+    "Final verdict pass?" [shape=diamond];
     "Use superpowers:finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
 
     "Read plan, extract all tasks with full text, note context, create TodoWrite" -> "Record BASE_SHA";
@@ -127,8 +129,11 @@ digraph process {
     "Dispatch fix subagent or escalate to user" -> "Dispatch implementer subagent (./implementer-prompt.md)" [label="retry"];
     "Mark task complete in TodoWrite" -> "More tasks remain?";
     "More tasks remain?" -> "Record BASE_SHA" [label="yes"];
-    "More tasks remain?" -> "Final code review (requesting-code-review)" [label="no"];
-    "Final code review (requesting-code-review)" -> "Use superpowers:finishing-a-development-branch";
+    "More tasks remain?" -> "Dispatch final-review subagent (./final-review-prompt.md)" [label="no"];
+    "Dispatch final-review subagent (./final-review-prompt.md)" -> "Parse ## Final Review Verdict";
+    "Parse ## Final Review Verdict" -> "Final verdict pass?";
+    "Final verdict pass?" -> "Use superpowers:finishing-a-development-branch" [label="yes"];
+    "Final verdict pass?" -> "Escalate to user" [label="no"];
 }
 ```
 
@@ -192,19 +197,46 @@ Scan the implementer's response for `## Task Verdict`. Extract:
 
 ## Final Code Review
 
-After all tasks complete, request a final code review of the entire implementation.
+After all tasks complete, dispatch a final-review subagent to review the entire implementation. The subagent handles the full review cycle (code-reviewer + Codex) and fixes any issues it finds — the main session only sees the final verdict.
 
-**REQUIRED SUB-SKILL:** Use superpowers:requesting-code-review with:
-- Full branch diff (`git diff main...HEAD` or equivalent)
-- The design doc (read from `.codex-state/current_design_doc`)
-- The implementation plan filename
-- Test results summary
+### Dispatch Final Review Subagent
 
-The code review skill handles both the subagent review and the Codex review gate. Only proceed to `finishing-a-development-branch` after the review passes.
+Determine the base SHA for the full implementation scope (the commit before the first task started — typically recorded before Task 1, or use `origin/main`).
+
+Fill the template from `./final-review-prompt.md` with these inputs:
+
+| Variable | Source |
+|----------|--------|
+| `{BASE_SHA}` | Commit before first task (full implementation scope) |
+| `{WORKING_DIRECTORY}` | Worktree absolute path |
+| `{DESIGN_DOC_PATH}` | From `.codex-state/current_design_doc` (empty string if missing) |
+| `{PLAN_FILE_PATH}` | Plan file path |
+| `{CODEX_STATUS}` | Current codex_status value |
+
+Dispatch via Task tool (`subagent_type: "general-purpose"`, `model: "opus"`).
+
+### Parse the Final Review Verdict
+
+Scan the subagent's response for `## Final Review Verdict`. Extract:
+
+- **`verdict`**: `pass` or `fail`
+- **`head_sha`**: The commit after all fixes
+- **`codex_review.status`**: Whether Codex was available
+- **`unresolved_flags`**: Minor items tracked in `docs/unresolved-flags.md`
+- **`concerns`**: Non-blocking risks
+
+**If `verdict: pass`:**
+- Report result to user
+- Proceed to `finishing-a-development-branch`
+
+**If `verdict: fail`:**
+- Report the unresolved issues to user
+- Let user decide: re-dispatch final review, fix manually, or proceed anyway
 
 ## Prompt Templates
 
 - `./implementer-prompt.md` — Dispatch implementer subagent (handles full review pipeline internally)
+- `./final-review-prompt.md` — Dispatch final review subagent (handles review + fixes, reports verdict)
 - `./spec-reviewer-prompt.md` — Spec compliance reviewer (dispatched by implementer, not main session)
 - `./code-quality-reviewer-prompt.md` — Code quality reviewer (dispatched by implementer, not main session)
 
@@ -260,8 +292,15 @@ BASE_SHA=$(git rev-parse HEAD)
 ...
 
 [After all tasks]
-[Request final code review via requesting-code-review skill]
-[Final review passes]
+[Dispatch final-review subagent with BASE_SHA from before Task 1, worktree path, design doc, plan file, codex_status]
+
+[Final-review subagent runs internally:
+  - Dispatches code-reviewer subagent (opus): 1 Important finding
+  - Fixes the finding, re-dispatches: pass
+  - Dispatches codex-agent: pass (1 false positive dismissed)
+  - Reports ## Final Review Verdict: pass]
+
+[Parse verdict: pass, proceed to finishing-a-development-branch]
 
 Done!
 ```
@@ -278,6 +317,7 @@ Done!
 - Skip parsing `## Task Verdict` (always parse and act on the verdict)
 - Ignore `codex_review.status` changes in the verdict (propagate to subsequent tasks)
 - Start final code review before all tasks are complete
+- Run final code review in the main session (dispatch the final-review subagent instead)
 - Move to next task while verdict is `fail`
 
 **If subagent asks questions:**
@@ -294,7 +334,6 @@ Done!
 **Required workflow skills:**
 - **worktree-setup agent** - REQUIRED: Set up isolated workspace before starting. Dispatch `agents/worktree-setup.md` (runs on Sonnet, keeps setup out of context window).
 - **superpowers:writing-plans** - Creates the plan this skill executes
-- **superpowers:requesting-code-review** - Final review (subagent + Codex) for entire implementation
 - **superpowers:finishing-a-development-branch** - Complete development after all tasks
 
 **Subagents should use:**

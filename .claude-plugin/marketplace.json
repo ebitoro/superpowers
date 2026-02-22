@@ -9,7 +9,7 @@
     {
       "name": "superpowers",
       "description": "a custom superpowers plugin",
-      "version": "4.4.21",
+      "version": "4.4.22",
       "source": "./",
       "author": {
         "name": "Ebitoro",

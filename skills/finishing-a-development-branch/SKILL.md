@@ -224,6 +224,7 @@ rm -rf "$MAIN_REPO/.codex-state"
 **Called by:**
 - **subagent-driven-development** (Step 7) - After all tasks complete
 - **executing-plans** (Step 5) - After all batches complete
+- **team-driven-development** (After All Tasks) - After final review passes
 
 **Pairs with:**
 - **using-git-worktrees** - Cleans up worktree created by that skill

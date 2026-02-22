@@ -2,7 +2,7 @@
 
 These are the orchestration instructions for team-driven development. The team has already been created by the SKILL.md entry point — you operate within it.
 
-**Model note:** Leader orchestration is lightweight — sonnet is sufficient for this session.
+**Model note:** This prompt works with any model, including Sonnet.
 
 ## Inputs
 
@@ -16,6 +16,7 @@ These are the orchestration instructions for team-driven development. The team h
 Read these from `skills/team-driven-development/`:
 - `implementer-prompt.md` — Implementer teammate dispatch prompt
 - `codex-reviewer-prompt.md` — Codex Reviewer teammate dispatch prompt
+- `final-reviewer-prompt.md` — Final Reviewer teammate dispatch prompt
 
 ## Setup
 
@@ -85,7 +86,9 @@ Parse the message:
 
 **If `verdict: fail`:**
 - Check severity of unresolved issues
-- **Critical/Important unresolved:** Mark task `failed`, report to user
+- **Critical/Important unresolved:** Mark task `failed`
+  - If the failed task does NOT block subsequent tasks: continue with the next task
+  - If the failed task blocks downstream tasks: pause and escalate to the user
 - **Minor only:** Proceed with flags — append to `docs/unresolved-flags.md`, commit
 
 **If Codex Reviewer sends `## Codex Status Update` (at any time):**
@@ -97,6 +100,22 @@ Parse the message:
 Send `shutdown_request` to Implementer (`implementer-{task_number}`).
 
 Wait for shutdown confirmation before proceeding to next task.
+
+### Step E.1: Implementer Timeout Recovery
+
+If an Implementer goes idle without sending a `## Task Verdict`:
+
+1. Check for commits since `BASE_SHA`:
+   ```bash
+   cd {WORKTREE_PATH}
+   git log --oneline {BASE_SHA}..HEAD
+   ```
+
+2. **Commits exist:** Send `shutdown_request` to the idle Implementer. Dispatch a new Implementer with the same task and add to the prompt: "Review existing commits since {BASE_SHA} before continuing implementation."
+
+3. **No commits:** Send `shutdown_request` to the idle Implementer. Dispatch a fresh retry with the original task prompt.
+
+4. **Max 1 retry per task.** If the retry also fails, mark the task as failed and escalate to the user.
 
 ### Step F: Audit Record
 
@@ -131,64 +150,69 @@ After each task completes (pass or fail), write to `TaskUpdate` metadata:
 
 ## After All Tasks
 
-1. **Final branch review:** Dispatch spec compliance + code quality subagents and use the persistent Codex Reviewer for a full branch review.
+### Step 1: Compute Merge Base
 
-2. Compute merge-base:
-   ```bash
-   MERGE_BASE=$(git merge-base {BASE_BRANCH} HEAD)
+```bash
+cd {WORKTREE_PATH}
+MERGE_BASE=$(git merge-base {BASE_BRANCH} HEAD)
+HEAD_SHA=$(git rev-parse HEAD)
+```
+
+### Step 2: Dispatch Final Reviewer
+
+Dispatch a persistent `final-reviewer` teammate (Task tool with `team_name: "{TEAM_NAME}"`, `name: "final-reviewer"`, `subagent_type: "general-purpose"`, `model: "sonnet"`).
+
+Fill `final-reviewer-prompt.md` with:
+- `{WORKTREE_PATH}`, `{TEAM_NAME}`, `{BASE_BRANCH}`, `{DESIGN_DOC_PATH}`
+- `{PLAN_TASKS}` — full plan text
+- `{COMPLETED_TASKS_SUMMARY}` — summary of all completed tasks and their verdicts
+- `{CODEX_REVIEWER_NAME}` = `"codex-reviewer"` (or empty if `codex_available = false`)
+- `{LEADER_NAME}` = your own team name
+
+### Step 3: Send Initial Review Request
+
+Send to `final-reviewer` via SendMessage:
+
+```
+## Review Request
+type: initial
+merge_base: {MERGE_BASE}
+head_sha: {HEAD_SHA}
+```
+
+### Step 4: Process Final Review Verdict
+
+Wait for `## Final Review Verdict` from the Final Reviewer.
+
+**If `overall_verdict: pass`:** Proceed to Cleanup.
+
+**If `overall_verdict: fail`:**
+
+1. Dispatch a `fixer` teammate (Task tool with `team_name: "{TEAM_NAME}"`, `name: "fixer"`, `subagent_type: "general-purpose"`). Reuse the same fixer across rounds.
+2. Send the specific issues to the fixer with instructions to fix, test, and commit.
+3. Wait for the fixer to report `FIXED: [head_sha]`.
+4. Send a re-review request to `final-reviewer`:
    ```
-
-3. Dispatch **spec compliance subagent** (Task tool, `subagent_type: "general-purpose"`, `model: "haiku"`):
+   ## Review Request
+   type: re-review
+   merge_base: {MERGE_BASE}
+   head_sha: [updated HEAD from fixer]
    ```
-   You are reviewing whether the full branch implementation matches its specification.
+5. Wait for the updated `## Final Review Verdict`.
+6. Repeat until pass or **max 5 rounds** — then proceed with flags and report unresolved issues to the main session.
 
-   ## What Was Requested
+### Step 5: Report to Main Session
 
-   [full plan text + design doc reference]
-
-   ## What Was Implemented
-
-   [summary of all completed tasks]
-
-   ## Your Job
-
-   Read the diff and verify all requirements are met, nothing is missing, nothing extra:
-
-   ```bash
-   cd {WORKTREE_PATH}
-   git diff {MERGE_BASE}..HEAD
-   ```
-
-   Report: PASS or FAIL with specific issues.
-   ```
-
-4. Dispatch **code quality subagent** (Task tool, `subagent_type: "superpowers:code-reviewer"`, `model: "sonnet"`):
-   - Full branch diff: `{MERGE_BASE}..HEAD`
-   - Working directory: `{WORKTREE_PATH}`
-   - Plan + design doc reference as context
-
-5. Send `## Codex Review Request` to persistent Codex Reviewer:
-   ```
-   ## Codex Review Request
-   commit_range: {MERGE_BASE}..HEAD
-   task_summary: Final branch review for [plan name]
-   context: Full implementation of all tasks. Design doc: {DESIGN_DOC_PATH}
-   thread_id: new
-   ```
-
-6. Wait for all three reviews.
-   - If spec compliance finds issues, report to user (no Implementer to fix).
-   - If code quality finds issues, report to user.
-   - If Codex finds issues, include in final report.
-
-7. **If final review passes:** Report success to main session.
-8. **If final review fails:** Report failures to main session with details.
+**If final review passes:** Report success.
+**If final review fails after 5 rounds:** Report failures with details of unresolved issues.
 
 ## Cleanup
 
-1. Send `shutdown_request` to persistent Codex Reviewer
-2. Send `shutdown_request` to any remaining teammates
-3. Wait for shutdown confirmations
+1. Send `shutdown_request` to `final-reviewer`
+2. Send `shutdown_request` to `fixer` (if dispatched)
+3. Send `shutdown_request` to persistent Codex Reviewer
+4. Send `shutdown_request` to any remaining teammates
+5. Wait for shutdown confirmations
 
 > TeamDelete is handled by the SKILL.md entry point after these instructions complete.
 
@@ -219,4 +243,4 @@ Return this to the main session:
 - **Never** transition task state from any agent except Leader
 - **Never** proceed with unresolved Critical/Important issues after cap — escalate
 - **Never** retry Codex automatically after unavailability — user must request it
-- If stagnation detected (same issues across 3+ tasks), escalate immediately
+- If 3+ consecutive tasks produce the same Codex finding category (e.g., repeated naming issues, repeated missing error handling), escalate to user as a systemic issue rather than fixing per-task

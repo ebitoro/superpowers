@@ -5,9 +5,9 @@ description: Use when executing implementation plans with independent tasks usin
 
 # Team-Driven Development
 
-Execute plan by acting as team Leader via AgentTeam, dispatching Implementer and Codex Reviewer teammates for each task. Same review pipeline as subagent-driven-development (Codex → spec compliance → code quality), but runs inside the Implementer teammate instead of the main session.
+Execute plan by acting as team Leader via AgentTeam, dispatching Implementer and Codex Reviewer teammates for each task. Per-task review: in-session self-review + Codex (parallel) → spec compliance → code quality, all inside the Implementer. Branch-level review: Final Reviewer teammate runs spec + quality + Codex in parallel.
 
-**Core principle:** Same process as subagent-driven-development — the only difference is team vs subagent orchestration. Implementer owns the full review pipeline (self-review+Codex parallel → spec → quality). Leader dispatches, waits for verdict, moves to next task. Codex Reviewer persists across tasks as a shared service.
+**Core principle:** Leader is lightweight orchestration — dispatches, waits for verdicts, moves to next task. Implementer owns per-task review (in-session self-review + Codex parallel → spec → quality). Final Reviewer owns branch-level review (spec + quality + Codex in parallel). Codex Reviewer persists across tasks as a shared service.
 
 ## When to Use
 
@@ -94,6 +94,7 @@ If tasks failed or were escalated:
 - `./leader-prompt.md` — Leader orchestration reference (followed by this session)
 - `./implementer-prompt.md` — Implementer teammate dispatch prompt
 - `./codex-reviewer-prompt.md` — Persistent Codex Reviewer teammate dispatch prompt
+- `./final-reviewer-prompt.md` — Persistent Final Reviewer teammate dispatch prompt
 
 ## Red Flags
 
@@ -101,7 +102,7 @@ If tasks failed or were escalated:
 - Start implementation on main/master branch without explicit user consent
 - Dispatch multiple implementation agents in parallel (file conflicts)
 - Dispatch the Leader as a regular subagent (it won't have team tool access)
-- Skip any review phase (self-review+Codex → spec compliance → code quality — same order as subagent-driven-development)
+- Skip any review phase (in-session self-review + Codex → spec compliance → code quality)
 
 ## Integration
 

@@ -98,16 +98,36 @@ Task tool:
     worktree_path: {WORKING_DIRECTORY}
 ```
 
-Then wait with a 60-minute timeout:
+Poll for completion in 30-minute intervals (max 2 hours total):
 
 ```
-TaskOutput:
-  task_id: <returned task_id>
-  block: true
-  timeout: 3600000
+# Poll loop — up to 4 attempts (4 x 30 min = 2 hours)
+for attempt in 1..4:
+  TaskOutput:
+    task_id: <returned task_id>
+    block: true
+    timeout: 1800000  # 30 minutes
+
+  if result received:
+    break  # Got the response, proceed to verification
+
+  # Timeout — check if still running
+  TaskOutput:
+    task_id: <returned task_id>
+    block: false
+
+  if task completed:
+    break  # Finished between polls, proceed
+  else:
+    # Still running, wait another 30 minutes
+    continue
+
+# After 4 attempts with no result:
+TaskStop(task_id)
+Mark Codex as unavailable.
 ```
 
-**If timeout is reached:** `TaskStop(task_id)`, mark Codex as `unavailable`, skip Codex for remaining phases and note in verdict.
+**If all 4 poll attempts exhausted:** `TaskStop(task_id)`, mark Codex as `unavailable`, skip Codex for remaining phases and note in verdict.
 
 **If result received:** Save the returned `thread_id` for re-reviews. If the agent reports `status: unavailable`, skip Codex for remaining phases and note in verdict.
 
@@ -171,7 +191,7 @@ Task tool:
     worktree_path: {WORKING_DIRECTORY}
 ```
 
-Wait with 60-minute timeout (`TaskOutput` with `timeout: 3600000`). If timeout, `TaskStop` and mark Codex unavailable.
+Poll for completion using the same 30-minute interval loop (max 2 hours). If all attempts exhausted, `TaskStop` and mark Codex unavailable.
 
 Verify new findings, fix, re-dispatch until clean or cap reached.
 

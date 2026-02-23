@@ -91,9 +91,36 @@ Task tool:
     worktree_path: {WORKING_DIRECTORY}
 ```
 
-Wait with 60-minute timeout (`TaskOutput` with `timeout: 3600000`).
+Poll for completion in 30-minute intervals (max 2 hours total):
 
-**If timeout:** `TaskStop(task_id)`, mark Codex as unavailable in verdict.
+```
+# Poll loop — up to 4 attempts (4 x 30 min = 2 hours)
+for attempt in 1..4:
+  TaskOutput:
+    task_id: <returned task_id>
+    block: true
+    timeout: 1800000  # 30 minutes
+
+  if result received:
+    break  # Got the response, proceed to verification
+
+  # Timeout — check if still running
+  TaskOutput:
+    task_id: <returned task_id>
+    block: false
+
+  if task completed:
+    break  # Finished between polls, proceed
+  else:
+    # Still running, wait another 30 minutes
+    continue
+
+# After 4 attempts with no result:
+TaskStop(task_id)
+Mark Codex as unavailable in verdict.
+```
+
+**If all 4 poll attempts exhausted:** `TaskStop(task_id)`, mark Codex as unavailable in verdict.
 
 **If result received:** Save `thread_id`. Verify each finding against actual code:
 - **Verified:** Fix it, commit, update HEAD_SHA

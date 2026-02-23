@@ -122,7 +122,7 @@ If the codex-agent reports `status: unavailable` (MCP not connected, usage limit
 
 ## Timeout Handling
 
-Codex MCP calls can hang indefinitely. To prevent blocking the pipeline, all codex-agent dispatches MUST use background dispatch with a 60-minute wall-clock timeout and a turn cap.
+Codex MCP calls can hang indefinitely. To prevent blocking the pipeline, all codex-agent dispatches use background dispatch with a 30-minute poll loop (up to 4 attempts = 2 hours max) and a turn cap.
 
 ### Dispatch Pattern
 
@@ -140,22 +140,42 @@ Task tool:
     ...
 ```
 
-After dispatching, wait with a 60-minute wall-clock timeout:
+After dispatching, poll for completion in 30-minute intervals (max 2 hours total):
 
 ```
-TaskOutput:
-  task_id: <returned task_id>
-  block: true
-  timeout: 3600000
+# Poll loop — up to 4 attempts (4 x 30 min = 2 hours)
+for attempt in 1..4:
+  TaskOutput:
+    task_id: <returned task_id>
+    block: true
+    timeout: 1800000  # 30 minutes
+
+  if result received:
+    break  # Got the response, proceed normally
+
+  # Timeout — check if still running
+  TaskOutput:
+    task_id: <returned task_id>
+    block: false
+
+  if task completed:
+    break  # Finished between polls, proceed
+  else:
+    # Still running, wait another 30 minutes
+    continue
+
+# After 4 attempts with no result:
+TaskStop(task_id)
+Mark Codex as unavailable.
 ```
 
-**If TaskOutput returns within timeout:** Read the result normally.
+**If result received within any poll interval:** Read the result normally.
 
-**If timeout is reached (no result after 60 minutes):**
+**If all 4 poll attempts exhausted (no result after 2 hours):**
 1. Stop the agent: `TaskStop(task_id: <task_id>)`
 2. Mark Codex as `unavailable` for remaining tasks
 3. Proceed without Codex review
-4. Inform the user: "Codex review timed out after 60 minutes"
+4. Inform the user: "Codex review timed out after 2 hours"
 
 ### When `max_turns` Is Hit
 

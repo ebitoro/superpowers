@@ -58,16 +58,36 @@ Task tool:
     worktree_path: {WORKTREE_PATH}
 ```
 
-Then wait with a 60-minute timeout:
+Poll for completion in 30-minute intervals (max 2 hours total):
 
 ```
-TaskOutput:
-  task_id: <returned task_id>
-  block: true
-  timeout: 3600000
+# Poll loop — up to 4 attempts (4 x 30 min = 2 hours)
+for attempt in 1..4:
+  TaskOutput:
+    task_id: <returned task_id>
+    block: true
+    timeout: 1800000  # 30 minutes
+
+  if result received:
+    break  # Got the response, proceed
+
+  # Timeout — check if still running
+  TaskOutput:
+    task_id: <returned task_id>
+    block: false
+
+  if task completed:
+    break  # Finished between polls, proceed
+  else:
+    # Still running, wait another 30 minutes
+    continue
+
+# After 4 attempts with no result:
+TaskStop(task_id)
+Mark Codex as unavailable.
 ```
 
-**If timeout is reached:** `TaskStop(task_id)`, mark Codex as `unavailable`, reply to requester with `status: unavailable, reason: timeout after 60 minutes`.
+**If all 4 poll attempts exhausted:** `TaskStop(task_id)`, mark Codex as `unavailable`, reply to requester with `status: unavailable, reason: timeout after 2 hours`.
 
 **Do NOT** pass `commit_range`, `task_summary`, `task_spec` as separate top-level fields — codex-agent does not recognize them. Everything goes in `message`.
 

@@ -11,7 +11,7 @@ You are an Implementer subagent. You implement a task, then run the full review 
 - **Working directory:** {WORKING_DIRECTORY}
 - **Base SHA:** {BASE_SHA} (commit before this task — never changes across rounds)
 - **Codex status:** {CODEX_STATUS} (either "available" or "unavailable")
-- **Codex thread ID:** {CODEX_THREAD_ID} (shared thread across all tasks — use this instead of creating a new thread)
+- **Codex thread ID:** {CODEX_THREAD_ID} (concrete thread ID pre-created by the main session — always a real ID, never "new")
 
 ---
 
@@ -78,7 +78,7 @@ If self-review finds issues, fix them now before proceeding.
 
 **Skip if `{CODEX_STATUS}` is "unavailable".**
 
-Dispatch codex-agent via the Task tool with background + timeout (Codex MCP can hang — see `lib/codex-integration.md`):
+**Dispatch codex-agent as a subagent via the Task tool** (never call `codex`/`codex-reply` MCP directly — the codex-agent handles thread management and response verification):
 
 ```
 Task tool:
@@ -129,7 +129,7 @@ Mark Codex as unavailable.
 
 **If all 4 poll attempts exhausted:** `TaskStop(task_id)`, mark Codex as `unavailable`, skip Codex for remaining phases and note in verdict.
 
-**If result received:** Save the returned `thread_id` for re-reviews. If the agent reports `status: unavailable`, skip Codex for remaining phases and note in verdict.
+**If result received:** Process the review findings. If the agent reports `status: unavailable`, skip Codex for remaining phases and note in verdict.
 
 ---
 
@@ -171,7 +171,7 @@ Update `HEAD_SHA`.
 **Self-review re-run:** Re-do the checklist (Completeness, Quality, Discipline, Testing) against the updated diff (`{BASE_SHA}..{HEAD_SHA}`). Fix any new issues found.
 
 **Codex re-review** (max 5 rounds total):
-If Codex found issues that were fixed, re-dispatch with saved thread_id using background + timeout:
+If Codex found issues that were fixed, dispatch codex-agent again via Task tool with the same `{CODEX_THREAD_ID}` (continues the existing thread — codex-agent uses `codex-reply`, not `codex`):
 
 ```
 Task tool:
@@ -182,7 +182,7 @@ Task tool:
   description: "Codex re-review for Task {TASK_NUMBER}"
   prompt: |
     mode: review-gate
-    thread_id: [saved thread_id]
+    thread_id: "{CODEX_THREAD_ID}"
     message: |
       Re-review {BASE_SHA}..{HEAD_SHA}.
       Task {TASK_NUMBER}: {TASK_NAME}.
@@ -344,3 +344,5 @@ concerns: [any risks or "none"]
 10. **One commit per fix round.** Keep history clean.
 11. **Use {BASE_SHA} for all diffs.** It never changes.
 12. **Questions go in your Task tool response.** The main session sees them directly.
+13. **Never call `codex` or `codex-reply` MCP tools directly.** All Codex communication goes through `superpowers:codex-agent` dispatched via the Task tool (not the Skill tool). The codex-agent handles thread management — calling `codex` directly creates orphan threads and skips response verification.
+14. **Always use `{CODEX_THREAD_ID}` for all codex-agent dispatches.** This is a concrete thread ID pre-created by the main session. Using it ensures `codex-reply` continues the existing thread. Never pass "new" as thread_id.

@@ -90,6 +90,35 @@ This only affects the implementer. Review subagents (spec, quality, codex) use f
 
 Check if inside a git worktree (`git worktree list`). If NOT in a worktree, dispatch the `worktree-setup` agent (see `agents/worktree-setup.md`) with the branch name. The agent runs on Sonnet and handles the full setup.
 
+### Initialize Codex Thread (Before Any Tasks)
+
+Create the Codex review thread upfront so every implementer receives a concrete thread_id (never "new"). This prevents implementers from calling `codex` MCP directly to create threads.
+
+Dispatch codex-agent in the background:
+
+```
+Task tool:
+  subagent_type: "superpowers:codex-agent"
+  model: "sonnet"
+  max_turns: 25
+  run_in_background: true
+  description: "Initialize Codex review thread"
+  prompt: |
+    mode: discuss
+    thread_id: "new"
+    message: |
+      Starting implementation review session.
+      Plan: [plan name or one-line summary]
+      We will review individual task diffs as they are implemented.
+    worktree_path: [worktree absolute path]
+```
+
+Poll with the standard 30-minute interval loop (see `lib/codex-integration.md`).
+
+**If result received:** Extract `thread_id` from the response. Set `codex_thread_id` to this value and `codex_status = "available"`.
+
+**If Codex is unavailable** (timeout, MCP error, etc.): Set `codex_status = "unavailable"` and `codex_thread_id = "none"`. All tasks will skip Codex review.
+
 ### Per-Task Workflow
 
 ```dot
@@ -149,9 +178,12 @@ BASE_SHA=$(git rev-parse HEAD)
 
 ### Step 2: Determine CODEX_STATUS and CODEX_THREAD_ID
 
-- Start with `codex_status = "available"` and `codex_thread_id = "new"`
-- If a previous task's verdict reported `codex_review.status: unavailable`, set `codex_status = "unavailable"` for all subsequent tasks
-- If a previous task's verdict returned `codex_review.thread_id`, use that value as `codex_thread_id` for all subsequent tasks (reusing one thread avoids Codex hanging on new thread creation)
+Use the values established in "Initialize Codex Thread" (before the task loop). Both are set once and propagated:
+
+- `codex_thread_id` — the concrete thread ID from initialization (never "new" — the main session already created the thread)
+- `codex_status` — "available" or "unavailable" from initialization
+
+**Update on status change:** If a task's verdict reports `codex_review.status: unavailable`, set `codex_status = "unavailable"` for all subsequent tasks.
 
 ### Step 3: Dispatch Implementer
 
@@ -166,7 +198,7 @@ Fill the template from `./implementer-prompt.md` with these 8 inputs:
 | `{WORKING_DIRECTORY}` | Worktree absolute path |
 | `{BASE_SHA}` | From Step 1 |
 | `{CODEX_STATUS}` | From Step 2 |
-| `{CODEX_THREAD_ID}` | From Step 2 (`"new"` for first task, then reused from verdict) |
+| `{CODEX_THREAD_ID}` | From Step 2 (always a concrete ID from pre-initialized thread, never "new") |
 
 Dispatch via Task tool (`subagent_type: "general-purpose"`). If `work_model` is set, add `model: "{work_model}"` to the Task tool call.
 
@@ -179,7 +211,6 @@ Scan the implementer's response for `## Task Verdict`. Extract:
 - **`verdict`**: `pass` or `fail`
 - **`head_sha`**: The commit after all implementation and fixes
 - **`codex_review.status`**: `available` or `unavailable` — propagate to subsequent tasks
-- **`codex_review.thread_id`**: The Codex thread ID — propagate to subsequent tasks and final review
 - **`concerns`**: Non-blocking risks worth noting
 
 **If `verdict: pass`:**
@@ -198,9 +229,6 @@ Scan the implementer's response for `## Task Verdict`. Extract:
 - Set `codex_status = "unavailable"` for remaining tasks
 - Inform user that Codex review was skipped
 
-**If `codex_review.thread_id` is present and not "none":**
-- Set `codex_thread_id` to this value for all subsequent tasks
-
 ## Final Code Review
 
 After all tasks complete, dispatch a final-review subagent to review the entire implementation. The subagent handles the full review cycle (code-reviewer + Codex) and fixes any issues it finds — the main session only sees the final verdict.
@@ -218,8 +246,9 @@ Fill the template from `./final-review-prompt.md` with these inputs:
 | `{DESIGN_DOC_PATH}` | From `.codex-state/current_design_doc` (empty string if missing) |
 | `{PLAN_FILE_PATH}` | Plan file path |
 | `{CODEX_STATUS}` | Current codex_status value |
+| `{CODEX_THREAD_ID}` | The pre-initialized Codex thread ID (same thread used by all tasks) |
 
-Dispatch via Task tool (`subagent_type: "general-purpose"`, `model: "opus"`). The final review starts a fresh Codex thread (separate from the implementation thread) but reuses it for fix iterations within the review.
+Dispatch via Task tool (`subagent_type: "general-purpose"`, `model: "opus"`). The final review reuses the same Codex thread — Codex already has full implementation context from per-task reviews.
 
 ### Parse the Final Review Verdict
 
@@ -254,12 +283,14 @@ You: I'm using Subagent-Driven Development to execute this plan.
 [Read plan file once: docs/plans/feature-plan.md]
 [Extract all 5 tasks with full text and context]
 [Create TodoWrite with all tasks]
-[Set codex_status = "available", codex_thread_id = "new"]
+
+[Initialize Codex thread: dispatch codex-agent with mode=discuss, thread_id="new"]
+[Result: codex_thread_id = thread_abc123, codex_status = "available"]
 
 Task 1: Hook installation script
 BASE_SHA=$(git rev-parse HEAD)
 
-[Dispatch implementer subagent with full task text + context + BASE_SHA + codex_status + codex_thread_id="new"]
+[Dispatch implementer subagent with full task text + context + BASE_SHA + codex_status + codex_thread_id=thread_abc123]
 
 Implementer: "Before I begin - should the hook be installed at user or system level?"
 
@@ -270,7 +301,7 @@ You: "User level (~/.config/superpowers/hooks/)"
 [Implementer runs full pipeline internally:
   - Implements, tests, commits
   - Self-review: finds missed --force flag, fixes
-  - Codex review: pass (1 false positive dismissed)
+  - Codex review: pass (1 false positive dismissed) — uses thread_abc123 via codex-agent
   - Spec compliance: pass
   - Code quality: pass]
 
@@ -290,11 +321,11 @@ code_quality: pass (round 1)
 tests: 5/5 passing
 concerns: none
 
-[Mark Task 1 complete, save codex_thread_id = thread_abc123]
+[Mark Task 1 complete]
 
 Task 2: Recovery modes
 BASE_SHA=$(git rev-parse HEAD)
-[Dispatch implementer with codex_thread_id = thread_abc123 (reused from Task 1)]
+[Dispatch implementer with codex_thread_id = thread_abc123 (same pre-initialized thread)]
 ...
 
 [After all tasks]

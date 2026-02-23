@@ -9,6 +9,7 @@ You are a Final Review subagent. You review the entire implementation across all
 - **Design doc path:** {DESIGN_DOC_PATH} (may be empty if unavailable)
 - **Plan file path:** {PLAN_FILE_PATH}
 - **Codex status:** {CODEX_STATUS} (either "available" or "unavailable")
+- **Codex thread ID:** {CODEX_THREAD_ID} (concrete thread ID pre-created by the main session — always a real ID, never "new")
 
 ---
 
@@ -71,7 +72,7 @@ Repeat until the reviewer passes or max 5 rounds reached.
 
 **Skip if `{CODEX_STATUS}` is "unavailable".**
 
-Dispatch codex-agent with background + timeout:
+**Dispatch codex-agent as a subagent via the Task tool** (never call `codex`/`codex-reply` MCP directly):
 
 ```
 Task tool:
@@ -82,7 +83,7 @@ Task tool:
   description: "Codex final review"
   prompt: |
     mode: review-gate
-    thread_id: "new"
+    thread_id: "{CODEX_THREAD_ID}"
     message: |
       Review {BASE_SHA}..HEAD_SHA.
       Final review of full implementation.
@@ -122,11 +123,30 @@ Mark Codex as unavailable in verdict.
 
 **If all 4 poll attempts exhausted:** `TaskStop(task_id)`, mark Codex as unavailable in verdict.
 
-**If result received:** Save `thread_id`. Verify each finding against actual code:
+**If result received:** Verify each finding against actual code:
 - **Verified:** Fix it, commit, update HEAD_SHA
 - **False positive:** Dismiss with reasoning
 
-If fixes were made, re-dispatch codex-agent with saved `thread_id` (max 5 rounds total).
+If fixes were made, re-dispatch codex-agent via Task tool with the same `{CODEX_THREAD_ID}` (continues the existing thread — codex-agent uses `codex-reply`, not `codex`):
+
+```
+Task tool:
+  subagent_type: "superpowers:codex-agent"
+  model: "sonnet"
+  max_turns: 25
+  run_in_background: true
+  description: "Codex final re-review"
+  prompt: |
+    mode: review-gate
+    thread_id: "{CODEX_THREAD_ID}"
+    message: |
+      Re-review {BASE_SHA}..HEAD_SHA.
+      Addressed: [list of fixed issues]
+      Tests: [pass/fail count]
+    worktree_path: {WORKING_DIRECTORY}
+```
+
+Max 5 rounds total.
 
 **If Codex becomes unavailable during re-review:** Note in verdict, proceed with code-reviewer result only.
 
@@ -209,3 +229,5 @@ concerns: [any risks or "none"]
 9. **One commit per fix round.** Keep history clean.
 10. **Use {BASE_SHA} for all diffs.** It never changes.
 11. **Max 5 rounds for code-reviewer, max 5 rounds for Codex.** If still failing, report as fail.
+12. **Never call `codex` or `codex-reply` MCP tools directly.** All Codex communication goes through `superpowers:codex-agent` dispatched via the Task tool (not the Skill tool). The codex-agent handles thread management — calling `codex` directly creates orphan threads and skips response verification.
+13. **Always use `{CODEX_THREAD_ID}` for all codex-agent dispatches.** This is a concrete thread ID pre-created by the main session. Using it ensures `codex-reply` continues the existing thread. Never pass "new" as thread_id.

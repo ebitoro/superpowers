@@ -136,82 +136,19 @@ grep -q '.codex-state/' "$MAIN_REPO/.gitignore" 2>/dev/null || echo '.codex-stat
 
 If the codex-agent reports `status: unavailable` (MCP not connected, usage limit, or any error), skip all Codex steps and proceed without Codex review. Inform the user that Codex review was skipped and why.
 
-## Timeout Handling
-
-Codex MCP calls can hang indefinitely. To prevent blocking the pipeline, all codex-agent dispatches use background dispatch with a 15-minute poll loop and freeze detection.
-
-### Dispatch Pattern
-
-Every codex-agent dispatch should use `run_in_background: true`. Background dispatch is for **freeze detection only** — you MUST still wait for the result before proceeding to the next step. The poll loop blocks until Codex completes or is declared frozen/timed out. Never move on to the next action while a Codex dispatch is still pending.
+## Dispatch Pattern
 
 ```
-Task tool:
+Agent tool:
   subagent_type: "superpowers:codex-agent"
   model: "sonnet"
-  run_in_background: true
   description: "Codex review for Task N"
   prompt: |
     mode: review-gate
     ...
 ```
 
-After dispatching, poll for completion in 15-minute intervals. Compare the agent's output between polls to detect freezes — if the output is unchanged for 2 consecutive polls (30 minutes of no progress), the Codex MCP is likely hung:
-
-```
-previous_output = ""
-stale_count = 0
-
-# Poll loop — up to 8 attempts (8 x 15 min = 2 hours max)
-for attempt in 1..8:
-  TaskOutput:
-    task_id: <returned task_id>
-    block: true
-    timeout: 900000  # 15 minutes
-
-  if result received:
-    break  # Got the response, proceed normally
-
-  # Timeout — check current state
-  current_output = TaskOutput:
-    task_id: <returned task_id>
-    block: false
-
-  if task completed:
-    break  # Finished between polls, proceed
-
-  # Freeze detection: compare output to previous poll
-  if current_output == previous_output:
-    stale_count += 1
-    print "Codex review output unchanged (stale {stale_count}/2, attempt {attempt}/8)..."
-    if stale_count >= 2:
-      print "Codex appears frozen — no progress for 30 minutes. Stopping."
-      TaskStop(task_id)
-      Mark Codex as unavailable.
-      break
-  else:
-    stale_count = 0  # Reset — agent is making progress
-    print "Codex review in progress (attempt {attempt}/8)..."
-
-  previous_output = current_output
-
-# After 8 attempts with no result:
-TaskStop(task_id)
-Mark Codex as unavailable.
-```
-
-**If result received within any poll interval:** Read the result normally.
-
-**If freeze detected (output unchanged for 2 consecutive polls / 30 minutes):**
-1. Stop the agent: `TaskStop(task_id: <task_id>)`
-2. Mark Codex as `unavailable` for remaining tasks
-3. Proceed without Codex review
-4. Inform the user: "Codex appears frozen — no progress for 30 minutes"
-
-**If all 8 poll attempts exhausted (no result after 2 hours):**
-1. Stop the agent: `TaskStop(task_id: <task_id>)`
-2. Mark Codex as `unavailable` for remaining tasks
-3. Proceed without Codex review
-4. Inform the user: "Codex review timed out after 2 hours"
+If codex-agent reports `status: unavailable`, mark Codex unavailable for remaining tasks and proceed without Codex review.
 
 ## Tracking Unresolved Flags
 

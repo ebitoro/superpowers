@@ -94,13 +94,12 @@ Check if inside a git worktree (`git worktree list`). If NOT in a worktree, disp
 
 Create the Codex review thread upfront so every implementer receives a concrete thread_id (never "new"). This prevents implementers from calling `codex` MCP directly to create threads.
 
-Dispatch codex-agent in the background:
+Dispatch codex-agent:
 
 ```
-Task tool:
+Agent tool:
   subagent_type: "superpowers:codex-agent"
   model: "sonnet"
-  run_in_background: true
   description: "Initialize Codex review thread"
   prompt: |
     mode: discuss
@@ -113,7 +112,7 @@ Task tool:
     worktree_path: [worktree absolute path]
 ```
 
-**BLOCKING WAIT — do NOT start any tasks until this completes.** Poll with the 15-minute freeze-detection loop (see `lib/codex-integration.md`). You must have a concrete `codex_thread_id` or a definitive "unavailable" status before proceeding.
+**Do NOT start any tasks until this completes.** You must have a concrete `codex_thread_id` or a definitive "unavailable" status before proceeding.
 
 **If result received:** Extract `thread_id` from the response. Set `codex_thread_id` to this value and `codex_status = "available"`.
 

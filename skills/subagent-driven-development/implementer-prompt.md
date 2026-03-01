@@ -78,13 +78,12 @@ If self-review finds issues, fix them now before proceeding.
 
 **Skip if `{CODEX_STATUS}` is "unavailable".**
 
-**Dispatch codex-agent as a subagent via the Task tool** (never call `codex`/`codex-reply` MCP directly — the codex-agent handles thread management and response verification):
+**Dispatch codex-agent** (never call `codex`/`codex-reply` MCP directly):
 
 ```
-Task tool:
+Agent tool:
   subagent_type: "superpowers:codex-agent"
   model: "sonnet"
-  run_in_background: true
   description: "Codex review for Task {TASK_NUMBER}"
   prompt: |
     mode: review-gate
@@ -97,7 +96,7 @@ Task tool:
     worktree_path: {WORKING_DIRECTORY}
 ```
 
-**BLOCKING WAIT — do NOT proceed to Phase 3 until Codex review completes.** Poll for completion using the 15-minute freeze-detection loop (see `lib/codex-integration.md`). Compare output between polls — if unchanged for 2 consecutive polls (30 min), Codex is likely frozen; `TaskStop` and mark unavailable, skip Codex for remaining phases and note in verdict.
+**Do NOT proceed to Phase 3 until Codex review completes.**
 
 **If result received:** Process the review findings. If the agent reports `status: unavailable`, skip Codex for remaining phases and note in verdict.
 
@@ -141,13 +140,12 @@ Update `HEAD_SHA`.
 **Self-review re-run:** Re-do the checklist (Completeness, Quality, Discipline, Testing) against the updated diff (`{BASE_SHA}..{HEAD_SHA}`). Fix any new issues found.
 
 **Codex re-review** (max 5 rounds total):
-If Codex found issues that were fixed, dispatch codex-agent again via Task tool with the same `{CODEX_THREAD_ID}` (continues the existing thread — codex-agent uses `codex-reply`, not `codex`):
+If Codex found issues that were fixed, re-dispatch codex-agent with the same `{CODEX_THREAD_ID}`:
 
 ```
-Task tool:
+Agent tool:
   subagent_type: "superpowers:codex-agent"
   model: "sonnet"
-  run_in_background: true
   description: "Codex re-review for Task {TASK_NUMBER}"
   prompt: |
     mode: review-gate
@@ -159,8 +157,6 @@ Task tool:
       Tests: [pass/fail count]
     worktree_path: {WORKING_DIRECTORY}
 ```
-
-Poll for completion using the same 15-minute freeze-detection loop (see `lib/codex-integration.md`). If frozen or all attempts exhausted, `TaskStop` and mark Codex unavailable.
 
 Verify new findings, fix, re-dispatch until clean or cap reached.
 

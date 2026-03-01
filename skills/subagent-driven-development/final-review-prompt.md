@@ -71,13 +71,12 @@ Repeat until the reviewer passes or max 5 rounds reached.
 
 **Skip if `{CODEX_STATUS}` is "unavailable".**
 
-**Dispatch codex-agent as a subagent via the Task tool** (never call `codex`/`codex-reply` MCP directly):
+**Dispatch codex-agent** (never call `codex`/`codex-reply` MCP directly):
 
 ```
-Task tool:
+Agent tool:
   subagent_type: "superpowers:codex-agent"
   model: "sonnet"
-  run_in_background: true
   description: "Codex final review"
   prompt: |
     mode: review-gate
@@ -91,7 +90,7 @@ Task tool:
     worktree_path: {WORKING_DIRECTORY}
 ```
 
-**BLOCKING WAIT — do NOT proceed to fixing or verdict until Codex review completes.** Poll for completion using the 15-minute freeze-detection loop (see `lib/codex-integration.md`). Compare output between polls — if unchanged for 2 consecutive polls (30 min), Codex is likely frozen; `TaskStop` and mark unavailable in verdict.
+**Do NOT proceed to fixing or verdict until Codex review completes.**
 
 Save the returned `thread_id` from the codex-agent response — use it for re-reviews within this final review phase.
 
@@ -99,13 +98,12 @@ Save the returned `thread_id` from the codex-agent response — use it for re-re
 - **Verified:** Fix it, commit, update HEAD_SHA
 - **False positive:** Dismiss with reasoning
 
-If fixes were made, re-dispatch codex-agent via Task tool with the saved thread_id from the initial final review dispatch (continues the existing thread — codex-agent uses `codex-reply`, not `codex`):
+If fixes were made, re-dispatch codex-agent with the saved thread_id:
 
 ```
-Task tool:
+Agent tool:
   subagent_type: "superpowers:codex-agent"
   model: "sonnet"
-  run_in_background: true
   description: "Codex final re-review"
   prompt: |
     mode: review-gate

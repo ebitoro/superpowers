@@ -38,14 +38,12 @@ status: unavailable
 
 ### Step 3: Dispatch codex-agent
 
-Dispatch via the Task tool with `subagent_type: "superpowers:codex-agent"`, using background + timeout to prevent hanging (Codex MCP can hang — see `lib/codex-integration.md`).
-
-Compose the prompt with the fields codex-agent expects (`mode`, `thread_id`, `message`, `context`, `worktree_path`). The `message` field must contain the review content — commit SHAs, summary, spec, and test results — so codex-agent can select the right Codex skill automatically.
+Dispatch codex-agent. The `message` field must contain the review content — commit SHAs, summary, spec, and test results — so codex-agent can select the right Codex skill automatically.
 
 ```
-Task tool:
+Agent tool:
   subagent_type: "superpowers:codex-agent"
-  run_in_background: true
+  description: "Codex review for [task]"
   prompt: |
     mode: review-gate
     thread_id: [from request — "new" or saved ID]
@@ -61,7 +59,7 @@ Task tool:
 
 **Profile handling:** Only pass `profile` when creating a new thread (`thread_id: "new"`). When reusing a saved thread_id for re-reviews, omit `profile` — the thread already has its profile set.
 
-**BLOCKING WAIT — do NOT reply to requester until Codex review completes.** Poll for completion using the 15-minute freeze-detection loop (see `lib/codex-integration.md`). Compare output between polls — if unchanged for 2 consecutive polls (30 min), Codex is likely frozen; `TaskStop` and mark unavailable, reply to requester with `status: unavailable, reason: frozen (no progress for 30 minutes)`. If all 8 attempts exhausted, reply with `reason: timeout after 2 hours`.
+**Do NOT reply to requester until Codex review completes.**
 
 **Do NOT** pass `commit_range`, `task_summary`, `task_spec` as separate top-level fields — codex-agent does not recognize them. Everything goes in `message`.
 

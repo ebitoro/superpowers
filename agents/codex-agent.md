@@ -43,6 +43,7 @@ The caller will provide:
 - **context** (optional): Additional context — design doc path, plan reference, what is being built
 - **worktree_path** (optional): If work is in a worktree, the absolute path
 - **finding** (for `cross-verify` only): The specific finding to cross-verify with Codex
+- **profile** (optional): Codex config profile to use when creating a new thread (e.g., `"higheffort"`, `"xhigheffort"`). Only applies to `create-thread` and new thread creation in other modes. Ignored when reusing an existing thread.
 
 ## Modes
 
@@ -57,7 +58,7 @@ Create a new Codex conversation thread. Used at the start of brainstorming.
    mkdir -p "$STATE_DIR"
    grep -q '.codex-state/' "$MAIN_REPO/.gitignore" 2>/dev/null || echo '.codex-state/' >> "$MAIN_REPO/.gitignore"
    ```
-2. Call `codex` MCP tool to create a new thread. **Do NOT pass the `model` parameter.**
+2. Call `codex` MCP tool to create a new thread. **Do NOT pass the `model` parameter.** Pass `profile` if the caller provided one.
 3. Save the returned thread ID to `$STATE_DIR/codex_thread_id`
 4. If the caller provided a context message, send it via `codex-reply` to initialize the thread
 5. Report back: thread ID, status (created/failed), and any Codex response to the context message
@@ -132,7 +133,7 @@ For all modes except `create-thread`, resolve the thread to use. The caller cont
 ### Resolution order
 
 1. **`thread_id` is a specific ID** (e.g., `"sess_abc123"`): Use that thread directly. Validate it — if expired, report `thread_status: expired` so the caller can handle it.
-2. **`thread_id` is `"new"`**: Create a fresh thread via `codex` MCP tool. **Do NOT pass the `model` parameter.** Return the new thread ID in the response. Do NOT save it to any file — the caller manages persistence.
+2. **`thread_id` is `"new"`**: Create a fresh thread via `codex` MCP tool. **Do NOT pass the `model` parameter.** Pass `profile` if the caller provided one. Return the new thread ID in the response. Do NOT save it to any file — the caller manages persistence.
 3. **`thread_id` not provided**: Fall back to the persistent state file:
    ```bash
    MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
@@ -142,7 +143,7 @@ For all modes except `create-thread`, resolve the thread to use. The caller cont
    - Test thread validity by sending a short `codex-reply` message: `"Thread check — still active?"`
    - If valid: use this thread
    - If file missing or thread expired:
-     - Create a new thread via `codex` MCP tool. **Do NOT pass the `model` parameter.**
+     - Create a new thread via `codex` MCP tool. **Do NOT pass the `model` parameter.** Do NOT pass `profile` — recovery threads use the default config.
      - Save new thread ID to `$STATE_DIR/codex_thread_id`
      - If the caller provided context, send it to rebuild Codex's understanding
      - If a design doc path is available at `$STATE_DIR/current_design_doc`, read it and send a summary to Codex
@@ -164,7 +165,7 @@ All file paths are relative to the worktree root.
 
 ## Model Selection
 
-**NEVER pass the `model` parameter** to `codex` or `codex-reply` MCP tools. Let Codex use the model configured in `~/.codex/config.toml` or MCP server startup flags.
+**NEVER pass the `model` parameter** to `codex` or `codex-reply` MCP tools. Let Codex use the model configured in `~/.codex/config.toml` or MCP server startup flags. Pass `profile` only when the caller provides one — it selects a pre-configured profile from `~/.codex/config.toml`.
 
 ## Verification Rules
 

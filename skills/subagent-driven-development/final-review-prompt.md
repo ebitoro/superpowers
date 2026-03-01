@@ -9,7 +9,6 @@ You are a Final Review subagent. You review the entire implementation across all
 - **Design doc path:** {DESIGN_DOC_PATH} (may be empty if unavailable)
 - **Plan file path:** {PLAN_FILE_PATH}
 - **Codex status:** {CODEX_STATUS} (either "available" or "unavailable")
-- **Codex thread ID:** {CODEX_THREAD_ID} (concrete thread ID pre-created by the main session — always a real ID, never "new")
 
 ---
 
@@ -78,12 +77,12 @@ Repeat until the reviewer passes or max 5 rounds reached.
 Task tool:
   subagent_type: "superpowers:codex-agent"
   model: "sonnet"
-  max_turns: 25
   run_in_background: true
   description: "Codex final review"
   prompt: |
     mode: review-gate
-    thread_id: "{CODEX_THREAD_ID}"
+    thread_id: "new"
+    profile: "xhigheffort"
     message: |
       Review {BASE_SHA}..HEAD_SHA.
       Final review of full implementation.
@@ -92,53 +91,25 @@ Task tool:
     worktree_path: {WORKING_DIRECTORY}
 ```
 
-Poll for completion in 30-minute intervals (max 2 hours total):
+**BLOCKING WAIT — do NOT proceed to fixing or verdict until Codex review completes.** Poll for completion using the 15-minute freeze-detection loop (see `lib/codex-integration.md`). Compare output between polls — if unchanged for 2 consecutive polls (30 min), Codex is likely frozen; `TaskStop` and mark unavailable in verdict.
 
-```
-# Poll loop — up to 4 attempts (4 x 30 min = 2 hours)
-for attempt in 1..4:
-  TaskOutput:
-    task_id: <returned task_id>
-    block: true
-    timeout: 1800000  # 30 minutes
-
-  if result received:
-    break  # Got the response, proceed to verification
-
-  # Timeout — check if still running
-  TaskOutput:
-    task_id: <returned task_id>
-    block: false
-
-  if task completed:
-    break  # Finished between polls, proceed
-  else:
-    # Still running, wait another 30 minutes
-    continue
-
-# After 4 attempts with no result:
-TaskStop(task_id)
-Mark Codex as unavailable in verdict.
-```
-
-**If all 4 poll attempts exhausted:** `TaskStop(task_id)`, mark Codex as unavailable in verdict.
+Save the returned `thread_id` from the codex-agent response — use it for re-reviews within this final review phase.
 
 **If result received:** Verify each finding against actual code:
 - **Verified:** Fix it, commit, update HEAD_SHA
 - **False positive:** Dismiss with reasoning
 
-If fixes were made, re-dispatch codex-agent via Task tool with the same `{CODEX_THREAD_ID}` (continues the existing thread — codex-agent uses `codex-reply`, not `codex`):
+If fixes were made, re-dispatch codex-agent via Task tool with the saved thread_id from the initial final review dispatch (continues the existing thread — codex-agent uses `codex-reply`, not `codex`):
 
 ```
 Task tool:
   subagent_type: "superpowers:codex-agent"
   model: "sonnet"
-  max_turns: 25
   run_in_background: true
   description: "Codex final re-review"
   prompt: |
     mode: review-gate
-    thread_id: "{CODEX_THREAD_ID}"
+    thread_id: [saved thread_id from initial final review]
     message: |
       Re-review {BASE_SHA}..HEAD_SHA.
       Addressed: [list of fixed issues]
@@ -230,4 +201,4 @@ concerns: [any risks or "none"]
 10. **Use {BASE_SHA} for all diffs.** It never changes.
 11. **Max 5 rounds for code-reviewer, max 5 rounds for Codex.** If still failing, report as fail.
 12. **Never call `codex` or `codex-reply` MCP tools directly.** All Codex communication goes through `superpowers:codex-agent` dispatched via the Task tool (not the Skill tool). The codex-agent handles thread management — calling `codex` directly creates orphan threads and skips response verification.
-13. **Always use `{CODEX_THREAD_ID}` for all codex-agent dispatches.** This is a concrete thread ID pre-created by the main session. Using it ensures `codex-reply` continues the existing thread. Never pass "new" as thread_id.
+13. **Create a fresh Codex thread for the final review.** Use `thread_id: "new"` with `profile: "xhigheffort"` for the initial dispatch. Save the returned thread_id and reuse it for all re-review dispatches within this final review phase.

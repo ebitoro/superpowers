@@ -103,6 +103,7 @@ task_summary: Final branch review for implementation plan
 task_spec: {PLAN_TASKS}
 context: Full implementation of all tasks. Design doc: {DESIGN_DOC_PATH}
 thread_id: [new for initial, saved thread_id for re-reviews]
+profile: xhigheffort
 ```
 
 Save the returned `thread_id` from the Codex response for re-reviews.

@@ -17,10 +17,10 @@ Full-project audit for production readiness. CC and Codex review independently, 
 
 You MUST create a task for each of these items and complete them in order:
 
-1. **Start Codex review** — dispatch codex-agent with `mode: discuss` to send project context and request independent review
-2. **Parallel review** — CC explores codebase while Codex reviews independently (via codex-agent)
+1. **Start Codex review** — dispatch codex-agent with `mode: discuss` to send project context and request independent review. **Wait for result** — must have thread_id before proceeding.
+2. **Parallel review** — CC explores codebase while Codex reviews independently (via codex-agent). **Wait for Codex result** before step 3.
 3. **Create findings document** — merge CC findings + Codex findings
-4. **Cross-verification** — dispatch codex-agent with `mode: cross-verify` for each finding
+4. **Cross-verification** — dispatch codex-agent with `mode: cross-verify` for each finding. **Wait for each result** before updating the document.
 5. **Update document** — mark each finding as confirmed, dismissed, or downgraded
 6. **Write summary** — add summary section at bottom of document
 7. **Commit** — commit the document to git
@@ -30,7 +30,7 @@ You MUST create a task for each of these items and complete them in order:
 
 ### Step 1: Start Codex Review
 
-Dispatch codex-agent with `mode: discuss` and `thread_id: "new"` (not `review-gate` — this is an open-ended review request, not a pass/fail gate). Save the returned `thread_id` for use in Step 4 cross-verification. Send the following message:
+Dispatch codex-agent with `mode: discuss`, `thread_id: "new"`, and `profile: "xhigheffort"` (not `review-gate` — this is an open-ended review request, not a pass/fail gate). Save the returned `thread_id` for use in Step 4 cross-verification. Send the following message:
 
 ```
 Product readiness review for this project.

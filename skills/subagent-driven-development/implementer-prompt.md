@@ -84,7 +84,6 @@ If self-review finds issues, fix them now before proceeding.
 Task tool:
   subagent_type: "superpowers:codex-agent"
   model: "sonnet"
-  max_turns: 25
   run_in_background: true
   description: "Codex review for Task {TASK_NUMBER}"
   prompt: |
@@ -98,36 +97,7 @@ Task tool:
     worktree_path: {WORKING_DIRECTORY}
 ```
 
-Poll for completion in 30-minute intervals (max 2 hours total):
-
-```
-# Poll loop — up to 4 attempts (4 x 30 min = 2 hours)
-for attempt in 1..4:
-  TaskOutput:
-    task_id: <returned task_id>
-    block: true
-    timeout: 1800000  # 30 minutes
-
-  if result received:
-    break  # Got the response, proceed to verification
-
-  # Timeout — check if still running
-  TaskOutput:
-    task_id: <returned task_id>
-    block: false
-
-  if task completed:
-    break  # Finished between polls, proceed
-  else:
-    # Still running, wait another 30 minutes
-    continue
-
-# After 4 attempts with no result:
-TaskStop(task_id)
-Mark Codex as unavailable.
-```
-
-**If all 4 poll attempts exhausted:** `TaskStop(task_id)`, mark Codex as `unavailable`, skip Codex for remaining phases and note in verdict.
+**BLOCKING WAIT — do NOT proceed to Phase 3 until Codex review completes.** Poll for completion using the 15-minute freeze-detection loop (see `lib/codex-integration.md`). Compare output between polls — if unchanged for 2 consecutive polls (30 min), Codex is likely frozen; `TaskStop` and mark unavailable, skip Codex for remaining phases and note in verdict.
 
 **If result received:** Process the review findings. If the agent reports `status: unavailable`, skip Codex for remaining phases and note in verdict.
 
@@ -177,7 +147,6 @@ If Codex found issues that were fixed, dispatch codex-agent again via Task tool 
 Task tool:
   subagent_type: "superpowers:codex-agent"
   model: "sonnet"
-  max_turns: 25
   run_in_background: true
   description: "Codex re-review for Task {TASK_NUMBER}"
   prompt: |
@@ -191,7 +160,7 @@ Task tool:
     worktree_path: {WORKING_DIRECTORY}
 ```
 
-Poll for completion using the same 30-minute interval loop (max 2 hours). If all attempts exhausted, `TaskStop` and mark Codex unavailable.
+Poll for completion using the same 15-minute freeze-detection loop (see `lib/codex-integration.md`). If frozen or all attempts exhausted, `TaskStop` and mark Codex unavailable.
 
 Verify new findings, fix, re-dispatch until clean or cap reached.
 

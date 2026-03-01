@@ -59,7 +59,7 @@ Use Task tool with superpowers:code-reviewer type, fill template at `code-review
 
 > See `lib/codex-integration.md` for Codex patterns, review gate loop, and timeout handling.
 
-After the code-reviewer subagent passes, dispatch codex-agent with `mode: review-gate` and `thread_id: "new"` using **background dispatch + 30-minute poll loop** (`max_turns: 25`, `run_in_background: true`, then poll with `TaskOutput` at `timeout: 1800000` intervals, up to 4 attempts = 2 hours total). If all attempts exhausted, `TaskStop` and treat as unavailable. See `lib/codex-integration.md` for the full poll loop pattern.
+After the code-reviewer subagent passes, dispatch codex-agent with `mode: review-gate`, `thread_id: "new"`, and `profile: "xhigheffort"` using **background dispatch + 15-minute freeze-detection loop** (`run_in_background: true`, then poll — see `lib/codex-integration.md`). **Wait for the result before proceeding to Step 5.** If frozen (output unchanged for 30 min) or all 8 attempts exhausted (2 hours), `TaskStop` and treat as unavailable.
 
 Include:
 - Commit SHAs (`{BASE_SHA}..{HEAD_SHA}`) — NOT raw diffs

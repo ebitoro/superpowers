@@ -23,6 +23,7 @@ Extract these fields:
 - `task_spec` — full task specification (requirements, acceptance criteria)
 - `context` — what was implemented or changed
 - `thread_id` — `new` for first review, or saved ID for re-reviews
+- `profile` — Codex config profile (optional, default: `"higheffort"`)
 
 Note the sender's name — you reply to them.
 
@@ -44,11 +45,11 @@ Compose the prompt with the fields codex-agent expects (`mode`, `thread_id`, `me
 ```
 Task tool:
   subagent_type: "superpowers:codex-agent"
-  max_turns: 25
   run_in_background: true
   prompt: |
     mode: review-gate
     thread_id: [from request — "new" or saved ID]
+    profile: [from request — default "higheffort", only passed when thread_id is "new"]
     message: |
       Review commits [commit_range].
       Task: [task_summary]
@@ -58,36 +59,9 @@ Task tool:
     worktree_path: {WORKTREE_PATH}
 ```
 
-Poll for completion in 30-minute intervals (max 2 hours total):
+**Profile handling:** Only pass `profile` when creating a new thread (`thread_id: "new"`). When reusing a saved thread_id for re-reviews, omit `profile` — the thread already has its profile set.
 
-```
-# Poll loop — up to 4 attempts (4 x 30 min = 2 hours)
-for attempt in 1..4:
-  TaskOutput:
-    task_id: <returned task_id>
-    block: true
-    timeout: 1800000  # 30 minutes
-
-  if result received:
-    break  # Got the response, proceed
-
-  # Timeout — check if still running
-  TaskOutput:
-    task_id: <returned task_id>
-    block: false
-
-  if task completed:
-    break  # Finished between polls, proceed
-  else:
-    # Still running, wait another 30 minutes
-    continue
-
-# After 4 attempts with no result:
-TaskStop(task_id)
-Mark Codex as unavailable.
-```
-
-**If all 4 poll attempts exhausted:** `TaskStop(task_id)`, mark Codex as `unavailable`, reply to requester with `status: unavailable, reason: timeout after 2 hours`.
+**BLOCKING WAIT — do NOT reply to requester until Codex review completes.** Poll for completion using the 15-minute freeze-detection loop (see `lib/codex-integration.md`). Compare output between polls — if unchanged for 2 consecutive polls (30 min), Codex is likely frozen; `TaskStop` and mark unavailable, reply to requester with `status: unavailable, reason: frozen (no progress for 30 minutes)`. If all 8 attempts exhausted, reply with `reason: timeout after 2 hours`.
 
 **Do NOT** pass `commit_range`, `task_summary`, `task_spec` as separate top-level fields — codex-agent does not recognize them. Everything goes in `message`.
 

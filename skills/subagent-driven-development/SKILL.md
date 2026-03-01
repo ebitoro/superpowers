@@ -100,12 +100,12 @@ Dispatch codex-agent in the background:
 Task tool:
   subagent_type: "superpowers:codex-agent"
   model: "sonnet"
-  max_turns: 25
   run_in_background: true
   description: "Initialize Codex review thread"
   prompt: |
     mode: discuss
     thread_id: "new"
+    profile: "higheffort"
     message: |
       Starting implementation review session.
       Plan: [plan name or one-line summary]
@@ -113,11 +113,15 @@ Task tool:
     worktree_path: [worktree absolute path]
 ```
 
-Poll with the standard 30-minute interval loop (see `lib/codex-integration.md`).
+**BLOCKING WAIT — do NOT start any tasks until this completes.** Poll with the 15-minute freeze-detection loop (see `lib/codex-integration.md`). You must have a concrete `codex_thread_id` or a definitive "unavailable" status before proceeding.
 
 **If result received:** Extract `thread_id` from the response. Set `codex_thread_id` to this value and `codex_status = "available"`.
 
 **If Codex is unavailable** (timeout, MCP error, etc.): Set `codex_status = "unavailable"` and `codex_thread_id = "none"`. All tasks will skip Codex review.
+
+<HARD-GATE>
+Do NOT dispatch any implementer subagent until `codex_thread_id` and `codex_status` are resolved. Starting tasks without these values causes tasks to silently skip Codex review.
+</HARD-GATE>
 
 ### Per-Task Workflow
 
@@ -246,9 +250,8 @@ Fill the template from `./final-review-prompt.md` with these inputs:
 | `{DESIGN_DOC_PATH}` | From `.codex-state/current_design_doc` (empty string if missing) |
 | `{PLAN_FILE_PATH}` | Plan file path |
 | `{CODEX_STATUS}` | Current codex_status value |
-| `{CODEX_THREAD_ID}` | The pre-initialized Codex thread ID (same thread used by all tasks) |
 
-Dispatch via Task tool (`subagent_type: "general-purpose"`, `model: "opus"`). The final review reuses the same Codex thread — Codex already has full implementation context from per-task reviews.
+Dispatch via Task tool (`subagent_type: "general-purpose"`, `model: "opus"`). The final review creates its own fresh Codex thread with `profile: "xhigheffort"` — a clean context for the high-stakes final review, separate from the per-task `higheffort` thread.
 
 ### Parse the Final Review Verdict
 
@@ -345,6 +348,7 @@ Done!
 ## Red Flags
 
 **Never:**
+- Start any task before Codex thread initialization completes (wait for `codex_thread_id` or "unavailable" — see HARD-GATE above)
 - Start implementation on main/master branch without explicit user consent
 - Dispatch multiple implementation subagents in parallel (conflicts)
 - Make subagent read plan file (provide full text instead)

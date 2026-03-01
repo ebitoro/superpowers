@@ -26,6 +26,7 @@ Use the Task tool to dispatch the codex-agent. Four modes:
 ```
 mode: create-thread
 context: <summary of project and mission for Codex>
+profile: <optional — Codex config profile to use for this thread>
 ```
 
 **`discuss`** — Send a discussion message and get a verified response:
@@ -43,6 +44,7 @@ thread_id: <optional — "new" for fresh thread, or a specific ID for retries>
 message: <review request — see "What to Include" below>
 context: <design doc reference, plan task, etc.>
 worktree_path: <optional worktree absolute path>
+profile: <optional — Codex config profile for new threads (ignored when reusing existing thread)>
 ```
 
 **`cross-verify`** — Cross-verify a specific finding with Codex:
@@ -94,6 +96,20 @@ Codex inspects actual files and git log in its sandbox. Sending SHAs instead of 
 
 False positives are filtered by the agent — only real issues come back.
 
+## Codex Profiles
+
+Codex CLI supports configuration profiles (defined in `~/.codex/config.toml`). Profile is set **per-thread** at creation time — `codex-reply` does not accept a profile parameter.
+
+| Profile | Used For | Rationale |
+|---|---|---|
+| `higheffort` | Per-task implementation reviews | Faster, sufficient for incremental task reviews |
+| `xhigheffort` | Design review, plan review, final code review, standalone code review, product readiness review | Higher quality for high-stakes gate reviews |
+
+**Rules:**
+- Pass `profile` in `create-thread` and `review-gate` (with `thread_id: "new"`) dispatches only
+- Never pass `profile` when reusing an existing thread (the thread already has its profile)
+- If no `profile` is specified, Codex uses its default configuration
+
 ## State Directory
 
 All Codex state files live in `.codex-state/` at the **main repo root** (not per-worktree).
@@ -122,17 +138,16 @@ If the codex-agent reports `status: unavailable` (MCP not connected, usage limit
 
 ## Timeout Handling
 
-Codex MCP calls can hang indefinitely. To prevent blocking the pipeline, all codex-agent dispatches use background dispatch with a 30-minute poll loop (up to 4 attempts = 2 hours max) and a turn cap.
+Codex MCP calls can hang indefinitely. To prevent blocking the pipeline, all codex-agent dispatches use background dispatch with a 15-minute poll loop and freeze detection.
 
 ### Dispatch Pattern
 
-Every codex-agent dispatch should use `run_in_background: true` and `max_turns: 25`:
+Every codex-agent dispatch should use `run_in_background: true`. Background dispatch is for **freeze detection only** — you MUST still wait for the result before proceeding to the next step. The poll loop blocks until Codex completes or is declared frozen/timed out. Never move on to the next action while a Codex dispatch is still pending.
 
 ```
 Task tool:
   subagent_type: "superpowers:codex-agent"
   model: "sonnet"
-  max_turns: 25
   run_in_background: true
   description: "Codex review for Task N"
   prompt: |
@@ -140,46 +155,63 @@ Task tool:
     ...
 ```
 
-After dispatching, poll for completion in 30-minute intervals (max 2 hours total):
+After dispatching, poll for completion in 15-minute intervals. Compare the agent's output between polls to detect freezes — if the output is unchanged for 2 consecutive polls (30 minutes of no progress), the Codex MCP is likely hung:
 
 ```
-# Poll loop — up to 4 attempts (4 x 30 min = 2 hours)
-for attempt in 1..4:
+previous_output = ""
+stale_count = 0
+
+# Poll loop — up to 8 attempts (8 x 15 min = 2 hours max)
+for attempt in 1..8:
   TaskOutput:
     task_id: <returned task_id>
     block: true
-    timeout: 1800000  # 30 minutes
+    timeout: 900000  # 15 minutes
 
   if result received:
     break  # Got the response, proceed normally
 
-  # Timeout — check if still running
-  TaskOutput:
+  # Timeout — check current state
+  current_output = TaskOutput:
     task_id: <returned task_id>
     block: false
 
   if task completed:
     break  # Finished between polls, proceed
-  else:
-    # Still running, wait another 30 minutes
-    continue
 
-# After 4 attempts with no result:
+  # Freeze detection: compare output to previous poll
+  if current_output == previous_output:
+    stale_count += 1
+    print "Codex review output unchanged (stale {stale_count}/2, attempt {attempt}/8)..."
+    if stale_count >= 2:
+      print "Codex appears frozen — no progress for 30 minutes. Stopping."
+      TaskStop(task_id)
+      Mark Codex as unavailable.
+      break
+  else:
+    stale_count = 0  # Reset — agent is making progress
+    print "Codex review in progress (attempt {attempt}/8)..."
+
+  previous_output = current_output
+
+# After 8 attempts with no result:
 TaskStop(task_id)
 Mark Codex as unavailable.
 ```
 
 **If result received within any poll interval:** Read the result normally.
 
-**If all 4 poll attempts exhausted (no result after 2 hours):**
+**If freeze detected (output unchanged for 2 consecutive polls / 30 minutes):**
+1. Stop the agent: `TaskStop(task_id: <task_id>)`
+2. Mark Codex as `unavailable` for remaining tasks
+3. Proceed without Codex review
+4. Inform the user: "Codex appears frozen — no progress for 30 minutes"
+
+**If all 8 poll attempts exhausted (no result after 2 hours):**
 1. Stop the agent: `TaskStop(task_id: <task_id>)`
 2. Mark Codex as `unavailable` for remaining tasks
 3. Proceed without Codex review
 4. Inform the user: "Codex review timed out after 2 hours"
-
-### When `max_turns` Is Hit
-
-If the codex-agent exhausts its 25 turns, it returns a partial response. If the response does not contain the expected structured fields (verdict, verified_issues, thread_id), treat it as a timeout — mark Codex as `unavailable` and proceed.
 
 ## Tracking Unresolved Flags
 

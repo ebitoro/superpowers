@@ -44,13 +44,13 @@ You MUST create a task for each of these items and complete them in order:
 
 1. **Explore project context** — launch 2-3 subagent code-explorers in parallel (see "Codebase Exploration")
 2. **Read key files** — read all files identified by the explorer agents to build deep understanding
-3. **Start Codex thread** — dispatch codex-agent with `mode: create-thread` and project context + mission
+3. **Start Codex thread** — dispatch codex-agent with `mode: create-thread`, `profile: "xhigheffort"`, and project context + mission. **Wait for result** — must have thread_id before proceeding.
 4. **Ask clarifying questions** — one at a time, understand purpose/constraints/success criteria
-5. **Discuss refined idea with Codex** — dispatch codex-agent with `mode: discuss`, validate understanding and surface blind spots
+5. **Discuss refined idea with Codex** — dispatch codex-agent with `mode: discuss`, **wait for result**, validate understanding and surface blind spots
 6. **Propose 2-3 approaches** — with trade-offs and your recommendation
-7. **Discuss approaches with Codex** — dispatch codex-agent with `mode: discuss`, if recommendations differ, note both for user
-8. **Codex review gate** — dispatch codex-agent with `mode: review-gate`, iterate up to 5 rounds (see `lib/codex-integration.md`)
-9. **Present final design to user** — include any unresolved Codex flags if review gate did not fully pass
+7. **Discuss approaches with Codex** — dispatch codex-agent with `mode: discuss`, **wait for result**, if recommendations differ, note both for user
+8. **Codex review gate** — dispatch codex-agent with `mode: review-gate`, **wait for result**, iterate up to 5 rounds (see `lib/codex-integration.md`)
+9. **Present final design to user** — only after Codex review gate completes. Include any unresolved Codex flags if review gate did not fully pass
 10. **Write design doc** — save to `docs/plans/YYYY-MM-DD-<topic>-design.md`, commit, and write breadcrumb to `.codex-state/current_design_doc`
 
 ## Process Flow
@@ -116,7 +116,7 @@ digraph brainstorming {
 
 ### Starting the Codex Thread
 
-- Dispatch codex-agent with `mode: create-thread` and context containing:
+- Dispatch codex-agent with `mode: create-thread`, `profile: "xhigheffort"`, and context containing:
   - Summary of the project context gathered by subagents
   - The user's idea/request
   - Codex's role: reviewer and thought partner for this brainstorming session

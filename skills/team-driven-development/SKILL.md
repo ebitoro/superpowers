@@ -105,6 +105,26 @@ When the Leader instructions finish (all tasks processed, final review done):
 2. Call `TeamDelete` to clean up the team
 
 If all tasks passed:
+- **Dispatch update-docs subagent** (opt-in — only if project CLAUDE.md has `## Post-Implementation Docs`):
+
+```
+Agent tool:
+  subagent_type: "general-purpose"
+  model: "opus"
+  description: "Update post-implementation documentation"
+  prompt: |
+    You are a documentation updater. Use the superpowers:update-docs-after-implementation skill.
+
+    Working directory: {WORKTREE_PATH}
+    Base SHA: [commit before first task]
+
+    Read all commits since BASE_SHA, find the Post-Implementation Docs list
+    in the project CLAUDE.md, update each document, and commit.
+
+    If no Post-Implementation Docs section exists in CLAUDE.md, report
+    "No post-implementation docs configured — skipping" and exit.
+```
+
 - **REQUIRED SUB-SKILL:** Use superpowers:finishing-a-development-branch
 
 If tasks failed or were escalated:
@@ -131,6 +151,7 @@ If tasks failed or were escalated:
 **Required workflow skills:**
 - **worktree-setup agent** — Set up isolated workspace before starting
 - **superpowers:writing-plans** — Creates the plan this skill executes
+- **superpowers:update-docs-after-implementation** — Update project docs after final review (opt-in via project CLAUDE.md)
 - **superpowers:finishing-a-development-branch** — Complete development after all tasks
 
 **Implementer agents should use:**

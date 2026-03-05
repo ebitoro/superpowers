@@ -164,7 +164,9 @@ digraph process {
     "More tasks remain?" -> "Dispatch final-review subagent (./final-review-prompt.md)" [label="no"];
     "Dispatch final-review subagent (./final-review-prompt.md)" -> "Parse ## Final Review Verdict";
     "Parse ## Final Review Verdict" -> "Final verdict pass?";
-    "Final verdict pass?" -> "Use superpowers:finishing-a-development-branch" [label="yes"];
+    "Final verdict pass?" -> "Dispatch update-docs subagent (if configured)" [label="yes"];
+    "Dispatch update-docs subagent (if configured)" [shape=box];
+    "Dispatch update-docs subagent (if configured)" -> "Use superpowers:finishing-a-development-branch";
     "Final verdict pass?" -> "Escalate to user" [label="no"];
 }
 ```
@@ -270,6 +272,34 @@ Scan the subagent's response for `## Final Review Verdict`. Extract:
 - Report the unresolved issues to user
 - Let user decide: re-dispatch final review, fix manually, or proceed anyway
 
+## Update Post-Implementation Docs
+
+After the final review passes and before invoking `finishing-a-development-branch`, dispatch a subagent to update project documentation. This step is **automatic but opt-in** — it only runs if the project's CLAUDE.md has a `## Post-Implementation Docs` section.
+
+```
+Agent tool:
+  subagent_type: "general-purpose"
+  model: "opus"
+  description: "Update post-implementation documentation"
+  prompt: |
+    You are a documentation updater. Use the superpowers:update-docs-after-implementation skill.
+
+    Working directory: [worktree absolute path]
+    Base SHA: [commit before first task — the original BASE_SHA from Task 1]
+
+    Read all commits since BASE_SHA, find the Post-Implementation Docs list
+    in the project CLAUDE.md, update each document, and commit.
+
+    If no Post-Implementation Docs section exists in CLAUDE.md, report
+    "No post-implementation docs configured — skipping" and exit.
+```
+
+**If status is `updated`:** Report updated documents to user, then proceed to `finishing-a-development-branch`.
+
+**If status is `skipped`:** Proceed to `finishing-a-development-branch` silently.
+
+**If status is `error`:** Report error to user but still proceed to `finishing-a-development-branch` (doc update failure should not block completion).
+
 ## Prompt Templates
 
 - `./implementer-prompt.md` — Dispatch implementer subagent (handles full review pipeline internally)
@@ -374,6 +404,7 @@ Done!
 **Required workflow skills:**
 - **worktree-setup agent** - REQUIRED: Set up isolated workspace before starting. Dispatch `agents/worktree-setup.md` (runs on Sonnet, keeps setup out of context window).
 - **superpowers:writing-plans** - Creates the plan this skill executes
+- **superpowers:update-docs-after-implementation** - Update project docs after final review (opt-in via project CLAUDE.md)
 - **superpowers:finishing-a-development-branch** - Complete development after all tasks
 
 **Subagents should use:**

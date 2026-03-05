@@ -59,9 +59,32 @@ Based on feedback:
 - Execute next batch
 - Repeat Step 3 -> Step 4 -> Step 5 for each batch
 
-### Step 7: Complete Development
+### Step 7: Update Documentation
 
-After all tasks complete and verified:
+After all tasks complete and verified, dispatch a doc update subagent (opt-in — only runs if project CLAUDE.md has `## Post-Implementation Docs`):
+
+```
+Agent tool:
+  subagent_type: "general-purpose"
+  model: "opus"
+  description: "Update post-implementation documentation"
+  prompt: |
+    You are a documentation updater. Use the superpowers:update-docs-after-implementation skill.
+
+    Working directory: [worktree absolute path]
+    Base SHA: [commit before first task]
+
+    Read all commits since BASE_SHA, find the Post-Implementation Docs list
+    in the project CLAUDE.md, update each document, and commit.
+
+    If no Post-Implementation Docs section exists in CLAUDE.md, report
+    "No post-implementation docs configured — skipping" and exit.
+```
+
+If status is `error`, report but continue. Doc update failure does not block completion.
+
+### Step 8: Complete Development
+
 - Announce: "I'm using the finishing-a-development-branch skill to complete this work."
 - **REQUIRED SUB-SKILL:** Use superpowers:finishing-a-development-branch
 - Follow that skill to verify tests, present options, execute choice
@@ -100,4 +123,5 @@ After all tasks complete and verified:
 - **worktree-setup agent** - REQUIRED: Set up isolated workspace before starting. Dispatch `agents/worktree-setup.md` (runs on Sonnet, keeps setup out of context window).
 - **superpowers:writing-plans** - Creates the plan this skill executes
 - **superpowers:requesting-code-review** - Reviews each batch (subagent + Codex)
+- **superpowers:update-docs-after-implementation** - Update project docs after final review (opt-in via project CLAUDE.md)
 - **superpowers:finishing-a-development-branch** - Complete development after all tasks

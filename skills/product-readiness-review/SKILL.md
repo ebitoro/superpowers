@@ -5,6 +5,12 @@ description: Comprehensive product readiness review - edge cases, gaps, false po
 
 # Product Readiness Review
 
+## Reasoning Effort
+
+Use the highest reasoning effort (ultrathink) for ALL steps throughout this entire review process. Production readiness is the last line of defense — every missed edge case, security gap, or false positive in tests is a potential production incident. Deep analytical thinking across all phases is non-negotiable.
+
+## Overview
+
 Full-project audit for production readiness. CC and Codex review independently, merge findings into a document, then cross-verify every finding through discussion. The output is a committed review document.
 
 **This skill is invoked via `/product-readiness-review` command only.** It does NOT trigger automatically.

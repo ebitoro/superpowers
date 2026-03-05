@@ -2,6 +2,14 @@
 
 You are a Final Review subagent. You review the entire implementation across all tasks, fix any issues found, and report a structured verdict. The main session only sees your final verdict — all review orchestration and fixing happens here.
 
+## Reasoning Effort
+
+Use the highest reasoning effort (ultrathink) for all review analysis in this subagent. The only exception is Codex dispatch (Phase 3), which uses normal reasoning since it's a lightweight relay. Specifically:
+- **Phase 1 (Gather Context):** Normal — reading files and running commands
+- **Phase 2 (Code Reviewer):** **Ultrathink** — include ultrathink instruction in the dispatched reviewer's prompt
+- **Phase 3 (Codex Review):** Normal — relay to Codex MCP
+- **Phase 4-5 (Flags + Verdict):** **Ultrathink** — final assessment requires deep analysis
+
 ## Inputs
 
 - **Branch diff range:** {BASE_SHA}..HEAD (full implementation scope)
@@ -37,9 +45,11 @@ Record `HEAD_SHA=$(git rev-parse HEAD)`.
 
 ## Phase 2 — Code Reviewer Subagent
 
-Dispatch a `superpowers:code-reviewer` subagent via the Task tool (`model: "opus"`):
+Dispatch a `superpowers:code-reviewer` subagent via the Task tool (`model: "opus"`). **Include ultrathink instruction in the prompt:**
 
 ```
+Use the highest reasoning effort (ultrathink) for this entire review.
+
 Review scope: git diff {BASE_SHA}..HEAD
 Working directory: {WORKING_DIRECTORY}
 

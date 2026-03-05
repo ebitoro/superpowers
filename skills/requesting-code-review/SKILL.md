@@ -5,6 +5,12 @@ description: Use when completing tasks, implementing major features, or before m
 
 # Requesting Code Review
 
+## Reasoning Effort
+
+Use the highest reasoning effort (ultrathink) for ALL steps throughout this entire review process. Code review is where subtle bugs, security issues, and architectural problems are caught — shallow analysis here lets defects through to production.
+
+## Process
+
 Two-stage review: dispatch superpowers:code-reviewer subagent, then Codex review gate. Both must pass before proceeding.
 
 **Core principle:** Review early, review often. Two reviewers catch what one misses.

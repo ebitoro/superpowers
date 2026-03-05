@@ -5,6 +5,10 @@ description: "You MUST use this before any creative work - creating features, bu
 
 # Brainstorming Ideas Into Designs
 
+## Reasoning Effort
+
+Use the highest reasoning effort (ultrathink) for ALL steps throughout this entire brainstorming process. Every decision — question formulation, approach analysis, trade-off evaluation, design drafting — benefits from deep analytical thinking. Brainstorming is where the most consequential decisions are made; shallow reasoning here compounds into implementation problems later.
+
 ## Overview
 
 Help turn ideas into fully formed designs and specs through natural collaborative dialogue.
@@ -45,7 +49,7 @@ You MUST create a task for each of these items and complete them in order:
 1. **Explore project context** — launch 2-3 subagent code-explorers in parallel (see "Codebase Exploration")
 2. **Read key files** — read all files identified by the explorer agents to build deep understanding
 3. **Start Codex thread** — dispatch codex-agent with `mode: create-thread`, `profile: "xhigheffort"`, and project context + mission. **Wait for result** — must have thread_id before proceeding.
-4. **Ask clarifying questions** — one at a time, understand purpose/constraints/success criteria
+4. **Interview the user exhaustively** — use AskUserQuestion tool, 1-2 deep questions at a time covering purpose, technical implementation, UI/UX, constraints, concerns, trade-offs, integration; continue until no ambiguity remains
 5. **Discuss refined idea with Codex** — dispatch codex-agent with `mode: discuss`, **wait for result**, validate understanding and surface blind spots
 6. **Propose 2-3 approaches** — with trade-offs and your recommendation
 7. **Discuss approaches with Codex** — dispatch codex-agent with `mode: discuss`, **wait for result**, if recommendations differ, note both for user
@@ -125,11 +129,30 @@ digraph brainstorming {
 
 ### Understanding the Idea
 
-- Ask questions one at a time to refine the idea
-- Prefer multiple choice questions when possible, but open-ended is fine too
-- Only one question per message — if a topic needs more exploration, break it into multiple questions
-- Focus on understanding: purpose, constraints, success criteria
-- After questions are resolved, dispatch codex-agent with `mode: discuss` to validate understanding and surface blind spots
+This is an exhaustive interview, not a quick Q&A. Keep asking until every aspect of the idea is fully understood — there is no fixed number of rounds. The interview is done when you can confidently draft a design with no ambiguity left.
+
+**How to ask:**
+- Use the **AskUserQuestion tool** for all clarifying questions
+- 1-2 questions per call, each with 2-4 concrete options and clear descriptions
+- Use `multiSelect: true` when choices aren't mutually exclusive
+- The user can always select "Other" — your options cover the most likely choices, not every possibility
+
+**What to ask about — go deep across all dimensions:**
+- **Purpose & goals** — what problem this solves, who it's for, what success looks like
+- **Technical implementation** — data models, APIs, state management, persistence, concurrency, performance targets
+- **UI & UX** — interaction patterns, layout, feedback mechanisms, accessibility, responsive behavior, edge-case states (empty, error, loading)
+- **Constraints & boundaries** — what's explicitly out of scope, platform limitations, backward compatibility, security requirements
+- **Concerns & risks** — what could go wrong, failure modes, degradation strategies, monitoring needs
+- **Trade-offs** — where quality vs. speed matters, build vs. buy, simplicity vs. flexibility
+- **Integration** — how this fits with existing code, what it touches, migration path if replacing something
+
+**Quality bar for questions:**
+- Never ask questions with obvious answers derivable from the codebase — you already explored it
+- Each question should surface a decision the user hasn't explicitly addressed yet
+- Dig into second-order consequences: "You chose X, but that means Y — is that acceptable?"
+- Challenge assumptions when you spot potential issues: "This approach assumes Z, but I noticed the codebase does W instead"
+
+- After the interview is complete, dispatch codex-agent with `mode: discuss` to validate understanding and surface blind spots
 
 ### Exploring Approaches
 
@@ -167,8 +190,8 @@ echo "docs/plans/YYYY-MM-DD-<topic>-design.md" > "$MAIN_REPO/.codex-state/curren
 
 ## Key Principles
 
-- **One question at a time** — Don't overwhelm with multiple questions
-- **Multiple choice preferred** — Easier to answer than open-ended when possible
+- **Exhaustive interview** — Use AskUserQuestion tool to dig deep across all dimensions until zero ambiguity remains; never cut the interview short
+- **Ultrathink throughout** — Every step uses highest reasoning effort; brainstorming decisions compound downstream
 - **YAGNI ruthlessly** — Remove unnecessary features from all designs
 - **Explore alternatives** — Always propose 2-3 approaches before settling
 - **Incremental validation** — Present design, get approval before moving on

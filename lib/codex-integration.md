@@ -22,6 +22,12 @@ Codex is a **reference**, not a source of truth. CC must **independently verify*
 
 Use the Agent tool to dispatch the codex-agent (foreground, not Task tool). Four modes:
 
+**`ping`** — Lightweight availability check + thread creation (no message sent):
+```
+mode: ping
+profile: <optional — Codex config profile to use for this thread>
+```
+
 **`create-thread`** — Start a new Codex conversation (brainstorming only):
 ```
 mode: create-thread

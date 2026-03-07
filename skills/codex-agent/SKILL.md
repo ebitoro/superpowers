@@ -23,6 +23,7 @@ Codex CLI has structured skill prompts pre-loaded. You reference them by name us
 | `cross-verify` | Any | No skill (free-form discussion) |
 | `discuss` | Any | No skill (free-form discussion) |
 | `create-thread` | N/A | No skill (thread setup only) |
+| `ping` | N/A | No skill (availability check only) |
 
 **Message format when using a skill:**
 ```
@@ -51,6 +52,20 @@ The caller will provide:
 - **profile** (optional): Codex config profile to use when creating a new thread (e.g., `"higheffort"`, `"xhigheffort"`). Only applies to `create-thread` and new thread creation in other modes. Ignored when reusing an existing thread.
 
 ## Modes
+
+### `ping`
+
+Lightweight availability check. Creates a thread and returns immediately — no message sent, no verification needed. Used by skills that just need a `thread_id` and confirmation that Codex is reachable before starting work.
+
+1. Create a fresh thread via `codex` MCP tool. **Do NOT pass the `model` parameter.** Pass `profile` if the caller provided one.
+2. Report back immediately:
+   - **thread_id**: The new thread ID
+   - **status**: `available` or `unavailable`
+   - **thread_status**: `created`
+
+Do NOT send any message to the thread. Do NOT save the thread ID to any file — the caller manages persistence.
+
+**If Codex is unavailable** (MCP not connected, error): Report `status: unavailable` with the error. Do not retry.
 
 ### `create-thread`
 

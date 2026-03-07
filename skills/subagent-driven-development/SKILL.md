@@ -94,29 +94,25 @@ Check if inside a git worktree (`git worktree list`). If NOT in a worktree, disp
 
 Create the Codex review thread upfront so every implementer receives a concrete thread_id (never "new"). This prevents implementers from calling `codex` MCP directly to create threads.
 
+Use `ping` mode — a lightweight availability check that creates a thread without sending any message. Per-task reviews provide their own context, so no upfront message is needed.
+
 Dispatch codex-agent:
 
 ```
 Agent tool:
   subagent_type: "superpowers:codex-agent"
   model: "sonnet"
-  description: "Initialize Codex review thread"
+  description: "Ping Codex — check availability and create review thread"
   prompt: |
-    mode: discuss
-    thread_id: "new"
+    mode: ping
     profile: "higheffort"
-    message: |
-      Starting implementation review session.
-      Plan: [plan name or one-line summary]
-      We will review individual task diffs as they are implemented.
-    worktree_path: [worktree absolute path]
 ```
 
 **Do NOT start any tasks until this completes.** You must have a concrete `codex_thread_id` or a definitive "unavailable" status before proceeding.
 
-**If result received:** Extract `thread_id` from the response. Set `codex_thread_id` to this value and `codex_status = "available"`.
+**If `status: available`:** Extract `thread_id` from the response. Set `codex_thread_id` to this value and `codex_status = "available"`.
 
-**If Codex is unavailable** (timeout, MCP error, etc.): Set `codex_status = "unavailable"` and `codex_thread_id = "none"`. All tasks will skip Codex review.
+**If `status: unavailable`:** Set `codex_status = "unavailable"` and `codex_thread_id = "none"`. All tasks will skip Codex review.
 
 <HARD-GATE>
 Do NOT dispatch any implementer subagent until `codex_thread_id` and `codex_status` are resolved. Starting tasks without these values causes tasks to silently skip Codex review.

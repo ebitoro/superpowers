@@ -208,5 +208,5 @@ concerns: [any risks or "none"]
 9. **One commit per fix round.** Keep history clean.
 10. **Use {BASE_SHA} for all diffs.** It never changes.
 11. **Max 5 rounds for code-reviewer, max 5 rounds for Codex.** If still failing, report as fail.
-12. **Never call `codex` or `codex-reply` MCP tools directly.** All Codex communication goes through `superpowers:codex-agent` dispatched via the Task tool (not the Skill tool). The codex-agent handles thread management — calling `codex` directly creates orphan threads and skips response verification.
+12. **Never call `codex` or `codex-reply` MCP tools directly.** All Codex communication goes through `superpowers:codex-agent` dispatched via the Agent tool (foreground, not Task tool or Skill tool). The codex-agent handles thread management — calling `codex` directly creates orphan threads and skips response verification.
 13. **Create a fresh Codex thread for the final review.** Use `thread_id: "new"` with `profile: "xhigheffort"` for the initial dispatch. Save the returned thread_id and reuse it for all re-review dispatches within this final review phase.

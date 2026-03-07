@@ -49,7 +49,7 @@ The agent supports four modes:
 - `review-gate` — Send content for review, get a filtered verdict (false positives removed)
 - `cross-verify` — Cross-verify a specific finding with Codex
 
-Skills dispatch the codex-agent via the Task tool. The agent handles thread recovery, skill selection, and response verification internally. See `lib/codex-integration.md` for dispatch format.
+Skills dispatch the codex-agent via the Agent tool (foreground). The agent handles thread recovery, skill selection, and response verification internally. See `lib/codex-integration.md` for dispatch format.
 
 ### State Directory
 

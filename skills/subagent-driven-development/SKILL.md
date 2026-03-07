@@ -52,7 +52,7 @@ The override applies to the implementer only. Review subagents always use their 
 
 ## Codex Integration
 
-> See `lib/codex-integration.md` for Codex patterns. The implementer subagent dispatches codex-agent directly via the Task tool — no persistent teammate needed.
+> See `lib/codex-integration.md` for Codex patterns. The implementer subagent dispatches codex-agent directly via the Agent tool (foreground) — no persistent teammate needed.
 
 ## The Process
 

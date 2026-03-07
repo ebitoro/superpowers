@@ -20,7 +20,7 @@ Codex is a **reference**, not a source of truth. CC must **independently verify*
 
 ### How to Dispatch
 
-Use the Task tool to dispatch the codex-agent. Four modes:
+Use the Agent tool to dispatch the codex-agent (foreground, not Task tool). Four modes:
 
 **`create-thread`** — Start a new Codex conversation (brainstorming only):
 ```

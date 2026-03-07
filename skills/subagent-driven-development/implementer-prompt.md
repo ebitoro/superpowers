@@ -309,5 +309,5 @@ concerns: [any risks or "none"]
 10. **One commit per fix round.** Keep history clean.
 11. **Use {BASE_SHA} for all diffs.** It never changes.
 12. **Questions go in your Task tool response.** The main session sees them directly.
-13. **Never call `codex` or `codex-reply` MCP tools directly.** All Codex communication goes through `superpowers:codex-agent` dispatched via the Task tool (not the Skill tool). The codex-agent handles thread management — calling `codex` directly creates orphan threads and skips response verification.
+13. **Never call `codex` or `codex-reply` MCP tools directly.** All Codex communication goes through `superpowers:codex-agent` dispatched via the Agent tool (foreground, not Task tool or Skill tool). The codex-agent handles thread management — calling `codex` directly creates orphan threads and skips response verification.
 14. **Always use `{CODEX_THREAD_ID}` for all codex-agent dispatches.** This is a concrete thread ID pre-created by the main session. Using it ensures `codex-reply` continues the existing thread. Never pass "new" as thread_id.

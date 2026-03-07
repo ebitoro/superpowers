@@ -8,7 +8,7 @@ Custom fork of [superpowers](https://github.com/obra/superpowers) by obra. Adds 
 .claude-plugin/     # Plugin metadata (plugin.json, marketplace.json)
 skills/             # Skill definitions (SKILL.md + supporting files per skill)
 lib/                # Shared references (codex-integration.md, skills-core.js)
-agents/             # Agent prompt templates (code-reviewer.md, codex-agent.md)
+agents/             # Agent prompt templates (code-reviewer.md, worktree-setup.md)
 codex/skills/       # Codex skill prompts (verify-design, verify-plan, code-review)
 commands/           # Slash command definitions (brainstorm, write-plan, execute-plan)
 hooks/              # Session hooks (session-start.sh, hooks.json)
@@ -41,7 +41,7 @@ All Codex patterns are documented in `lib/codex-integration.md` (single source o
 
 ### Codex Agent (Primary Pattern)
 
-**All Codex interactions go through the `codex-agent` subagent** (`agents/codex-agent.md`). This offloads thread management, Codex communication, and response verification to a dedicated agent — preserving the main session's context window.
+**All Codex interactions go through the `codex-agent` skill** (`skills/codex-agent/SKILL.md`). This offloads thread management, Codex communication, and response verification to a dedicated agent — preserving the main session's context window.
 
 The agent supports four modes:
 - `create-thread` — Start a new Codex conversation (brainstorming only)

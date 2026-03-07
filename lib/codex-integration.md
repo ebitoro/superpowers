@@ -16,7 +16,7 @@ Codex is a **reference**, not a source of truth. CC must **independently verify*
 
 ## Codex Agent
 
-**All Codex interactions go through the `codex-agent` subagent** (`agents/codex-agent.md`).
+**All Codex interactions go through the `codex-agent` skill** (`skills/codex-agent/SKILL.md`).
 
 ### How to Dispatch
 

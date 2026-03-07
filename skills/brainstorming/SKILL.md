@@ -25,7 +25,7 @@ Every project goes through this process. A todo list, a single-function utility,
 
 ## Codex Integration
 
-> See `lib/codex-integration.md` for Codex patterns. All interactions go through the codex-agent (`agents/codex-agent.md`).
+> See `lib/codex-integration.md` for Codex patterns. All interactions go through the codex-agent (`skills/codex-agent/SKILL.md`).
 
 Codex is a reviewer and thought partner throughout brainstorming.
 

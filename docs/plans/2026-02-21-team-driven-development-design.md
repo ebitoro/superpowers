@@ -110,7 +110,7 @@ Codex Reviewer internally translates this into `codex` MCP calls. Returns standa
 
 ### Codex Reviewer → CC Reviewer (Findings)
 
-Standard codex-agent report format per `agents/codex-agent.md`.
+Standard codex-agent report format per `skills/codex-agent/SKILL.md`.
 
 ### CC Reviewer → Leader (Verdict)
 

@@ -17,7 +17,7 @@ Full-project audit for production readiness. CC and Codex review independently, 
 
 ## Codex Integration
 
-> See `lib/codex-integration.md` for Codex patterns. All interactions go through the codex-agent (`agents/codex-agent.md`).
+> See `lib/codex-integration.md` for Codex patterns. All interactions go through the codex-agent (`skills/codex-agent/SKILL.md`).
 
 ## Checklist
 
@@ -234,5 +234,5 @@ rm -rf "$MAIN_REPO/.codex-state"
 
 **Uses:**
 - Explorer subagents for codebase analysis
-- codex-agent (`agents/codex-agent.md`) for Codex review and cross-verification
+- codex-agent (`skills/codex-agent/SKILL.md`) for Codex review and cross-verification
 - `lib/codex-integration.md` for shared patterns

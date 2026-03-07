@@ -23,7 +23,7 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 
 ## Codex Integration
 
-> See `lib/codex-integration.md` for Codex patterns. All interactions go through the codex-agent (`agents/codex-agent.md`).
+> See `lib/codex-integration.md` for Codex patterns. All interactions go through the codex-agent (`skills/codex-agent/SKILL.md`).
 
 **Context recovery** — read the design doc from the state directory at the **main repo root**:
 

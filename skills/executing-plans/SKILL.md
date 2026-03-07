@@ -15,7 +15,7 @@ Load plan, review critically, execute tasks in batches, report for review betwee
 
 ## Codex Integration
 
-> See `lib/codex-integration.md` for Codex patterns. All interactions go through the codex-agent (`agents/codex-agent.md`).
+> See `lib/codex-integration.md` for Codex patterns. All interactions go through the codex-agent (`skills/codex-agent/SKILL.md`).
 
 Codex review for each batch is handled by `superpowers:requesting-code-review`, which dispatches the codex-agent internally.
 

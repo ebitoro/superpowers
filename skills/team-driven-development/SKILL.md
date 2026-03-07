@@ -40,7 +40,7 @@ The override applies to all work agents (implementer, review subagents, fixer). 
 
 ## Codex Integration
 
-> See `lib/codex-integration.md` for Codex patterns. All Codex interactions go through a persistent Codex Reviewer teammate that dispatches the codex-agent (`agents/codex-agent.md`) internally. The codex-agent selects the right Codex skill automatically based on message content.
+> See `lib/codex-integration.md` for Codex patterns. All Codex interactions go through a persistent Codex Reviewer teammate that dispatches the codex-agent (`skills/codex-agent/SKILL.md`) internally. The codex-agent selects the right Codex skill automatically based on message content.
 
 ## The Process
 

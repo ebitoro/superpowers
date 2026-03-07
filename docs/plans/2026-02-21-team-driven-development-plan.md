@@ -46,7 +46,7 @@ Use `subagent-driven-development` instead when:
 
 ## Codex Integration
 
-> See `lib/codex-integration.md` for Codex patterns. All Codex interactions go through the codex-agent (`agents/codex-agent.md`), dispatched as a team member by the Leader.
+> See `lib/codex-integration.md` for Codex patterns. All Codex interactions go through the codex-agent (`skills/codex-agent/SKILL.md`), dispatched as a team member by the Leader.
 
 ## The Process
 

@@ -53,8 +53,8 @@ You MUST create a task for each of these items and complete them in order:
 5. **Discuss refined idea with Codex** — dispatch codex-agent with `mode: discuss`, **wait for result**, validate understanding and surface blind spots
 6. **Propose 2-3 approaches** — with trade-offs and your recommendation
 7. **Discuss approaches with Codex** — dispatch codex-agent with `mode: discuss`, **wait for result**, if recommendations differ, note both for user
-8. **Codex review gate** — dispatch codex-agent with `mode: review-gate`, **wait for result**, iterate up to 5 rounds (see `lib/codex-integration.md`)
-9. **Present final design to user** — only after Codex review gate completes. Include any unresolved Codex flags if review gate did not fully pass
+8. **Codex review gate (autonomous)** — dispatch codex-agent with `mode: review-gate`, **wait for result**. If verdict is `fail`, fix verified issues in the design yourself (do NOT report to user), then redispatch. Repeat until `pass` or 5 rounds exhausted. See `lib/codex-integration.md`.
+9. **Present final design to user** — only after Codex review gate passes (or 5 rounds exhausted, or Codex unavailable). Include any unresolved Codex flags if review gate did not fully pass
 10. **Write design doc** — save to `docs/plans/YYYY-MM-DD-<topic>-design.md`, commit, and write breadcrumb to `.codex-state/current_design_doc`
 
 ## Process Flow
@@ -166,7 +166,7 @@ This is an exhaustive interview, not a quick Q&A. Keep asking until every aspect
 
 - Draft the design internally first
 - Dispatch codex-agent with `mode: review-gate` before showing to user
-- If verdict is `fail`, fix verified issues and redispatch (up to 5 rounds). False positives are already filtered by the agent.
+- If verdict is `fail`, fix the verified issues in the design yourself — do NOT report them to the user. Redispatch codex-agent to re-review. Repeat until `pass` (max 5 rounds). False positives are already filtered by the agent.
 - Once codex-agent returns `pass` or `pass-with-flags` (or 5 rounds exhausted), present to user
 - If presenting with unresolved Codex flags, clearly list what remains unresolved
 - Scale each section to its complexity: a few sentences if straightforward, up to 200-300 words if nuanced

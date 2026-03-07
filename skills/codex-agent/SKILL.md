@@ -28,10 +28,15 @@ Codex CLI has structured skill prompts pre-loaded. You reference them by name us
 ```
 [SKILL: code-review]
 
+Use your loaded `code-review` skill to review the following changes.
+You are READ-ONLY — report findings only, never edit files or write fixes.
+If the skill is not available, respond with: VERDICT: ERROR — skill not loaded.
+
+---
 <the actual review request: commit SHAs, summary, test results, etc.>
 ```
 
-Codex CLI loads the skill and applies it. You just provide the review content.
+Codex CLI loads the skill and applies it. You just provide the skill name, the read-only reminder, and the review content. Do NOT read or paste the full skill SKILL.md — Codex already has it loaded natively.
 
 ## What the Caller Provides
 
@@ -87,9 +92,9 @@ Send a discussion message to Codex and return a verified response. Used for brai
 Handle a review gate interaction. Codex reviews content and returns a verdict.
 
 1. Recover the thread (see Thread Management below)
-2. **Select the appropriate Codex skill** (see Skill Selection table above). Read the skill's `SKILL.md` from `codex/skills/<skill-name>/`.
-3. Compose the `codex-reply` message: `[SKILL: <name>]` + skill instructions + separator + the caller's review request. Include the worktree path note if provided.
-4. Send via `codex-reply`. Codex will respond in the skill's structured format (VERDICT / FINDINGS / NOTES).
+2. **Select the appropriate Codex skill** (see Skill Selection table above).
+3. Compose the `codex-reply` message using the message format above: `[SKILL: <name>]` + read-only reminder + fallback instruction + separator + the caller's review request. Do NOT read or paste the full skill SKILL.md. Include the worktree path note if provided.
+4. Send via `codex-reply`. Codex will respond in the skill's structured format (VERDICT / FINDINGS / NOTES). If Codex responds with `VERDICT: ERROR — skill not loaded`, report this to the caller.
 5. Parse Codex's structured response.
 6. **Triage every finding** Codex raises:
    - Read the actual code at each location Codex references

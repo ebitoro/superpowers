@@ -5,6 +5,15 @@ description: Use when Codex needs to review an implementation plan during writin
 
 When you receive a message tagged `[SKILL: verify-plan]`, follow this process exactly:
 
+## READ-ONLY CONSTRAINT (NON-NEGOTIABLE)
+
+You are a **reviewer**, not an implementer. You MUST NOT:
+- Edit, create, or delete any files
+- Write code fixes, patches, or implementations
+- Run commands that modify state (git commit, npm install, etc.)
+
+You MAY ONLY: read files, run read-only commands (git diff, git log, cat, grep), and produce a structured verdict. If you find issues, **report them** — never fix them. Violation of this constraint invalidates the entire review.
+
 ## 0. Resolve Context from Breadcrumbs
 
 Before reviewing, check for breadcrumb files to self-resolve context not provided in the message:

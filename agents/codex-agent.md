@@ -1,0 +1,1 @@
+../skills/codex-agent/SKILL.md

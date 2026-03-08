@@ -182,34 +182,34 @@ For each task, the main session:
 BASE_SHA=$(git rev-parse HEAD)
 ```
 
-### Step 2: Rotate Codex Thread (Fresh Thread Per Task)
+### Step 2: Rotate Codex Thread (Every 5 Tasks)
 
-Each task gets its own fresh Codex thread. This prevents context accumulation from slowing down reviews.
+Codex threads accumulate context with each review, slowing down over time. Rotate the thread every 5 tasks to keep reviews fast.
 
-- **Task 1:** Uses the thread created by the initial ping — no rotation needed.
-- **Task 2+:** Before dispatching, create a fresh thread via ping:
+**Track `tasks_on_current_thread`** — initialized to 0 after ping. Increment after each completed task.
 
-```
-Agent tool:
-  subagent_type: "superpowers:codex-agent"
-  model: "sonnet"
-  description: "Ping Codex — fresh thread for Task N"
-  prompt: |
-    mode: ping
-    profile: "higheffort"
-```
+**Rotation schedule:**
+- **Tasks 1-5:** Use the thread from the initial ping
+- **Before Task 6:** Ping for a fresh thread, reset counter to 0
+- **Tasks 6-10:** Use that thread
+- Continue this pattern until all tasks are done
 
-If successful: update `codex_thread_id` to the new thread ID.
-If unavailable: set `codex_status = "unavailable"` (don't block the task).
+**Before each task**, check if rotation is needed:
+- If `codex_status == "available"` AND `tasks_on_current_thread >= 5`:
+  1. Dispatch codex-agent with `mode: ping`, `profile: "higheffort"`
+  2. If successful: update `codex_thread_id` to the new thread ID, reset `tasks_on_current_thread = 0`
+  3. If unavailable: set `codex_status = "unavailable"` (don't block the task)
 
 ### Step 3: Determine CODEX_STATUS and CODEX_THREAD_ID
 
 Use the current values of `codex_thread_id` and `codex_status`:
 
-- `codex_thread_id` — fresh thread for this task (rotated in Step 2)
+- `codex_thread_id` — the current thread (rotated every 5 tasks)
 - `codex_status` — "available" or "unavailable"
 
 **Update on status change:** If a task's verdict reports `codex_review.status: unavailable`, set `codex_status = "unavailable"` for all subsequent tasks.
+
+**After each completed task:** increment `tasks_on_current_thread`.
 
 ### Step 4: Dispatch Implementer
 
@@ -224,7 +224,7 @@ Fill the template from `./implementer-prompt.md` with these 8 inputs:
 | `{WORKING_DIRECTORY}` | Worktree absolute path |
 | `{BASE_SHA}` | From Step 1 |
 | `{CODEX_STATUS}` | From Step 3 |
-| `{CODEX_THREAD_ID}` | From Step 3 (fresh thread per task) |
+| `{CODEX_THREAD_ID}` | From Step 3 (shared within 5-task batch, rotated between batches) |
 
 Dispatch via Task tool (`subagent_type: "general-purpose"`). If `work_model` is set, add `model: "{work_model}"` to the Task tool call.
 
@@ -338,13 +338,13 @@ You: I'm using Subagent-Driven Development to execute this plan.
 [Create TodoWrite with all tasks]
 
 [Ping Codex: dispatch codex-agent with mode=ping]
-[Result: codex_thread_id = thread_abc123, codex_status = "available"]
+[Result: codex_thread_id = thread_abc123, codex_status = "available", tasks_on_current_thread = 0]
 
 Task 1: Hook installation script
+[tasks_on_current_thread=0 < 5, no rotation needed]
 BASE_SHA=$(git rev-parse HEAD)
-[Task 1 uses ping thread — no rotation needed]
 
-[Dispatch implementer subagent with full task text + context + BASE_SHA + codex_status + codex_thread_id=thread_abc123]
+[Dispatch implementer with codex_thread_id=thread_abc123]
 
 Implementer: "Before I begin - should the hook be installed at user or system level?"
 
@@ -377,10 +377,12 @@ concerns: none
 
 [Mark Task 1 complete]
 
+[tasks_on_current_thread = 1]
+
 Task 2: Recovery modes
-[Ping Codex for fresh thread: thread_def456]
+[tasks_on_current_thread=1 < 5, no rotation needed]
 BASE_SHA=$(git rev-parse HEAD)
-[Dispatch implementer with codex_thread_id = thread_def456 (fresh thread for Task 2)]
+[Dispatch implementer with codex_thread_id=thread_abc123 (same thread, tasks 1-5 share it)]
 ...
 
 [After all tasks]

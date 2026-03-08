@@ -20,7 +20,7 @@ Codex is a **reference**, not a source of truth. CC must **independently verify*
 
 ### How to Dispatch
 
-Use the Agent tool to dispatch the codex-agent (foreground, not Task tool). Four modes:
+Use the Agent tool to dispatch the codex-agent (foreground). Four modes:
 
 **`ping`** — Lightweight availability check + thread creation (no message sent):
 ```
@@ -148,7 +148,6 @@ If the codex-agent reports `status: unavailable` (MCP not connected, usage limit
 ```
 Agent tool:
   subagent_type: "superpowers:codex-agent"
-  model: "sonnet"
   description: "Codex review for Task N"
   prompt: |
     mode: review-gate

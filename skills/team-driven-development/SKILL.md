@@ -22,21 +22,7 @@ Use `subagent-driven-development` instead when:
 
 ## Model Configuration
 
-| Role | Default | Overridable | Rationale |
-|------|---------|-------------|-----------|
-| Leader (this session) | Sonnet | No | Lightweight orchestration |
-| Codex Reviewer | Sonnet | No | CLI relay only |
-| Final Reviewer | Opus | No | Runs three-stage branch review |
-| **Implementer** | **Opus** | **Yes** | Implementation + TDD + review phases |
-| **Review subagents** | **Opus** | **Yes** | Spec compliance + code quality |
-| Fixer | Follows implementer | Yes | Same work profile |
-
-**Model override:** Include a model preference in your prompt when invoking this skill. Examples:
-- "execute this plan using sonnet for implementers"
-- "run with sonnet model"
-- "use haiku for implement"
-
-The override applies to all work agents (implementer, review subagents, fixer). Orchestration agents (leader, codex-reviewer, final-reviewer) always stay on their fixed models.
+All subagents inherit the session's model. Agent types with a `model` field in their SKILL.md frontmatter (e.g., `superpowers:codex-agent`) use their configured model instead.
 
 ## Codex Integration
 
@@ -82,15 +68,6 @@ TeamCreate with team_name: "tdd-{timestamp}"
 
 Record the team name — it is passed to the Leader instructions as `{TEAM_NAME}`.
 
-### Parse Model Override
-
-Check the user's prompt for a model preference. Look for patterns like "use sonnet", "using sonnet for implement", "model: sonnet", "with haiku", etc.
-
-- **If found:** Set `{WORK_MODEL}` to the specified model (e.g., "sonnet", "haiku")
-- **If not found:** Set `{WORK_MODEL}` = "opus" (default)
-
-This applies to implementers, review subagents, and fixer. Orchestration agents are unaffected.
-
 ### Act as Leader
 
 You ARE the Leader. The orchestration runs in this session, not in a subagent. Subagents spawned without `team_name` do not have access to AgentTeam tools (TeamCreate, SendMessage, TaskCreate, etc.), so the Leader must operate within the team context.
@@ -100,7 +77,6 @@ Read `leader-prompt.md` from `skills/team-driven-development/` and follow its in
 - `{PLAN_TASKS}` — full text of all tasks from the plan file
 - `{WORKTREE_PATH}` — absolute worktree path
 - `{DESIGN_DOC_PATH}` — path to design doc (from `.codex-state/current_design_doc`)
-- `{WORK_MODEL}` — parsed model override or "opus"
 
 Read the prompt templates as the Leader instructions direct:
 - `implementer-prompt.md` — used when dispatching Implementer teammates
@@ -119,7 +95,6 @@ If all tasks passed:
 ```
 Agent tool:
   subagent_type: "general-purpose"
-  model: "opus"
   description: "Update post-implementation documentation"
   prompt: |
     You are a documentation updater. Use the superpowers:update-docs-after-implementation skill.

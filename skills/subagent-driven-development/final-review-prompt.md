@@ -45,7 +45,7 @@ Record `HEAD_SHA=$(git rev-parse HEAD)`.
 
 ## Phase 2 — Code Reviewer Subagent
 
-Dispatch a `superpowers:code-reviewer` subagent via the Task tool (`model: "opus"`). **Include ultrathink instruction in the prompt:**
+Dispatch a `superpowers:code-reviewer` subagent via the Agent tool. **Include ultrathink instruction in the prompt:**
 
 ```
 Use the highest reasoning effort (ultrathink) for this entire review.
@@ -90,7 +90,6 @@ Send ONLY commit SHAs to Codex — never raw diffs or full code. Codex has sandb
 ```
 Agent tool:
   subagent_type: "superpowers:codex-agent"
-  model: "sonnet"
   description: "Codex final review"
   prompt: |
     mode: review-gate
@@ -117,7 +116,6 @@ If fixes were made, re-dispatch codex-agent with the saved thread_id:
 ```
 Agent tool:
   subagent_type: "superpowers:codex-agent"
-  model: "sonnet"
   description: "Codex final re-review"
   prompt: |
     mode: review-gate
@@ -212,5 +210,5 @@ concerns: [any risks or "none"]
 9. **One commit per fix round.** Keep history clean.
 10. **Use {BASE_SHA} for all diffs.** It never changes.
 11. **Max 5 rounds for code-reviewer, max 5 rounds for Codex.** If still failing, report as fail.
-12. **Never call `codex` or `codex-reply` MCP tools directly.** All Codex communication goes through `superpowers:codex-agent` dispatched via the Agent tool (foreground, not Task tool or Skill tool). The codex-agent handles thread management — calling `codex` directly creates orphan threads and skips response verification.
+12. **Never call `codex` or `codex-reply` MCP tools directly.** All Codex communication goes through `superpowers:codex-agent` dispatched via the Agent tool (foreground). The codex-agent handles thread management — calling `codex` directly creates orphan threads and skips response verification.
 13. **Create a fresh Codex thread for the final review.** Use `thread_id: "new"` with `profile: "xhigheffort"` for the initial dispatch. Save the returned thread_id and reuse it for all re-review dispatches within this final review phase.

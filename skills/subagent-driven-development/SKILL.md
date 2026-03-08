@@ -37,18 +37,7 @@ digraph when_to_use {
 
 ## Model Configuration
 
-| Role | Default | Overridable | Rationale |
-|------|---------|-------------|-----------|
-| **Implementer** | **Inherits from session** | **Yes** | User controls cost/quality tradeoff |
-| Spec compliance reviewer | Opus | No | Deep analysis needs strongest model |
-| Code quality reviewer | Opus | No | Deep analysis needs strongest model |
-| Codex reviewer | Sonnet | No | Relay to Codex MCP, lightweight |
-
-**Model override:** Include a model preference in your prompt when invoking this skill. Examples:
-- "execute this plan using sonnet for implementers"
-- "run with sonnet model"
-
-The override applies to the implementer only. Review subagents always use their fixed models.
+All subagents inherit the session's model. Agent types with a `model` field in their SKILL.md frontmatter (e.g., `superpowers:codex-agent`) use their configured model instead.
 
 ## Codex Integration
 
@@ -82,15 +71,6 @@ WORKTREE_BREADCRUMB="$MAIN_REPO/.codex-state/current_worktree"
 - The plan is already in context from the current session
 - Ask the user for the plan file path if it is not in context
 
-### Parse Model Override
-
-Check the user's prompt for a model preference. Look for patterns like "use sonnet", "using sonnet for implement", "with sonnet", etc.
-
-- **If found:** Set `work_model` to the specified model (e.g., "sonnet", "haiku")
-- **If not found:** Leave `work_model` unset (implementer inherits from session)
-
-This only affects the implementer. Review subagents (spec, quality, codex) use fixed models regardless.
-
 ### Verify Worktree
 
 Check if inside a git worktree (`git worktree list`). If NOT in a worktree, dispatch the `worktree-setup` agent (see `agents/worktree-setup.md`) with the branch name. The agent runs on Sonnet and handles the full setup.
@@ -104,7 +84,6 @@ Dispatch codex-agent:
 ```
 Agent tool:
   subagent_type: "superpowers:codex-agent"
-  model: "sonnet"
   description: "Ping Codex — check availability"
   prompt: |
     mode: ping
@@ -226,9 +205,9 @@ Fill the template from `./implementer-prompt.md` with these 8 inputs:
 | `{CODEX_STATUS}` | From Step 3 |
 | `{CODEX_THREAD_ID}` | From Step 3 (shared within 5-task batch, rotated between batches) |
 
-Dispatch via Task tool (`subagent_type: "general-purpose"`). If `work_model` is set, add `model: "{work_model}"` to the Task tool call.
+Dispatch via the Agent tool (`subagent_type: "general-purpose"`).
 
-The implementer handles the full review pipeline internally (self-review → Codex → spec compliance → code quality) and returns a `## Task Verdict`. Review subagents dispatched by the implementer use fixed models (opus for spec/quality, sonnet for codex) regardless of the implementer's model.
+The implementer handles the full review pipeline internally (self-review → Codex → spec compliance → code quality) and returns a `## Task Verdict`.
 
 ## Parsing the Task Verdict
 
@@ -273,7 +252,7 @@ Fill the template from `./final-review-prompt.md` with these inputs:
 | `{PLAN_FILE_PATH}` | Plan file path |
 | `{CODEX_STATUS}` | Current codex_status value |
 
-Dispatch via Task tool (`subagent_type: "general-purpose"`, `model: "opus"`). The final review creates its own fresh Codex thread with `profile: "xhigheffort"` — a clean context for the high-stakes final review, separate from the per-task `higheffort` thread.
+Dispatch via the Agent tool (`subagent_type: "general-purpose"`). The final review creates its own fresh Codex thread with `profile: "xhigheffort"` — a clean context for the high-stakes final review, separate from the per-task `higheffort` thread.
 
 ### Parse the Final Review Verdict
 
@@ -300,7 +279,6 @@ After the final review passes and before invoking `finishing-a-development-branc
 ```
 Agent tool:
   subagent_type: "general-purpose"
-  model: "opus"
   description: "Update post-implementation documentation"
   prompt: |
     You are a documentation updater. Use the superpowers:update-docs-after-implementation skill.

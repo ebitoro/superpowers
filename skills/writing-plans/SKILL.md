@@ -79,7 +79,7 @@ You MUST complete these steps in order:
 ```markdown
 # [Feature Name] Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (same session) or superpowers:executing-plans (separate session) to implement this plan task-by-task.
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (same session), superpowers:team-driven-development (5+ tasks), or superpowers:executing-plans (separate session) to implement this plan task-by-task.
 
 **Goal:** [One sentence describing what this builds]
 
@@ -144,13 +144,15 @@ git commit -m "feat: add specific feature"
 
 After saving the plan and writing breadcrumbs, offer execution choice:
 
-**"Plan complete and saved to `docs/plans/<filename>.md`. Three execution options:**
+**"Plan complete and saved to `docs/plans/<filename>.md`. Four execution options:**
 
 **1. Subagent-Driven (this session)** - I dispatch fresh subagent per task, review between tasks, fast iteration
 
 **2. Subagent-Driven (fresh context)** - `/clear` then call `superpowers:subagent-driven-development`. Breadcrumbs are saved so I'll recover the plan path and worktree automatically.
 
-**3. Parallel Session (separate)** - Open new session with executing-plans, batch execution with checkpoints
+**3. Team-Driven (recommended for 5+ tasks)** - Leader agent orchestrates via AgentTeam, fresh implementer per task, minimal context usage
+
+**4. Parallel Session (separate)** - Open new session with executing-plans, batch execution with checkpoints
 
 **Which approach?"**
 
@@ -164,6 +166,11 @@ After saving the plan and writing breadcrumbs, offer execution choice:
 - User invokes `superpowers:subagent-driven-development`
 - Skill reads breadcrumbs from `.codex-state/current_plan` and `.codex-state/current_worktree`, recovers context, and cleans up
 
-**If option 3 (parallel session):**
+**If option 3 (team-driven):**
+- **REQUIRED SUB-SKILL:** Use superpowers:team-driven-development
+- Stay in this session or `/clear` first (breadcrumbs supported)
+- Recommended when plan has 5+ tasks to minimize context usage
+
+**If option 4 (parallel session):**
 - Guide them to open new session in worktree
 - **REQUIRED SUB-SKILL:** New session uses superpowers:executing-plans

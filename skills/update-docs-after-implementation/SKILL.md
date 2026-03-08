@@ -95,7 +95,6 @@ The main session dispatches this as a subagent:
 ```
 Agent tool:
   subagent_type: "general-purpose"
-  model: "opus"
   description: "Update post-implementation documentation"
   prompt: |
     You are a documentation updater. Use the superpowers:update-docs-after-implementation skill.

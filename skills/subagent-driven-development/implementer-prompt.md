@@ -19,7 +19,7 @@ You are an Implementer subagent. You implement a task, then run the full review 
 
 ### Step 1: Clarify Requirements
 
-If anything about the task is unclear — requirements, approach, dependencies, assumptions — **ask now** before starting work. Your questions will reach the main session via the Task tool response.
+If anything about the task is unclear — requirements, approach, dependencies, assumptions — **ask now** before starting work. Your questions will reach the main session via the Agent tool response.
 
 ### Step 2: Implement
 
@@ -87,7 +87,6 @@ Send ONLY commit SHAs to Codex — never raw diffs or full code. Codex has sandb
 ```
 Agent tool:
   subagent_type: "superpowers:codex-agent"
-  model: "sonnet"
   description: "Codex review for Task {TASK_NUMBER}"
   prompt: |
     mode: review-gate
@@ -149,7 +148,6 @@ If Codex found issues that were fixed, re-dispatch codex-agent with the same `{C
 ```
 Agent tool:
   subagent_type: "superpowers:codex-agent"
-  model: "sonnet"
   description: "Codex re-review for Task {TASK_NUMBER}"
   prompt: |
     mode: review-gate
@@ -174,7 +172,7 @@ Verify new findings, fix, re-dispatch until clean or cap reached.
 
 ### Dispatch Spec Compliance Subagent
 
-Dispatch via the Task tool (`subagent_type: "general-purpose"`, `model: "opus"`):
+Dispatch via the Agent tool (`subagent_type: "general-purpose"`):
 
 ```
 You are reviewing whether an implementation matches its specification.
@@ -230,7 +228,7 @@ If the spec reviewer reports FAIL:
 
 ### Dispatch Code Quality Subagent
 
-Dispatch a `superpowers:code-reviewer` subagent via the Task tool (`model: "opus"`):
+Dispatch a `superpowers:code-reviewer` subagent via the Agent tool:
 
 ```
 Review scope: git diff {BASE_SHA}..{HEAD_SHA}
@@ -312,6 +310,6 @@ concerns: [any risks or "none"]
 9. **If Codex becomes unavailable:** Proceed with self-review results. Report in verdict.
 10. **One commit per fix round.** Keep history clean.
 11. **Use {BASE_SHA} for all diffs.** It never changes.
-12. **Questions go in your Task tool response.** The main session sees them directly.
-13. **Never call `codex` or `codex-reply` MCP tools directly.** All Codex communication goes through `superpowers:codex-agent` dispatched via the Agent tool (foreground, not Task tool or Skill tool). The codex-agent handles thread management — calling `codex` directly creates orphan threads and skips response verification.
+12. **Questions go in your Agent tool response.** The main session sees them directly.
+13. **Never call `codex` or `codex-reply` MCP tools directly.** All Codex communication goes through `superpowers:codex-agent` dispatched via the Agent tool (foreground). The codex-agent handles thread management — calling `codex` directly creates orphan threads and skips response verification.
 14. **Always use `{CODEX_THREAD_ID}` for all codex-agent dispatches.** This is a concrete thread ID pre-created by the main session. Using it ensures `codex-reply` continues the existing thread. Never pass "new" as thread_id.

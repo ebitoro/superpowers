@@ -63,7 +63,7 @@ You MUST create a task for each of these items and complete them in order:
 digraph brainstorming {
     "Explore context (subagents)" [shape=box];
     "Read key files" [shape=box];
-    "Start Codex thread" [shape=box label="Start Codex thread\n(skip Codex steps if unavailable)"];
+    "Start Codex thread" [shape=box, label="Start Codex thread\n(skip Codex steps if unavailable)"];
     "Ask clarifying questions" [shape=box];
     "Discuss idea with Codex" [shape=box style=dashed];
     "Propose 2-3 approaches" [shape=box];

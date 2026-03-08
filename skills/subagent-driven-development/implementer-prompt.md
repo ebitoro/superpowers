@@ -78,10 +78,10 @@ If self-review finds issues, fix them now before proceeding.
 
 **Skip if `{CODEX_STATUS}` is "unavailable".**
 
-**Dispatch codex-agent** (never call `codex`/`codex-reply` MCP directly):
-
 <HARD-GATE>
-Send ONLY commit SHAs to Codex — never raw diffs or full code. Codex has sandbox access and can read files and run `git diff` itself. Sending full diffs wastes tokens and slows reviews.
+NEVER call `codex` or `codex-reply` MCP tools directly. You MUST dispatch `superpowers:codex-agent` via the Agent tool. Calling `codex` MCP directly creates orphan threads, bypasses the shared thread (`{CODEX_THREAD_ID}`), and skips response verification.
+
+Send ONLY commit SHAs to Codex — never raw diffs or full code. Codex has sandbox access and can read files and run `git diff` itself.
 </HARD-GATE>
 
 ```

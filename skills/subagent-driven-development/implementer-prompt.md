@@ -80,6 +80,10 @@ If self-review finds issues, fix them now before proceeding.
 
 **Dispatch codex-agent** (never call `codex`/`codex-reply` MCP directly):
 
+<HARD-GATE>
+Send ONLY commit SHAs to Codex — never raw diffs or full code. Codex has sandbox access and can read files and run `git diff` itself. Sending full diffs wastes tokens and slows reviews.
+</HARD-GATE>
+
 ```
 Agent tool:
   subagent_type: "superpowers:codex-agent"
@@ -91,7 +95,7 @@ Agent tool:
     message: |
       Review {BASE_SHA}..{HEAD_SHA}.
       Task {TASK_NUMBER}: {TASK_NAME}.
-      Summary: [what you implemented]
+      Summary: [what you implemented — 1-2 sentences, NOT code]
       Tests: [pass/fail count]
     worktree_path: {WORKING_DIRECTORY}
 ```
@@ -140,7 +144,7 @@ Update `HEAD_SHA`.
 **Self-review re-run:** Re-do the checklist (Completeness, Quality, Discipline, Testing) against the updated diff (`{BASE_SHA}..{HEAD_SHA}`). Fix any new issues found.
 
 **Codex re-review** (max 5 rounds total):
-If Codex found issues that were fixed, re-dispatch codex-agent with the same `{CODEX_THREAD_ID}`:
+If Codex found issues that were fixed, re-dispatch codex-agent with the same `{CODEX_THREAD_ID}`. Send ONLY commit SHAs — never raw diffs:
 
 ```
 Agent tool:
@@ -153,7 +157,7 @@ Agent tool:
     message: |
       Re-review {BASE_SHA}..{HEAD_SHA}.
       Task {TASK_NUMBER}: {TASK_NAME}.
-      Addressed: [list of fixed issue IDs]
+      Addressed: [list of fixed issue IDs — NOT code]
       Tests: [pass/fail count]
     worktree_path: {WORKING_DIRECTORY}
 ```

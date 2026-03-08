@@ -83,6 +83,10 @@ Repeat until the reviewer passes or max 5 rounds reached.
 
 **Dispatch codex-agent** (never call `codex`/`codex-reply` MCP directly):
 
+<HARD-GATE>
+Send ONLY commit SHAs to Codex — never raw diffs or full code. Codex has sandbox access and can read files and run `git diff` itself. Sending full diffs wastes tokens and slows reviews.
+</HARD-GATE>
+
 ```
 Agent tool:
   subagent_type: "superpowers:codex-agent"
@@ -95,7 +99,7 @@ Agent tool:
     message: |
       Review {BASE_SHA}..HEAD_SHA.
       Final review of full implementation.
-      Summary: [what was implemented across all tasks]
+      Summary: [what was implemented — 1-2 sentences, NOT code]
       Tests: [pass/fail count]
     worktree_path: {WORKING_DIRECTORY}
 ```

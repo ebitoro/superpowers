@@ -75,12 +75,14 @@ The **caller** owns thread lifecycle, not the codex-agent. The agent is a statel
 
 The codex-agent selects the right Codex review skill automatically based on context. CC just needs to provide enough information:
 
-- **Commit SHAs** covering the changes — NOT raw diffs (Codex can read files in its sandbox)
-- **Short summary** of what was implemented and why
+- **Commit SHAs** covering the changes (e.g., `{BASE_SHA}..{HEAD_SHA}`)
+- **Short summary** of what was implemented and why (1-2 sentences)
 - **Test results** summary (pass/fail counts)
 - **Context** (design doc reference, plan task number, etc.)
 
-Codex inspects actual files and git log in its sandbox. Sending SHAs instead of diffs is far more token-efficient.
+<HARD-GATE>
+**NEVER send raw diffs, full code, or file contents to Codex.** Codex has sandbox access — it runs `git diff` and reads files itself. Send ONLY commit SHAs and a short summary. Sending code wastes tokens and slows reviews.
+</HARD-GATE>
 
 ### What the Agent Returns
 

@@ -28,10 +28,9 @@ mode: ping
 profile: <optional — Codex config profile to use for this thread>
 ```
 
-**`create-thread`** — Start a new Codex conversation (brainstorming only):
+**`create-thread`** — Start a new Codex conversation (brainstorming only). No message sent — thread starts empty:
 ```
 mode: create-thread
-context: <summary of project and mission for Codex>
 profile: <optional — Codex config profile to use for this thread>
 ```
 

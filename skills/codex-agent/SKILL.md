@@ -69,7 +69,7 @@ Do NOT send any message to the thread. Do NOT save the thread ID to any file —
 
 ### `create-thread`
 
-Create a new Codex conversation thread. Used at the start of brainstorming.
+Create a new Codex conversation thread and persist the thread ID. Used at the start of brainstorming. No message is sent — the thread is empty until the first `discuss` or `review-gate` call.
 
 1. Resolve the state directory:
    ```bash
@@ -80,8 +80,9 @@ Create a new Codex conversation thread. Used at the start of brainstorming.
    ```
 2. Call `codex` MCP tool to create a new thread. **Do NOT pass the `model` parameter.** Pass `profile` if the caller provided one.
 3. Save the returned thread ID to `$STATE_DIR/codex_thread_id`
-4. If the caller provided a context message, send it via `codex-reply` to initialize the thread
-5. Report back: thread ID, status (created/failed), and any Codex response to the context message
+4. Report back: thread ID, status (created/failed)
+
+Do NOT send any message to the thread. Context is provided later by the caller via `discuss` or `review-gate`.
 
 **If Codex is unavailable** (MCP not connected, error): Report `status: unavailable` with the error. The caller will proceed without Codex.
 
@@ -90,7 +91,7 @@ Create a new Codex conversation thread. Used at the start of brainstorming.
 Send a discussion message to Codex and return a verified response. Used for brainstorming conversations, approach discussions, etc.
 
 1. Recover the thread (see Thread Management below)
-2. Send the caller's message to Codex via `codex-reply`. Include the worktree path note if provided.
+2. Send the caller's message to Codex via `codex-reply`. **Prepend the read-only sandbox reminder** (see below) and include the worktree path note if provided.
 3. Read Codex's response
 4. **Verify every claim** Codex makes:
    - If Codex references specific files, lines, or functions — read them and confirm they exist and match
@@ -134,7 +135,7 @@ Handle a review gate interaction. Codex reviews content and returns a verdict.
 Cross-verify a specific finding with Codex. Used by product-readiness-review.
 
 1. Recover the thread (see Thread Management below)
-2. Send the finding to Codex for its assessment via `codex-reply`
+2. Send the finding to Codex for its assessment via `codex-reply`. **Prepend the read-only sandbox reminder** (see below).
 3. Independently verify the finding by reading the actual code
 4. Compare your assessment with Codex's assessment
 5. If you and Codex agree — report the agreed verdict
@@ -174,9 +175,19 @@ For all modes except `create-thread`, resolve the thread to use. The caller cont
 
 Every response MUST include the `thread_id` that was used. This lets callers save it for retries or compaction survival without the agent needing to manage files.
 
+## Read-Only Sandbox Reminder
+
+**Prepend this to ALL messages sent to Codex** (every `codex-reply` call, in every mode that sends a message — `discuss`, `review-gate`, `cross-verify`):
+
+```
+IMPORTANT: You are in a READ-ONLY sandbox. Do NOT edit files, write fixes, or take any action. Report findings only.
+```
+
+This prevents Codex from interpreting discussion context or review content as work to do.
+
 ## Worktree Path Note
 
-When `worktree_path` is provided, include this in ALL messages to Codex:
+When `worktree_path` is provided, include this in ALL messages to Codex (after the read-only reminder):
 
 ```
 NOTE: Implementation is in worktree at <worktree_path>.

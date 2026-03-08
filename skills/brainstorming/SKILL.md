@@ -30,9 +30,9 @@ Every project goes through this process. A todo list, a single-function utility,
 Codex is a reviewer and thought partner throughout brainstorming.
 
 **Thread management:**
-- At the start of brainstorming, dispatch codex-agent with `mode: create-thread` and a context message summarizing the project and mission.
+- At the start of brainstorming, dispatch codex-agent with `mode: create-thread`. No context message is sent — the thread starts empty.
 - The agent handles thread creation, state file persistence, and `.codex-state/` setup.
-- All subsequent Codex interactions dispatch codex-agent with `mode: discuss` or `mode: review-gate`.
+- All subsequent Codex interactions dispatch codex-agent with `mode: discuss` or `mode: review-gate`. Context is provided naturally with the first `discuss` call.
 
 **Codex availability:**
 If the codex-agent reports `status: unavailable`, skip all Codex steps and proceed without Codex review. Inform the user that Codex review was skipped and why.
@@ -48,7 +48,7 @@ You MUST create a task for each of these items and complete them in order:
 
 1. **Explore project context** — launch 2-3 subagent code-explorers in parallel (see "Codebase Exploration")
 2. **Read key files** — read all files identified by the explorer agents to build deep understanding
-3. **Start Codex thread** — dispatch codex-agent with `mode: create-thread`, `profile: "xhigheffort"`, and project context + mission. **Wait for result** — must have thread_id before proceeding.
+3. **Start Codex thread** — dispatch codex-agent with `mode: create-thread`, `profile: "xhigheffort"`. No context sent — thread starts empty. **Wait for result** — must have thread_id before proceeding.
 4. **Interview the user exhaustively** — use AskUserQuestion tool, 1-2 deep questions at a time covering purpose, technical implementation, UI/UX, constraints, concerns, trade-offs, integration; continue until no ambiguity remains
 5. **Discuss refined idea with Codex** — dispatch codex-agent with `mode: discuss`, **wait for result**, validate understanding and surface blind spots
 6. **Propose 2-3 approaches** — with trade-offs and your recommendation
@@ -120,10 +120,7 @@ digraph brainstorming {
 
 ### Starting the Codex Thread
 
-- Dispatch codex-agent with `mode: create-thread`, `profile: "xhigheffort"`, and context containing:
-  - Summary of the project context gathered by subagents
-  - The user's idea/request
-  - Codex's role: reviewer and thought partner for this brainstorming session
+- Dispatch codex-agent with `mode: create-thread`, `profile: "xhigheffort"`. No context is sent — the thread starts empty. Context is provided naturally with the first `discuss` call (step 5).
 - The agent handles thread creation, state file persistence, and `.codex-state/` setup
 - If the agent reports `status: unavailable`, inform the user and proceed without Codex for the rest of the session
 

@@ -120,7 +120,7 @@ Handle a review gate interaction. Codex reviews content and returns a verdict.
      - **Out of scope**: The finding is real but not relevant to what was being reviewed. Exclude from response but note it.
      - **Downgraded**: The issue exists but is less severe than Codex rated. Include with corrected severity.
    - If Codex passes the review (no issues), verify there are no obvious problems Codex missed by doing a quick scan of the changed files
-7. If you dismissed any findings as false positives, send a follow-up `codex-reply` explaining why, so Codex can update its understanding
+7. If you dismissed any findings as false positives, send a follow-up `codex-reply` explaining why, so Codex can update its understanding. **Prepend the read-only sandbox reminder** as with all `codex-reply` calls.
 8. Report back:
    - **verdict**: `pass`, `fail`, or `pass-with-flags`
    - **verified_issues**: List of confirmed issues (with severity, file, description, suggested fix)
@@ -161,13 +161,13 @@ For all modes except `create-thread`, resolve the thread to use. The caller cont
    STATE_DIR="$MAIN_REPO/.codex-state"
    ```
    - Read thread ID from `$STATE_DIR/codex_thread_id`
-   - Test thread validity by sending a short `codex-reply` message: `"Thread check — still active?"`
+   - Test thread validity by sending a short `codex-reply` message (prepend the read-only sandbox reminder): `"Thread check — still active?"`
    - If valid: use this thread
    - If file missing or thread expired:
      - Create a new thread via `codex` MCP tool. **Do NOT pass the `model` parameter.** Do NOT pass `profile` — recovery threads use the default config.
      - Save new thread ID to `$STATE_DIR/codex_thread_id`
-     - If the caller provided context, send it to rebuild Codex's understanding
-     - If a design doc path is available at `$STATE_DIR/current_design_doc`, read it and send a summary to Codex
+     - If the caller provided context, send it via `codex-reply` to rebuild Codex's understanding (**prepend the read-only sandbox reminder**)
+     - If a design doc path is available at `$STATE_DIR/current_design_doc`, read it and send a summary to Codex via `codex-reply` (**prepend the read-only sandbox reminder**)
      - Include `thread_status: recovered` in your response
    - If other error (MCP not connected, usage limit): report `status: unavailable`
 

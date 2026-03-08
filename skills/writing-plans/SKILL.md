@@ -35,13 +35,16 @@ cat "$MAIN_REPO/.codex-state/current_design_doc"
 Read the design doc path and load it. If missing, look for the most recent `*-design.md` in `docs/plans/`. If neither exists, ask the user.
 
 <HARD-GATE>
-**Codex review gate is MANDATORY.** You MUST dispatch codex-agent with `mode: review-gate` before presenting the plan to the user. Do NOT skip this step. Do NOT present the plan without running the review gate first (unless Codex is confirmed unavailable).
+**Codex review gate is MANDATORY.** You MUST run the tiered review gate before presenting the plan to the user. Do NOT skip this step. Do NOT present the plan without running the review gate first (unless Codex is confirmed unavailable).
 </HARD-GATE>
 
-**Codex review gate (autonomous fix loop):**
-- **Before presenting to user** — Dispatch codex-agent with `mode: review-gate` containing the full plan and worktree path.
-- If verdict is `fail`: YOU (CC) fix the verified issues in the plan yourself — do NOT report them to the user. Then redispatch codex-agent to re-review.
-- Repeat until verdict is `pass` (max 5 rounds). Only present the plan to the user after Codex passes or 5 rounds are exhausted.
+**Tiered review gate (3+3 pattern):**
+
+The review gate is split across a subagent (first 3 rounds) and the main session (3 more if needed). This preserves main session context — see `lib/codex-integration.md` "Tiered Review Gate" for the full pattern.
+
+- **Tier 1 (subagent):** Dispatch `plan-review-gate` agent (see `agents/plan-review-gate.md`). It handles codex-agent dispatch, independent verification of every finding, plan fixes, and up to 3 rounds autonomously.
+- **Tier 2 (main session escalation):** Only if the subagent returns `verdict: fail` + `severity: must_fix`. The main session takes over with the returned `thread_id`, dispatches codex-agent directly, verifies + fixes for up to 3 more rounds.
+- **Escalation to user:** If Tier 2 still results in `verdict: fail` + `severity: must_fix` after 3 rounds, present the plan with unresolved issues and let the user decide.
 
 **Profile inheritance:** The Codex thread was created during brainstorming with `profile: "xhigheffort"`. All dispatches here reuse that thread and inherit the `xhigheffort` profile automatically.
 
@@ -52,16 +55,33 @@ You MUST complete these steps in order:
 1. **Verify worktree** — check if inside a git worktree (`git worktree list`). If NOT in a worktree, dispatch the `worktree-setup` agent (see `agents/worktree-setup.md`) with the branch name. The agent runs on Sonnet and handles the full setup.
 2. **Recover context** — run `MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"` to find the main repo root, then read `$MAIN_REPO/.codex-state/current_design_doc`, load the design doc
 3. **Draft the implementation plan** — following the task structure and granularity rules below
-4. **Codex review gate (autonomous)** — dispatch codex-agent with `mode: review-gate` (include worktree path). If verdict is `fail`, fix the verified issues in the plan yourself (do NOT report to user), then redispatch. Repeat until `pass` or 5 rounds exhausted. See `lib/codex-integration.md` for dispatch format.
-5. **Present plan to user** — only after Codex review gate passes (or 5 rounds exhausted, or Codex unavailable). Include any unresolved Codex flags if review gate did not fully pass
-6. **Save plan** — write to `docs/plans/YYYY-MM-DD-<feature-name>.md` and commit
-7. **Write session breadcrumbs** — persist plan path and worktree path so the next session can recover context after `/clear`:
-   ```bash
-   MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-   echo "docs/plans/YYYY-MM-DD-<feature-name>.md" > "$MAIN_REPO/.codex-state/current_plan"
-   pwd > "$MAIN_REPO/.codex-state/current_worktree"
+4. **Save draft plan** — write to `docs/plans/YYYY-MM-DD-<feature-name>.md` (needed before subagent can read it)
+5. **Tier 1: Subagent review gate** — dispatch `plan-review-gate` agent:
    ```
-8. **Offer execution handoff**
+   Agent tool:
+     name: "plan-review-gate"
+     description: "Codex plan review gate"
+     prompt: |
+       plan_path: <absolute path to saved plan>
+       design_doc_path: <absolute path to design doc>
+       worktree_path: <absolute worktree path>
+       thread_id: <from .codex-state/codex_thread_id, or omit>
+   ```
+   Read the agent template at `agents/plan-review-gate.md` and include its full content in the prompt.
+6. **Handle subagent result:**
+   - `pass` → go to step 8
+   - `pass-with-flags` or (`fail` + `can_proceed`) → flags already written to `docs/unresolved-flags.md` by subagent, go to step 8
+   - `fail` + `must_fix` → go to step 7
+7. **Tier 2: Main session escalation** — take over with the returned `thread_id`. Dispatch codex-agent directly with `mode: review-gate`, verify each finding independently against the plan and codebase, fix verified issues. Up to 3 rounds. If still `fail` + `must_fix`, present to user with unresolved issues and let them decide. If `can_proceed`, append flags to `docs/unresolved-flags.md` and commit.
+8. **Present plan to user** — only after review gate passes (or escalation resolves, or Codex unavailable). Include any unresolved Codex flags if review gate did not fully pass
+9. **Commit plan** — the plan file was saved in step 4 and may have been edited by the review gate. Stage and commit the final version.
+10. **Write session breadcrumbs** — persist plan path and worktree path so the next session can recover context after `/clear`:
+    ```bash
+    MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+    echo "docs/plans/YYYY-MM-DD-<feature-name>.md" > "$MAIN_REPO/.codex-state/current_plan"
+    pwd > "$MAIN_REPO/.codex-state/current_worktree"
+    ```
+11. **Offer execution handoff**
 
 ## Bite-Sized Task Granularity
 

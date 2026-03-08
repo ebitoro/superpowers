@@ -103,6 +103,34 @@ The codex-agent selects the right Codex review skill automatically based on cont
 
 False positives are filtered by the agent — only real issues come back.
 
+## Tiered Review Gate (3+3 Pattern)
+
+For context-heavy skills (e.g., `writing-plans`) where the main session has already consumed significant context, the review gate loop can be offloaded to a subagent. This splits the work into two tiers:
+
+**Tier 1 — Subagent (3 rounds max):**
+1. Dispatch a dedicated review-gate subagent (e.g., `agents/plan-review-gate.md`) with the content path, design doc path, and worktree path.
+2. The subagent dispatches codex-agent with `mode: review-gate`, **independently verifies** each finding against the actual code/content, fixes verified issues, and redispatches. Up to 3 rounds.
+3. The subagent returns:
+   - **verdict**: `pass`, `fail`, or `pass-with-flags`
+   - **severity**: `can_proceed` (minor issues) or `must_fix` (blocking issues) — only meaningful when verdict is `fail`
+   - **unresolved_issues**: Remaining issues with verification notes
+   - **thread_id**: For the caller to continue on the same Codex thread
+
+**Tier 2 — Main session escalation (3 rounds max):**
+Only triggered when Tier 1 returns `fail` + `must_fix`.
+1. Main session takes over with the returned `thread_id`
+2. Dispatches codex-agent directly, verifies + fixes each finding, up to 3 more rounds
+3. If still `fail` + `must_fix` after 3 rounds → escalate to user
+4. If `can_proceed` → append flags to `docs/unresolved-flags.md` and proceed
+
+**Severity assessment criteria:**
+- `can_proceed`: Style, naming, optional enhancements, suggestions conflicting with design decisions
+- `must_fix`: Missing error handling in critical paths, incorrect tests, architectural problems, dependency ordering errors, security issues
+
+**When to use:** Use the tiered pattern when the calling skill has already consumed significant context (brainstorming → planning pipeline). Use the standard 5-round loop for lighter-weight callers.
+
+**Independent verification is required at both tiers.** The subagent verifies codex-agent findings before fixing. The main session verifies again during escalation. This double-verification catches issues that codex-agent's filtering may miss due to limited context about design intent.
+
 ## Codex Profiles
 
 Codex CLI supports configuration profiles (defined in `~/.codex/config.toml`). Profile is set **per-thread** at creation time — `codex-reply` does not accept a profile parameter.
@@ -158,7 +186,7 @@ If codex-agent reports `status: unavailable`, mark Codex unavailable for remaini
 
 ## Tracking Unresolved Flags
 
-When the review gate passes with unresolved flags (5-round limit hit, or pass-with-flags), append them to `docs/unresolved-flags.md` and **commit the change**. This file is version-controlled so flags survive across sessions.
+When the review gate passes with unresolved flags (round limit hit, or pass-with-flags), append them to `docs/unresolved-flags.md` and **commit the change**. This file is version-controlled so flags survive across sessions.
 
 **Location:** `docs/unresolved-flags.md` (relative to repo/worktree root)
 
@@ -173,6 +201,6 @@ When the review gate passes with unresolved flags (5-round limit hit, or pass-wi
 
 **Rules:**
 - Append-only during implementation. Never delete or edit existing entries.
-- Every pass-with-flags or 5-round exhaustion MUST append and commit.
+- Every pass-with-flags or round-limit exhaustion MUST append and commit.
 - `finishing-a-development-branch` reads and reports all accumulated flags before presenting options.
 - When flags are resolved later, remove the entries and commit with `fix: resolve Codex flag — <description>`.

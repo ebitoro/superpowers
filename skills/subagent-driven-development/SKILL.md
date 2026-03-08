@@ -79,7 +79,7 @@ Check if inside a git worktree (`git worktree list`). If NOT in a worktree, disp
 
 Check Codex availability and create the first thread. Use `ping` mode — lightweight, no message sent. Task 1 will use this thread directly.
 
-Dispatch codex-agent:
+Dispatch codex-agent in **foreground** (do NOT use `run_in_background`):
 
 ```
 Agent tool:
@@ -205,7 +205,7 @@ Fill the template from `./implementer-prompt.md` with these 8 inputs:
 | `{CODEX_STATUS}` | From Step 3 |
 | `{CODEX_THREAD_ID}` | From Step 3 (shared within 5-task batch, rotated between batches) |
 
-Dispatch via the Agent tool (`subagent_type: "general-purpose"`).
+Dispatch via the Agent tool (`subagent_type: "general-purpose"`) in **foreground** — do NOT use `run_in_background`. The main session must wait for the verdict before proceeding to the next task.
 
 The implementer handles the full review pipeline internally (self-review → Codex → spec compliance → code quality) and returns a `## Task Verdict`.
 
@@ -252,7 +252,7 @@ Fill the template from `./final-review-prompt.md` with these inputs:
 | `{PLAN_FILE_PATH}` | Plan file path |
 | `{CODEX_STATUS}` | Current codex_status value |
 
-Dispatch via the Agent tool (`subagent_type: "general-purpose"`). The final review creates its own fresh Codex thread with `profile: "xhigheffort"` — a clean context for the high-stakes final review, separate from the per-task `higheffort` thread.
+Dispatch via the Agent tool (`subagent_type: "general-purpose"`) in **foreground** — do NOT use `run_in_background`. The main session must wait for the final verdict. The final review creates its own fresh Codex thread with `profile: "xhigheffort"` — a clean context for the high-stakes final review, separate from the per-task `higheffort` thread.
 
 ### Parse the Final Review Verdict
 
@@ -274,7 +274,7 @@ Scan the subagent's response for `## Final Review Verdict`. Extract:
 
 ## Update Post-Implementation Docs
 
-After the final review passes and before invoking `finishing-a-development-branch`, dispatch a subagent to update project documentation. This step is **automatic but opt-in** — it only runs if the project's CLAUDE.md has a `## Post-Implementation Docs` section.
+After the final review passes and before invoking `finishing-a-development-branch`, dispatch a subagent in **foreground** (do NOT use `run_in_background`) to update project documentation. This step is **automatic but opt-in** — it only runs if the project's CLAUDE.md has a `## Post-Implementation Docs` section.
 
 ```
 Agent tool:

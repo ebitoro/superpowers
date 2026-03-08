@@ -56,11 +56,16 @@ You MUST complete these steps in order:
 2. **Recover context** — run `MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"` to find the main repo root, then read `$MAIN_REPO/.codex-state/current_design_doc`, load the design doc
 3. **Draft the implementation plan** — following the task structure and granularity rules below
 4. **Save draft plan** — write to `docs/plans/YYYY-MM-DD-<feature-name>.md` (needed before subagent can read it)
-5. **Tier 1: Subagent review gate** — dispatch `plan-review-gate` agent:
+<HARD-GATE>
+**Dispatch the plan-review-gate in FOREGROUND.** Do NOT set `run_in_background: true`. The main session has nothing to do while waiting — it needs the result to proceed. Running it in background wastes time and confuses the user.
+</HARD-GATE>
+
+5. **Tier 1: Subagent review gate** — dispatch `plan-review-gate` agent in **foreground**:
    ```
    Agent tool:
      name: "plan-review-gate"
      description: "Codex plan review gate"
+     run_in_background: false
      prompt: |
        plan_path: <absolute path to saved plan>
        design_doc_path: <absolute path to design doc>

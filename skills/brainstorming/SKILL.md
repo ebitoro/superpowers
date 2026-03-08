@@ -156,7 +156,7 @@ This is an exhaustive interview, not a quick Q&A. Keep asking until every aspect
 ### Presenting the Design
 
 - Draft the design internally first
-- Dispatch a **dedicated subagent** (foreground, general-purpose) to run the review gate loop autonomously. The subagent prompt should include:
+- Dispatch a **dedicated subagent** (general-purpose) to run the review gate loop autonomously. **MUST be foreground — do NOT use `run_in_background`.** The main session needs the result to proceed and has nothing else to do. The subagent prompt should include:
   1. The full draft design text
   2. Instructions to invoke the `codex-agent` skill with `mode: review-gate` to review the design
   3. If verdict is `fail`, fix verified issues in the design and redispatch codex-agent. Repeat until `pass` or 5 rounds exhausted

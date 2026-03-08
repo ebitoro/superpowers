@@ -90,7 +90,7 @@ When the Leader instructions finish (all tasks processed, final review done):
 2. Call `TeamDelete` to clean up the team
 
 If all tasks passed:
-- **Dispatch update-docs subagent** (opt-in — only if project CLAUDE.md has `## Post-Implementation Docs`):
+- **Dispatch update-docs subagent in foreground** (opt-in — only if project CLAUDE.md has `## Post-Implementation Docs`). Do NOT use `run_in_background`:
 
 ```
 Agent tool:

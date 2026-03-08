@@ -20,7 +20,7 @@ Codex is a **reference**, not a source of truth. CC must **independently verify*
 
 ### How to Dispatch
 
-Use the Agent tool to dispatch the codex-agent (foreground). Four modes:
+Use the Agent tool to dispatch the codex-agent in **foreground** — do NOT use `run_in_background`. The caller always needs the result before proceeding. Four modes:
 
 **`ping`** — Lightweight availability check + thread creation (no message sent):
 ```
@@ -108,7 +108,7 @@ False positives are filtered by the agent — only real issues come back.
 For context-heavy skills (e.g., `writing-plans`) where the main session has already consumed significant context, the review gate loop can be offloaded to a subagent. This splits the work into two tiers:
 
 **Tier 1 — Subagent (3 rounds max):**
-1. Dispatch a dedicated review-gate subagent (e.g., `agents/plan-review-gate.md`) with the content path, design doc path, and worktree path.
+1. Dispatch a dedicated review-gate subagent (e.g., `agents/plan-review-gate.md`) in **foreground** — do NOT use `run_in_background`. The caller has nothing to do while waiting and needs the result to proceed.
 2. The subagent dispatches codex-agent with `mode: review-gate`, **independently verifies** each finding against the actual code/content, fixes verified issues, and redispatches. Up to 3 rounds.
 3. The subagent returns:
    - **verdict**: `pass`, `fail`, or `pass-with-flags`

@@ -95,11 +95,9 @@ This only affects the implementer. Review subagents (spec, quality, codex) use f
 
 Check if inside a git worktree (`git worktree list`). If NOT in a worktree, dispatch the `worktree-setup` agent (see `agents/worktree-setup.md`) with the branch name. The agent runs on Sonnet and handles the full setup.
 
-### Initialize Codex Thread (Before Any Tasks)
+### Initialize Codex (Before Any Tasks)
 
-Create the Codex review thread upfront so every implementer receives a concrete thread_id (never "new"). This prevents implementers from calling `codex` MCP directly to create threads.
-
-Use `ping` mode — a lightweight availability check that creates a thread without sending any message. Per-task reviews provide their own context, so no upfront message is needed.
+Check Codex availability and create the first thread. Use `ping` mode — lightweight, no message sent. Task 1 will use this thread directly.
 
 Dispatch codex-agent:
 
@@ -107,20 +105,22 @@ Dispatch codex-agent:
 Agent tool:
   subagent_type: "superpowers:codex-agent"
   model: "sonnet"
-  description: "Ping Codex — check availability and create review thread"
+  description: "Ping Codex — check availability"
   prompt: |
     mode: ping
     profile: "higheffort"
 ```
 
-**Do NOT start any tasks until this completes.** You must have a concrete `codex_thread_id` or a definitive "unavailable" status before proceeding.
+**Do NOT start any tasks until this completes.**
 
-**If `status: available`:** Extract `thread_id` from the response. Set `codex_thread_id` to this value, `codex_status = "available"`, and `tasks_on_current_thread = 0`.
+**If `status: available`:** Extract `thread_id` from the response. Set `codex_thread_id` to this value and `codex_status = "available"`. Task 1 uses this thread.
 
 **If `status: unavailable`:** Set `codex_status = "unavailable"` and `codex_thread_id = "none"`. All tasks will skip Codex review.
 
 <HARD-GATE>
 Do NOT dispatch any implementer subagent until `codex_thread_id` and `codex_status` are resolved. Starting tasks without these values causes tasks to silently skip Codex review.
+
+Do NOT create additional threads after ping — use the thread returned by ping for Task 1. Do NOT call `codex` MCP directly to create threads. Only the ping and per-task rotation (Step 2) create threads.
 </HARD-GATE>
 
 ### Per-Task Workflow
@@ -182,28 +182,34 @@ For each task, the main session:
 BASE_SHA=$(git rev-parse HEAD)
 ```
 
-### Step 2: Rotate Codex Thread (Every 5 Tasks)
+### Step 2: Rotate Codex Thread (Fresh Thread Per Task)
 
-Codex threads accumulate context with each review, slowing down over time. Rotate the thread every 5 completed tasks to keep reviews fast.
+Each task gets its own fresh Codex thread. This prevents context accumulation from slowing down reviews.
 
-**Track `tasks_on_current_thread`** — initialize to 0 after each new thread creation.
+- **Task 1:** Uses the thread created by the initial ping — no rotation needed.
+- **Task 2+:** Before dispatching, create a fresh thread via ping:
 
-**Before each task**, check if rotation is needed:
-- If `codex_status == "available"` AND `tasks_on_current_thread >= 5`:
-  1. Dispatch codex-agent with `mode: ping`, `profile: "higheffort"`
-  2. If successful: update `codex_thread_id` to the new thread ID, reset `tasks_on_current_thread = 0`
-  3. If unavailable: set `codex_status = "unavailable"` (don't block the task)
+```
+Agent tool:
+  subagent_type: "superpowers:codex-agent"
+  model: "sonnet"
+  description: "Ping Codex — fresh thread for Task N"
+  prompt: |
+    mode: ping
+    profile: "higheffort"
+```
+
+If successful: update `codex_thread_id` to the new thread ID.
+If unavailable: set `codex_status = "unavailable"` (don't block the task).
 
 ### Step 3: Determine CODEX_STATUS and CODEX_THREAD_ID
 
-Use the current values of `codex_thread_id` and `codex_status` (updated by initialization and thread rotation):
+Use the current values of `codex_thread_id` and `codex_status`:
 
-- `codex_thread_id` — the concrete thread ID (rotated every 5 tasks)
+- `codex_thread_id` — fresh thread for this task (rotated in Step 2)
 - `codex_status` — "available" or "unavailable"
 
 **Update on status change:** If a task's verdict reports `codex_review.status: unavailable`, set `codex_status = "unavailable"` for all subsequent tasks.
-
-**After each completed task:** increment `tasks_on_current_thread`.
 
 ### Step 4: Dispatch Implementer
 
@@ -218,7 +224,7 @@ Fill the template from `./implementer-prompt.md` with these 8 inputs:
 | `{WORKING_DIRECTORY}` | Worktree absolute path |
 | `{BASE_SHA}` | From Step 1 |
 | `{CODEX_STATUS}` | From Step 3 |
-| `{CODEX_THREAD_ID}` | From Step 3 (concrete ID, rotated every 5 tasks) |
+| `{CODEX_THREAD_ID}` | From Step 3 (fresh thread per task) |
 
 Dispatch via Task tool (`subagent_type: "general-purpose"`). If `work_model` is set, add `model: "{work_model}"` to the Task tool call.
 
@@ -331,11 +337,12 @@ You: I'm using Subagent-Driven Development to execute this plan.
 [Extract all 5 tasks with full text and context]
 [Create TodoWrite with all tasks]
 
-[Initialize Codex thread: dispatch codex-agent with mode=discuss, thread_id="new"]
+[Ping Codex: dispatch codex-agent with mode=ping]
 [Result: codex_thread_id = thread_abc123, codex_status = "available"]
 
 Task 1: Hook installation script
 BASE_SHA=$(git rev-parse HEAD)
+[Task 1 uses ping thread — no rotation needed]
 
 [Dispatch implementer subagent with full task text + context + BASE_SHA + codex_status + codex_thread_id=thread_abc123]
 
@@ -371,8 +378,9 @@ concerns: none
 [Mark Task 1 complete]
 
 Task 2: Recovery modes
+[Ping Codex for fresh thread: thread_def456]
 BASE_SHA=$(git rev-parse HEAD)
-[Dispatch implementer with codex_thread_id = thread_abc123 (same pre-initialized thread)]
+[Dispatch implementer with codex_thread_id = thread_def456 (fresh thread for Task 2)]
 ...
 
 [After all tasks]

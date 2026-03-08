@@ -11,7 +11,7 @@ You are an Implementer subagent. You implement a task, then run the full review 
 - **Working directory:** {WORKING_DIRECTORY}
 - **Base SHA:** {BASE_SHA} (commit before this task — never changes across rounds)
 - **Codex status:** {CODEX_STATUS} (either "available" or "unavailable")
-- **Codex thread ID:** {CODEX_THREAD_ID} (concrete thread ID pre-created by the main session — always a real ID, never "new")
+- **Codex thread ID:** {CODEX_THREAD_ID} (fresh thread for THIS task only — pre-created by the main session, always a real ID, never "new")
 
 ---
 

@@ -115,7 +115,7 @@ Agent tool:
 
 **Do NOT start any tasks until this completes.** You must have a concrete `codex_thread_id` or a definitive "unavailable" status before proceeding.
 
-**If `status: available`:** Extract `thread_id` from the response. Set `codex_thread_id` to this value and `codex_status = "available"`.
+**If `status: available`:** Extract `thread_id` from the response. Set `codex_thread_id` to this value, `codex_status = "available"`, and `tasks_on_current_thread = 0`.
 
 **If `status: unavailable`:** Set `codex_status = "unavailable"` and `codex_thread_id = "none"`. All tasks will skip Codex review.
 
@@ -182,16 +182,30 @@ For each task, the main session:
 BASE_SHA=$(git rev-parse HEAD)
 ```
 
-### Step 2: Determine CODEX_STATUS and CODEX_THREAD_ID
+### Step 2: Rotate Codex Thread (Every 5 Tasks)
 
-Use the values established in "Initialize Codex Thread" (before the task loop). Both are set once and propagated:
+Codex threads accumulate context with each review, slowing down over time. Rotate the thread every 5 completed tasks to keep reviews fast.
 
-- `codex_thread_id` — the concrete thread ID from initialization (never "new" — the main session already created the thread)
-- `codex_status` — "available" or "unavailable" from initialization
+**Track `tasks_on_current_thread`** — initialize to 0 after each new thread creation.
+
+**Before each task**, check if rotation is needed:
+- If `codex_status == "available"` AND `tasks_on_current_thread >= 5`:
+  1. Dispatch codex-agent with `mode: ping`, `profile: "higheffort"`
+  2. If successful: update `codex_thread_id` to the new thread ID, reset `tasks_on_current_thread = 0`
+  3. If unavailable: set `codex_status = "unavailable"` (don't block the task)
+
+### Step 3: Determine CODEX_STATUS and CODEX_THREAD_ID
+
+Use the current values of `codex_thread_id` and `codex_status` (updated by initialization and thread rotation):
+
+- `codex_thread_id` — the concrete thread ID (rotated every 5 tasks)
+- `codex_status` — "available" or "unavailable"
 
 **Update on status change:** If a task's verdict reports `codex_review.status: unavailable`, set `codex_status = "unavailable"` for all subsequent tasks.
 
-### Step 3: Dispatch Implementer
+**After each completed task:** increment `tasks_on_current_thread`.
+
+### Step 4: Dispatch Implementer
 
 Fill the template from `./implementer-prompt.md` with these 8 inputs:
 
@@ -203,8 +217,8 @@ Fill the template from `./implementer-prompt.md` with these 8 inputs:
 | `{CONTEXT}` | Scene-setting: where this fits, dependencies, architecture |
 | `{WORKING_DIRECTORY}` | Worktree absolute path |
 | `{BASE_SHA}` | From Step 1 |
-| `{CODEX_STATUS}` | From Step 2 |
-| `{CODEX_THREAD_ID}` | From Step 2 (always a concrete ID from pre-initialized thread, never "new") |
+| `{CODEX_STATUS}` | From Step 3 |
+| `{CODEX_THREAD_ID}` | From Step 3 (concrete ID, rotated every 5 tasks) |
 
 Dispatch via Task tool (`subagent_type: "general-purpose"`). If `work_model` is set, add `model: "{work_model}"` to the Task tool call.
 

@@ -66,10 +66,15 @@ PLAN_BREADCRUMB="$MAIN_REPO/.codex-state/current_plan"
 WORKTREE_BREADCRUMB="$MAIN_REPO/.codex-state/current_worktree"
 ```
 
-**If breadcrumbs exist** (post-`/clear` or new session):
-1. Read the worktree path from `$WORKTREE_BREADCRUMB` and `cd` into it
-2. Read the plan file path from `$PLAN_BREADCRUMB`
-3. Load and parse the plan file
+<HARD-GATE>
+**If breadcrumbs exist** (post-`/clear` or new session), follow this EXACT order — do NOT read the plan before cd'ing into the worktree:
+
+1. Read the worktree path from `$WORKTREE_BREADCRUMB`
+2. **`cd` into the worktree FIRST** — the plan file path is relative and only exists in the worktree branch
+3. Read the plan file path from `$PLAN_BREADCRUMB`
+4. Construct the absolute path: `$WORKTREE_PATH/$PLAN_PATH`
+5. Load and parse the plan file using the absolute path
+</HARD-GATE>
 
 > Breadcrumbs persist in `.codex-state/` — other skills (Codex agent, requesting-code-review) reference them downstream. Cleanup happens in `finishing-a-development-branch`.
 

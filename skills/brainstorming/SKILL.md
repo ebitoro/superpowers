@@ -37,10 +37,9 @@ Codex is a reviewer and thought partner throughout brainstorming.
 **Codex availability:**
 If the codex-agent reports `status: unavailable`, skip all Codex steps and proceed without Codex review. Inform the user that Codex review was skipped and why.
 
-**Codex is consulted at three points:**
-1. **After idea exploration** — Dispatch codex-agent with `mode: discuss` to validate understanding and surface blind spots. The agent verifies Codex's claims against the codebase before returning.
-2. **After exploring approaches** — Dispatch codex-agent with `mode: discuss` sharing proposed approaches. If the agent reports that Codex recommends a different approach, present both recommendations to the user with clear attribution (e.g., "I recommend A because X. Codex recommends B because Y.").
-3. **Before presenting design to user** — Dispatch codex-agent with `mode: review-gate` for design review. If verdict is `fail`, fix issues and redispatch (max 5 rounds). The agent filters out false positives so only verified issues come back.
+**Codex is consulted at two points:**
+1. **After CC proposes approaches** — Single dispatch with `mode: discuss` covering both the refined idea understanding and proposed approaches. Validates understanding, surfaces blind spots, and gets approach feedback in one call. If Codex recommends a different approach, present both recommendations to the user with clear attribution.
+2. **Before presenting design to user** — A dedicated subagent runs the full review gate loop autonomously (draft design → codex-agent `review-gate` → fix → resubmit, up to 5 rounds). The subagent returns the clean design or unresolved flags. This keeps the gate loop out of main session context.
 
 ## Checklist
 
@@ -50,12 +49,11 @@ You MUST create a task for each of these items and complete them in order:
 2. **Read key files** — read all files identified by the explorer agents to build deep understanding
 3. **Start Codex thread** — dispatch codex-agent with `mode: create-thread`, `profile: "xhigheffort"`. No context sent — thread starts empty. **Wait for result** — must have thread_id before proceeding.
 4. **Interview the user exhaustively** — use AskUserQuestion tool, 1-2 deep questions at a time covering purpose, technical implementation, UI/UX, constraints, concerns, trade-offs, integration; continue until no ambiguity remains
-5. **Discuss refined idea with Codex** — dispatch codex-agent with `mode: discuss`, **wait for result**, validate understanding and surface blind spots
-6. **Propose 2-3 approaches** — with trade-offs and your recommendation
-7. **Discuss approaches with Codex** — dispatch codex-agent with `mode: discuss`, **wait for result**, if recommendations differ, note both for user
-8. **Codex review gate (autonomous)** — dispatch codex-agent with `mode: review-gate`, **wait for result**. If verdict is `fail`, fix verified issues in the design yourself (do NOT report to user), then redispatch. Repeat until `pass` or 5 rounds exhausted. See `lib/codex-integration.md`.
-9. **Present final design to user** — only after Codex review gate passes (or 5 rounds exhausted, or Codex unavailable). Include any unresolved Codex flags if review gate did not fully pass
-10. **Write design doc** — save to `docs/plans/YYYY-MM-DD-<topic>-design.md`, commit, and write breadcrumb to `.codex-state/current_design_doc`
+5. **Propose 2-3 approaches** — with trade-offs and your recommendation (CC formulates these independently first)
+6. **Discuss idea + approaches with Codex** — single dispatch of codex-agent with `mode: discuss`, **wait for result**. Send both the refined understanding and proposed approaches. Covers blind spots and approach feedback in one call. If recommendations differ, note both for user
+7. **Codex review gate (subagent)** — draft the design, then dispatch a dedicated subagent that runs the full review gate loop autonomously: sends design to codex-agent with `mode: review-gate`, fixes verified issues, resubmits until `pass` or 5 rounds exhausted. Subagent returns the clean design or unresolved flags. See "Presenting the Design" for subagent prompt template
+8. **Present final design to user** — use the design returned by the review gate subagent. Include any unresolved Codex flags if review gate did not fully pass
+9. **Write design doc** — save to `docs/plans/YYYY-MM-DD-<topic>-design.md`, commit, and write breadcrumb to `.codex-state/current_design_doc`
 
 ## Process Flow
 
@@ -65,12 +63,10 @@ digraph brainstorming {
     "Read key files" [shape=box];
     "Start Codex thread" [shape=box, label="Start Codex thread\n(skip Codex steps if unavailable)"];
     "Ask clarifying questions" [shape=box];
-    "Discuss idea with Codex" [shape=box style=dashed];
     "Propose 2-3 approaches" [shape=box];
-    "Discuss approaches with Codex" [shape=box style=dashed];
-    "Draft design sections" [shape=box];
-    "Codex review gate" [shape=diamond style=dashed];
-    "Fixes < 5?" [shape=diamond];
+    "Discuss idea + approaches\nwith Codex (single call)" [shape=box style=dashed];
+    "Draft design" [shape=box];
+    "Review gate subagent\n(up to 5 rounds)" [shape=box style=dashed, label="Review gate subagent\n(autonomous, up to 5 rounds)"];
     "Present design to user" [shape=box];
     "User approves?" [shape=diamond];
     "Write design doc" [shape=doublecircle];
@@ -78,17 +74,13 @@ digraph brainstorming {
     "Explore context (subagents)" -> "Read key files";
     "Read key files" -> "Start Codex thread";
     "Start Codex thread" -> "Ask clarifying questions";
-    "Ask clarifying questions" -> "Discuss idea with Codex";
-    "Discuss idea with Codex" -> "Propose 2-3 approaches";
-    "Propose 2-3 approaches" -> "Discuss approaches with Codex";
-    "Discuss approaches with Codex" -> "Draft design sections";
-    "Draft design sections" -> "Codex review gate";
-    "Codex review gate" -> "Present design to user" [label="pass"];
-    "Codex review gate" -> "Fixes < 5?" [label="fail"];
-    "Fixes < 5?" -> "Draft design sections" [label="yes, fix and resubmit"];
-    "Fixes < 5?" -> "Present design to user" [label="no, present with unresolved flags"];
+    "Ask clarifying questions" -> "Propose 2-3 approaches";
+    "Propose 2-3 approaches" -> "Discuss idea + approaches\nwith Codex (single call)";
+    "Discuss idea + approaches\nwith Codex (single call)" -> "Draft design";
+    "Draft design" -> "Review gate subagent\n(up to 5 rounds)";
+    "Review gate subagent\n(up to 5 rounds)" -> "Present design to user" [label="returns clean design\nor unresolved flags"];
     "Present design to user" -> "User approves?";
-    "User approves?" -> "Draft design sections" [label="no, revise"];
+    "User approves?" -> "Draft design" [label="no, revise"];
     "User approves?" -> "Write design doc" [label="yes"];
 }
 ```
@@ -120,7 +112,7 @@ digraph brainstorming {
 
 ### Starting the Codex Thread
 
-- Dispatch codex-agent with `mode: create-thread`, `profile: "xhigheffort"`. No context is sent — the thread starts empty. Context is provided naturally with the first `discuss` call (step 5).
+- Dispatch codex-agent with `mode: create-thread`, `profile: "xhigheffort"`. No context is sent — the thread starts empty. Context is provided naturally with the first `discuss` call (step 6).
 - The agent handles thread creation, state file persistence, and `.codex-state/` setup
 - If the agent reports `status: unavailable`, inform the user and proceed without Codex for the rest of the session
 
@@ -149,22 +141,44 @@ This is an exhaustive interview, not a quick Q&A. Keep asking until every aspect
 - Dig into second-order consequences: "You chose X, but that means Y — is that acceptable?"
 - Challenge assumptions when you spot potential issues: "This approach assumes Z, but I noticed the codebase does W instead"
 
-- After the interview is complete, dispatch codex-agent with `mode: discuss` to validate understanding and surface blind spots
-
 ### Exploring Approaches
 
-- Propose 2-3 different approaches with trade-offs
+- Propose 2-3 different approaches with trade-offs — formulate these independently before consulting Codex
 - Present options conversationally with your recommendation and reasoning
 - Lead with your recommended option and explain why
-- Dispatch codex-agent with `mode: discuss` to discuss approaches with Codex
+
+### Consulting Codex (Single Call)
+
+- Dispatch codex-agent with `mode: discuss` sending both the refined understanding from the interview AND the proposed approaches
+- This single call replaces what were previously two separate Codex consultations — it covers blind spots in the idea and approach feedback together
 - If you and Codex recommend different approaches, tell the user: "I recommend [approach] because [reason]. Codex recommends [approach] because [reason]."
 
 ### Presenting the Design
 
 - Draft the design internally first
-- Dispatch codex-agent with `mode: review-gate` before showing to user
-- If verdict is `fail`, fix the verified issues in the design yourself — do NOT report them to the user. Redispatch codex-agent to re-review. Repeat until `pass` (max 5 rounds). False positives are already filtered by the agent.
-- Once codex-agent returns `pass` or `pass-with-flags` (or 5 rounds exhausted), present to user
+- Dispatch a **dedicated subagent** (foreground, general-purpose) to run the review gate loop autonomously. The subagent prompt should include:
+  1. The full draft design text
+  2. Instructions to invoke the `codex-agent` skill with `mode: review-gate` to review the design
+  3. If verdict is `fail`, fix verified issues in the design and redispatch codex-agent. Repeat until `pass` or 5 rounds exhausted
+  4. Return the final clean design text and any unresolved flags
+
+  **Subagent prompt template:**
+  ```
+  You are a design reviewer. Your job is to run a Codex review gate on the design below and return the final version.
+
+  ## Design to review:
+  <paste full draft design>
+
+  ## Instructions:
+  1. Invoke the `codex-agent` skill with mode: review-gate, sending the design for review
+  2. If the verdict is `fail`, fix all verified issues in the design yourself, then re-invoke codex-agent with the updated design
+  3. Repeat until verdict is `pass` or you have done 5 rounds
+  4. Return the final design text and list any unresolved flags
+
+  Do NOT present anything to the user. Return only the final design and flags to the caller.
+  ```
+
+- Use the design returned by the subagent for presentation
 - If presenting with unresolved Codex flags, clearly list what remains unresolved
 - Scale each section to its complexity: a few sentences if straightforward, up to 200-300 words if nuanced
 - Ask after each section whether it looks right so far

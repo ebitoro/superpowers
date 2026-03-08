@@ -34,6 +34,10 @@ cat "$MAIN_REPO/.codex-state/current_design_doc"
 
 Read the design doc path and load it. If missing, look for the most recent `*-design.md` in `docs/plans/`. If neither exists, ask the user.
 
+<HARD-GATE>
+**Codex review gate is MANDATORY.** You MUST dispatch codex-agent with `mode: review-gate` before presenting the plan to the user. Do NOT skip this step. Do NOT present the plan without running the review gate first (unless Codex is confirmed unavailable).
+</HARD-GATE>
+
 **Codex review gate (autonomous fix loop):**
 - **Before presenting to user** — Dispatch codex-agent with `mode: review-gate` containing the full plan and worktree path.
 - If verdict is `fail`: YOU (CC) fix the verified issues in the plan yourself — do NOT report them to the user. Then redispatch codex-agent to re-review.

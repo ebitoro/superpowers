@@ -22,9 +22,9 @@ Codex is a **reference**, not a source of truth. CC must **independently verify*
 
 Use the Agent tool to dispatch the codex-agent in **foreground** — do NOT use `run_in_background`. The caller always needs the result before proceeding. Four modes:
 
-**`ping`** — Lightweight availability check + thread creation (no message sent):
+**`init`** — Availability check + thread creation (no message sent):
 ```
-mode: ping
+mode: init
 profile: <optional — Codex config profile to use for this thread>
 ```
 
@@ -109,7 +109,7 @@ Subagents spawned via the Agent tool do NOT have access to the Agent tool themse
 
 **When this applies:** Any subagent that needs Codex review — implementer subagents, final-review subagents, codex-reviewer teammates, final-reviewer teammates.
 
-**When codex-agent is still used:** The main session (which HAS the Agent tool) uses codex-agent for ping, thread creation, and any Codex interactions it does directly (brainstorming, writing-plans, requesting-code-review).
+**When codex-agent is still used:** The main session (which HAS the Agent tool) uses codex-agent for init, thread creation, and any Codex interactions it does directly (brainstorming, writing-plans, requesting-code-review).
 
 ### Direct Call Protocol
 

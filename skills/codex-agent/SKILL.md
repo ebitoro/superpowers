@@ -23,7 +23,7 @@ Codex CLI has structured skill prompts pre-loaded. You reference them by name us
 | `cross-verify` | Any | No skill (free-form discussion) |
 | `discuss` | Any | No skill (free-form discussion) |
 | `create-thread` | N/A | No skill (thread setup only) |
-| `ping` | N/A | No skill (availability check only) |
+| `init` | N/A | No skill (availability check only) |
 
 **Message format when using a skill:**
 ```
@@ -43,7 +43,7 @@ Codex CLI loads the skill and applies it. You just provide the skill name, the r
 
 The caller will provide:
 
-- **mode** (required): One of `create-thread`, `discuss`, `review-gate`, `cross-verify`
+- **mode** (required): One of `init`, `create-thread`, `discuss`, `review-gate`, `cross-verify`
 - **thread_id** (optional): A specific Codex thread ID to use, or `"new"` to create a fresh thread. See Thread Management below.
 - **message** (required for `discuss`, `review-gate`, `cross-verify`): The message/content to send to Codex
 - **context** (optional): Additional context — design doc path, plan reference, what is being built
@@ -53,22 +53,22 @@ The caller will provide:
 
 ## Modes
 
-### `ping`
+### `init`
 
-Lightweight availability check. Creates a thread and returns immediately — no message sent, no verification needed. Used by skills that just need a `thread_id` and confirmation that Codex is reachable before starting work.
+Availability check and thread creation. Creates a thread and returns immediately — no message sent, no verification needed. Used by skills that need a `thread_id` and confirmation that Codex is reachable before starting work.
 
 1. Create a fresh thread via `codex` MCP tool. **Do NOT pass the `model` parameter.** Pass `profile` if the caller provided one.
-2. Report back using the **Output Format** below — the caller parses `thread_id` and `status` from your response. A casual reply like "Pong" will be treated as unavailable because the caller cannot extract the required fields.
+2. Report back using the **Output Format** below — the caller parses `thread_id` and `status` from your response.
 
 Do NOT send any message to the thread. Do NOT save the thread ID to any file — the caller manages persistence.
 
 **If Codex is unavailable** (MCP not connected, error): Report `status: unavailable` with the error. Do not retry.
 
-**Example ping response:**
+**Example response:**
 ```
 ## Codex Agent Report
 
-**Mode:** ping
+**Mode:** init
 **Thread ID:** 019cce12-abcd-7890-ef01-234567890abc
 **Status:** available
 **Thread Status:** created

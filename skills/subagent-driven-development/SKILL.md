@@ -41,7 +41,7 @@ All subagents inherit the session's model. Agent types with a `model` field in t
 
 ## Codex Integration
 
-> See `lib/codex-integration.md` for Codex patterns. The implementer subagent calls `codex-reply` MCP directly (subagents don't have the Agent tool, so codex-agent dispatch is not available). The main session still uses codex-agent for ping/thread-creation since it has Agent tool access.
+> See `lib/codex-integration.md` for Codex patterns. The implementer subagent calls `codex-reply` MCP directly (subagents don't have the Agent tool, so codex-agent dispatch is not available). The main session still uses codex-agent for init/thread-creation since it has Agent tool access.
 
 ## The Process
 
@@ -77,16 +77,16 @@ Check if inside a git worktree (`git worktree list`). If NOT in a worktree, disp
 
 ### Initialize Codex (Before Any Tasks)
 
-Check Codex availability and create the first thread. Use `ping` mode — lightweight, no message sent. Task 1 will use this thread directly.
+Check Codex availability and create the first thread. Use `init` mode — creates a thread, no message sent. Task 1 will use this thread directly.
 
 Dispatch codex-agent in **foreground** (do NOT use `run_in_background`):
 
 ```
 Agent tool:
   subagent_type: "superpowers:codex-agent"
-  description: "Ping Codex — check availability"
+  description: "Initialize Codex — check availability"
   prompt: |
-    mode: ping
+    mode: init
     profile: "higheffort"
 ```
 
@@ -99,7 +99,7 @@ Agent tool:
 <HARD-GATE>
 Do NOT dispatch any implementer subagent until `codex_thread_id` and `codex_status` are resolved. Starting tasks without these values causes tasks to silently skip Codex review.
 
-Do NOT create additional threads after ping — use the thread returned by ping for Task 1. Do NOT call `codex` MCP directly to create threads. Only the ping and per-task rotation (Step 2) create threads.
+Do NOT create additional threads after init — use the thread returned by init for Task 1. Do NOT call `codex` MCP directly to create threads. Only the init and per-task rotation (Step 2) create threads.
 </HARD-GATE>
 
 ### Per-Task Workflow
@@ -165,17 +165,17 @@ BASE_SHA=$(git rev-parse HEAD)
 
 Codex threads accumulate context with each review, slowing down over time. Rotate the thread every 5 tasks to keep reviews fast.
 
-**Track `tasks_on_current_thread`** — initialized to 0 after ping. Increment after each completed task.
+**Track `tasks_on_current_thread`** — initialized to 0 after init. Increment after each completed task.
 
 **Rotation schedule:**
-- **Tasks 1-5:** Use the thread from the initial ping
+- **Tasks 1-5:** Use the thread from the initial init
 - **Before Task 6:** Ping for a fresh thread, reset counter to 0
 - **Tasks 6-10:** Use that thread
 - Continue this pattern until all tasks are done
 
 **Before each task**, check if rotation is needed:
 - If `codex_status == "available"` AND `tasks_on_current_thread >= 5`:
-  1. Dispatch codex-agent with `mode: ping`, `profile: "higheffort"`
+  1. Dispatch codex-agent with `mode: init`, `profile: "higheffort"`
   2. If successful: update `codex_thread_id` to the new thread ID, reset `tasks_on_current_thread = 0`
   3. If unavailable: set `codex_status = "unavailable"` (don't block the task)
 
@@ -315,7 +315,7 @@ You: I'm using Subagent-Driven Development to execute this plan.
 [Extract all 5 tasks with full text and context]
 [Create TodoWrite with all tasks]
 
-[Ping Codex: dispatch codex-agent with mode=ping]
+[Init Codex: dispatch codex-agent with mode=init]
 [Result: codex_thread_id = thread_abc123, codex_status = "available", tasks_on_current_thread = 0]
 
 Task 1: Hook installation script

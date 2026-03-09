@@ -41,7 +41,7 @@ All subagents inherit the session's model. Agent types with a `model` field in t
 
 ## Codex Integration
 
-> See `lib/codex-integration.md` for Codex patterns. The implementer subagent dispatches codex-agent directly via the Agent tool (foreground) — no persistent teammate needed.
+> See `lib/codex-integration.md` for Codex patterns. The implementer subagent calls `codex-reply` MCP directly (subagents don't have the Agent tool, so codex-agent dispatch is not available). The main session still uses codex-agent for ping/thread-creation since it has Agent tool access.
 
 ## The Process
 

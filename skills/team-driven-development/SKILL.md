@@ -26,7 +26,7 @@ All subagents inherit the session's model. Agent types with a `model` field in t
 
 ## Codex Integration
 
-> See `lib/codex-integration.md` for Codex patterns. All Codex interactions go through a persistent Codex Reviewer teammate that dispatches the codex-agent (`skills/codex-agent/SKILL.md`) internally. The codex-agent selects the right Codex skill automatically based on message content.
+> See `lib/codex-integration.md` for Codex patterns. All Codex interactions go through a persistent Codex Reviewer teammate that calls `codex`/`codex-reply` MCP directly (teammates don't have the Agent tool, so codex-agent dispatch is not available). The Codex Reviewer handles thread management, message formatting, and response verification internally.
 
 ## The Process
 

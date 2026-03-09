@@ -36,32 +36,51 @@ If Codex was previously marked unavailable, skip dispatch and reply immediately:
 status: unavailable
 ```
 
-### Step 3: Dispatch codex-agent
+### Step 3: Call Codex MCP Directly
 
-Dispatch codex-agent. The `message` field must contain the review content — commit SHAs, summary, spec, and test results — so codex-agent can select the right Codex skill automatically.
+Call `codex` or `codex-reply` MCP tools directly. You do not have access to the Agent tool, so codex-agent dispatch is not available.
 
+**If `thread_id` is "new":** Create a fresh thread first:
 ```
-Agent tool:
-  subagent_type: "superpowers:codex-agent"
-  description: "Codex review for [task]"
-  prompt: |
-    mode: review-gate
-    thread_id: [from request — "new" or saved ID]
-    profile: [from request — default "higheffort", only passed when thread_id is "new"]
-    message: |
-      Review commits [commit_range].
-      Task: [task_summary]
-      Spec: [task_spec]
-      What changed: [context]
-    context: [task_spec]
-    worktree_path: {WORKTREE_PATH}
+codex MCP:
+  profile: [from request — default "higheffort"]
+  (do NOT pass model parameter)
+```
+Save the returned thread_id.
+
+**Then send the review** (or if reusing an existing thread_id, skip thread creation):
+```
+codex-reply MCP:
+  thread_id: [new thread_id or saved ID from request]
+  message: |
+    IMPORTANT: You are in a READ-ONLY sandbox. Do NOT edit files, write fixes, or take any action. Report findings only.
+
+    NOTE: Implementation is in worktree at {WORKTREE_PATH}.
+    All file paths are relative to the worktree root.
+
+    [SKILL: code-review]
+
+    Use your loaded `code-review` skill to review the following changes.
+    You are READ-ONLY — report findings only, never edit files or write fixes.
+    If the skill is not available, respond with: VERDICT: ERROR — skill not loaded.
+
+    ---
+    Review commits [commit_range].
+    Task: [task_summary]
+    Spec: [task_spec]
+    What changed: [context]
 ```
 
-**Profile handling:** Only pass `profile` when creating a new thread (`thread_id: "new"`). When reusing a saved thread_id for re-reviews, omit `profile` — the thread already has its profile set.
+**Do NOT pass the `model` parameter** to `codex` or `codex-reply`.
 
-**Do NOT reply to requester until Codex review completes.**
+**Verify every finding** against actual code before relaying:
+- Read the actual code at each location Codex references
+- **Verified:** Issue exists → include in response
+- **False positive:** Code does NOT have the issue → exclude, note as filtered
+- **Downgraded:** Issue exists at lower severity → adjust
+- When Codex and code contradict, code is ground truth
 
-**Do NOT** pass `commit_range`, `task_summary`, `task_spec` as separate top-level fields — codex-agent does not recognize them. Everything goes in `message`.
+**Do NOT reply to requester until Codex review completes and findings are verified.**
 
 ### Step 4: Process Response
 
@@ -121,7 +140,7 @@ This gives the sender actionable feedback instead of silence.
 
 ## Rules
 
-1. **Never add your own findings.** Only relay what codex-agent returns.
+1. **Only relay verified Codex findings.** Filter false positives before relaying.
 2. **Never retry after unavailability.** Cache the status, reply immediately to all future requests.
 3. **One dispatch per request.** Do not batch reviews.
 4. **Preserve thread continuity.** Pass the correct thread_id for re-reviews within a task.

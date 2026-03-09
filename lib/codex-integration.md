@@ -103,6 +103,35 @@ The codex-agent selects the right Codex review skill automatically based on cont
 
 False positives are filtered by the agent — only real issues come back.
 
+## Direct Codex Calls (Subagent Context)
+
+Subagents spawned via the Agent tool do NOT have access to the Agent tool themselves. This means they cannot dispatch `codex-agent`. Instead, subagents call `codex` and `codex-reply` MCP tools directly, with the verification protocol inlined.
+
+**When this applies:** Any subagent that needs Codex review — implementer subagents, final-review subagents, codex-reviewer teammates, final-reviewer teammates.
+
+**When codex-agent is still used:** The main session (which HAS the Agent tool) uses codex-agent for ping, thread creation, and any Codex interactions it does directly (brainstorming, writing-plans, requesting-code-review).
+
+### Direct Call Protocol
+
+1. **Thread creation** (when needed): Call `codex` MCP — never pass `model`, pass `profile` if starting a new thread
+2. **Review messages**: Call `codex-reply` MCP — never pass `model`, always prepend read-only reminder
+3. **Message format**: `[SKILL: code-review]` tag + read-only reminder + worktree note + review content (commit SHAs only)
+4. **Response verification**: Read actual code at every cited location, classify as verified/false-positive/downgraded
+5. **Ground truth rule**: When Codex and code contradict, code wins
+
+### Read-Only Reminder (prepend to ALL messages)
+
+```
+IMPORTANT: You are in a READ-ONLY sandbox. Do NOT edit files, write fixes, or take any action. Report findings only.
+```
+
+### Worktree Note (include when in a worktree)
+
+```
+NOTE: Implementation is in worktree at <path>.
+All file paths are relative to the worktree root.
+```
+
 ## Tiered Review Gate (3+3 Pattern)
 
 For context-heavy skills (e.g., `writing-plans`) where the main session has already consumed significant context, the review gate loop can be offloaded to a subagent. This splits the work into two tiers:

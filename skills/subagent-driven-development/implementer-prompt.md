@@ -5,11 +5,14 @@ You are an Implementer subagent. You implement a task, then run the full review 
 <HARD-GATE>
 ## Codex Rule — Read This First
 
-**NEVER call `codex` or `codex-reply` MCP tools directly.** Not even once. Not for "just a quick review." The `codex` MCP tool is OFF LIMITS to you.
+**Call `codex-reply` MCP directly** for all Codex reviews. You do not have access to the Agent tool, so codex-agent dispatch is not available. You handle message formatting and response verification yourself.
 
-For ALL Codex communication, dispatch `superpowers:codex-agent` via the Agent tool in **foreground**. The codex-agent handles thread management, response verification, and false-positive filtering. Calling `codex` MCP directly creates orphan threads, bypasses the shared thread (`{CODEX_THREAD_ID}`), skips response verification, and wastes tokens.
-
-You MUST use the thread ID `{CODEX_THREAD_ID}` for every codex-agent dispatch. This thread was pre-created by the main session and is shared across tasks. Do NOT pass `thread_id: "new"`.
+**Key rules:**
+- Use thread ID `{CODEX_THREAD_ID}` for every `codex-reply` call — pre-created by the main session, shared across tasks. Do NOT create new threads.
+- **NEVER pass the `model` parameter** to `codex-reply` — let Codex use its configured model
+- **NEVER send raw diffs or full code** — send only commit SHAs and a short summary. Codex has sandbox access and reads files itself.
+- **Prepend the read-only reminder** to every message (see format below)
+- **Verify every finding** against actual code before accepting it — Codex is a reference, not authority
 </HARD-GATE>
 
 ## Inputs
@@ -88,30 +91,41 @@ If self-review finds issues, fix them now before proceeding.
 
 **Skip if `{CODEX_STATUS}` is "unavailable".**
 
-<HARD-GATE>
-NEVER call `codex` or `codex-reply` MCP tools directly. You MUST dispatch `superpowers:codex-agent` via the Agent tool. Calling `codex` MCP directly creates orphan threads, bypasses the shared thread (`{CODEX_THREAD_ID}`), and skips response verification.
+Call `codex-reply` MCP directly. Send ONLY commit SHAs — never raw diffs or full code.
 
-Send ONLY commit SHAs to Codex — never raw diffs or full code. Codex has sandbox access and can read files and run `git diff` itself.
-</HARD-GATE>
-
+**Message format:**
 ```
-Agent tool:
-  subagent_type: "superpowers:codex-agent"
-  description: "Codex review for Task {TASK_NUMBER}"
-  prompt: |
-    mode: review-gate
-    thread_id: "{CODEX_THREAD_ID}"
-    message: |
-      Review {BASE_SHA}..{HEAD_SHA}.
-      Task {TASK_NUMBER}: {TASK_NAME}.
-      Summary: [what you implemented — 1-2 sentences, NOT code]
-      Tests: [pass/fail count]
-    worktree_path: {WORKING_DIRECTORY}
+codex-reply MCP:
+  thread_id: "{CODEX_THREAD_ID}"
+  message: |
+    IMPORTANT: You are in a READ-ONLY sandbox. Do NOT edit files, write fixes, or take any action. Report findings only.
+
+    NOTE: Implementation is in worktree at {WORKING_DIRECTORY}.
+    All file paths are relative to the worktree root.
+
+    [SKILL: code-review]
+
+    Use your loaded `code-review` skill to review the following changes.
+    You are READ-ONLY — report findings only, never edit files or write fixes.
+    If the skill is not available, respond with: VERDICT: ERROR — skill not loaded.
+
+    ---
+    Review {BASE_SHA}..{HEAD_SHA}.
+    Task {TASK_NUMBER}: {TASK_NAME}.
+    Summary: [what you implemented — 1-2 sentences, NOT code]
+    Tests: [pass/fail count]
 ```
 
-**Do NOT proceed to Phase 3 until Codex review completes.**
+**Do NOT pass the `model` parameter to `codex-reply`.**
 
-**If result received:** Process the review findings. If the agent reports `status: unavailable`, skip Codex for remaining phases and note in verdict.
+**Verify every finding** before accepting:
+- Read the actual code at each location Codex references
+- **Verified:** Issue exists in code as described → keep it
+- **False positive:** Code does NOT have the issue → dismiss
+- **Downgraded:** Issue exists at lower severity → adjust
+- When Codex and code contradict, code is ground truth
+
+**If `codex-reply` errors** (MCP not connected, usage limit): Set Codex to unavailable, skip for remaining phases, note in verdict.
 
 ---
 
@@ -153,24 +167,31 @@ Update `HEAD_SHA`.
 **Self-review re-run:** Re-do the checklist (Completeness, Quality, Discipline, Testing) against the updated diff (`{BASE_SHA}..{HEAD_SHA}`). Fix any new issues found.
 
 **Codex re-review** (max 5 rounds total):
-If Codex found issues that were fixed, re-dispatch codex-agent with the same `{CODEX_THREAD_ID}`. Send ONLY commit SHAs — never raw diffs:
+If Codex found issues that were fixed, call `codex-reply` again with the same `{CODEX_THREAD_ID}`. Send ONLY commit SHAs — never raw diffs:
 
 ```
-Agent tool:
-  subagent_type: "superpowers:codex-agent"
-  description: "Codex re-review for Task {TASK_NUMBER}"
-  prompt: |
-    mode: review-gate
-    thread_id: "{CODEX_THREAD_ID}"
-    message: |
-      Re-review {BASE_SHA}..{HEAD_SHA}.
-      Task {TASK_NUMBER}: {TASK_NAME}.
-      Addressed: [list of fixed issue IDs — NOT code]
-      Tests: [pass/fail count]
-    worktree_path: {WORKING_DIRECTORY}
+codex-reply MCP:
+  thread_id: "{CODEX_THREAD_ID}"
+  message: |
+    IMPORTANT: You are in a READ-ONLY sandbox. Do NOT edit files, write fixes, or take any action. Report findings only.
+
+    NOTE: Implementation is in worktree at {WORKING_DIRECTORY}.
+    All file paths are relative to the worktree root.
+
+    [SKILL: code-review]
+
+    Use your loaded `code-review` skill to review the following changes.
+    You are READ-ONLY — report findings only, never edit files or write fixes.
+    If the skill is not available, respond with: VERDICT: ERROR — skill not loaded.
+
+    ---
+    Re-review {BASE_SHA}..{HEAD_SHA}.
+    Task {TASK_NUMBER}: {TASK_NAME}.
+    Addressed: [list of fixed issue IDs — NOT code]
+    Tests: [pass/fail count]
 ```
 
-Verify new findings, fix, re-dispatch until clean or cap reached.
+Verify new findings, fix, re-call until clean or cap reached.
 
 **If Codex becomes unavailable during re-review:** Note the status change. Continue with self-review only. Report unavailability in Phase 6.
 
@@ -321,5 +342,5 @@ concerns: [any risks or "none"]
 10. **One commit per fix round.** Keep history clean.
 11. **Use {BASE_SHA} for all diffs.** It never changes.
 12. **Questions go in your Agent tool response.** The main session sees them directly.
-13. **Never call `codex` or `codex-reply` MCP tools directly.** All Codex communication goes through `superpowers:codex-agent` dispatched via the Agent tool (foreground). The codex-agent handles thread management — calling `codex` directly creates orphan threads and skips response verification.
-14. **Always use `{CODEX_THREAD_ID}` for all codex-agent dispatches.** This is a concrete thread ID pre-created by the main session. Using it ensures `codex-reply` continues the existing thread. Never pass "new" as thread_id.
+13. **Call `codex-reply` MCP directly for all Codex reviews.** Never pass the `model` parameter. Always prepend the read-only sandbox reminder. Always verify every finding against actual code before accepting.
+14. **Always use `{CODEX_THREAD_ID}` for all `codex-reply` calls.** This is a concrete thread ID pre-created by the main session. Never create new threads — use the provided ID for the entire task lifecycle.

@@ -5,9 +5,13 @@ You are a Final Review subagent. You review the entire implementation across all
 <HARD-GATE>
 ## Codex Rule — Read This First
 
-**NEVER call `codex` or `codex-reply` MCP tools directly.** Not even once. Not for "just a quick review." The `codex` MCP tool is OFF LIMITS to you.
+**Call `codex` and `codex-reply` MCP directly** for Codex reviews. You do not have access to the Agent tool, so codex-agent dispatch is not available. You handle thread creation, message formatting, and response verification yourself.
 
-For ALL Codex communication, dispatch `superpowers:codex-agent` via the Agent tool in **foreground**. The codex-agent handles thread management, response verification, and false-positive filtering. Calling `codex` MCP directly creates orphan threads, skips response verification, and wastes tokens.
+**Key rules:**
+- **NEVER pass the `model` parameter** to `codex` or `codex-reply` — let Codex use its configured model
+- **NEVER send raw diffs or full code** — send only commit SHAs. Codex has sandbox access.
+- **Prepend the read-only reminder** to every `codex-reply` message
+- **Verify every finding** against actual code before accepting it
 </HARD-GATE>
 
 ## Reasoning Effort
@@ -89,50 +93,80 @@ Repeat until the reviewer passes or max 5 rounds reached.
 
 **Skip if `{CODEX_STATUS}` is "unavailable".**
 
-**Dispatch codex-agent** (never call `codex`/`codex-reply` MCP directly):
+Call `codex` and `codex-reply` MCP directly.
 
 <HARD-GATE>
-Send ONLY commit SHAs to Codex — never raw diffs or full code. Codex has sandbox access and can read files and run `git diff` itself. Sending full diffs wastes tokens and slows reviews.
+Send ONLY commit SHAs to Codex — never raw diffs or full code. Codex has sandbox access and reads files itself.
 </HARD-GATE>
 
+### Step 1: Create a Fresh Thread
+
+The final review gets its own thread with `xhigheffort` profile:
+
 ```
-Agent tool:
-  subagent_type: "superpowers:codex-agent"
-  description: "Codex final review"
-  prompt: |
-    mode: review-gate
-    thread_id: "new"
-    profile: "xhigheffort"
-    message: |
-      Review {BASE_SHA}..HEAD_SHA.
-      Final review of full implementation.
-      Summary: [what was implemented — 1-2 sentences, NOT code]
-      Tests: [pass/fail count]
-    worktree_path: {WORKING_DIRECTORY}
+codex MCP:
+  profile: "xhigheffort"
+  (do NOT pass model parameter)
 ```
 
-**Do NOT proceed to fixing or verdict until Codex review completes.**
+Save the returned `thread_id` — use it for all subsequent `codex-reply` calls in this phase.
 
-Save the returned `thread_id` from the codex-agent response — use it for re-reviews within this final review phase.
+### Step 2: Send Review Request
 
-**If result received:** Verify each finding against actual code:
+```
+codex-reply MCP:
+  thread_id: [saved thread_id]
+  message: |
+    IMPORTANT: You are in a READ-ONLY sandbox. Do NOT edit files, write fixes, or take any action. Report findings only.
+
+    NOTE: Implementation is in worktree at {WORKING_DIRECTORY}.
+    All file paths are relative to the worktree root.
+
+    [SKILL: code-review]
+
+    Use your loaded `code-review` skill to review the following changes.
+    You are READ-ONLY — report findings only, never edit files or write fixes.
+    If the skill is not available, respond with: VERDICT: ERROR — skill not loaded.
+
+    ---
+    Review {BASE_SHA}..HEAD_SHA.
+    Final review of full implementation.
+    Summary: [what was implemented — 1-2 sentences, NOT code]
+    Tests: [pass/fail count]
+```
+
+**Do NOT pass the `model` parameter to `codex-reply`.**
+
+### Step 3: Verify and Fix
+
+Verify each finding against actual code:
 - **Verified:** Fix it, commit, update HEAD_SHA
 - **False positive:** Dismiss with reasoning
+- When Codex and code contradict, code is ground truth
 
-If fixes were made, re-dispatch codex-agent with the saved thread_id:
+### Step 4: Re-Review After Fixes
+
+If fixes were made, call `codex-reply` again with the same thread_id:
 
 ```
-Agent tool:
-  subagent_type: "superpowers:codex-agent"
-  description: "Codex final re-review"
-  prompt: |
-    mode: review-gate
-    thread_id: [saved thread_id from initial final review]
-    message: |
-      Re-review {BASE_SHA}..HEAD_SHA.
-      Addressed: [list of fixed issues]
-      Tests: [pass/fail count]
-    worktree_path: {WORKING_DIRECTORY}
+codex-reply MCP:
+  thread_id: [saved thread_id]
+  message: |
+    IMPORTANT: You are in a READ-ONLY sandbox. Do NOT edit files, write fixes, or take any action. Report findings only.
+
+    NOTE: Implementation is in worktree at {WORKING_DIRECTORY}.
+    All file paths are relative to the worktree root.
+
+    [SKILL: code-review]
+
+    Use your loaded `code-review` skill to review the following changes.
+    You are READ-ONLY — report findings only, never edit files or write fixes.
+    If the skill is not available, respond with: VERDICT: ERROR — skill not loaded.
+
+    ---
+    Re-review {BASE_SHA}..HEAD_SHA.
+    Addressed: [list of fixed issues]
+    Tests: [pass/fail count]
 ```
 
 Max 5 rounds total.
@@ -218,5 +252,5 @@ concerns: [any risks or "none"]
 9. **One commit per fix round.** Keep history clean.
 10. **Use {BASE_SHA} for all diffs.** It never changes.
 11. **Max 5 rounds for code-reviewer, max 5 rounds for Codex.** If still failing, report as fail.
-12. **Never call `codex` or `codex-reply` MCP tools directly.** All Codex communication goes through `superpowers:codex-agent` dispatched via the Agent tool (foreground). The codex-agent handles thread management — calling `codex` directly creates orphan threads and skips response verification.
-13. **Create a fresh Codex thread for the final review.** Use `thread_id: "new"` with `profile: "xhigheffort"` for the initial dispatch. Save the returned thread_id and reuse it for all re-review dispatches within this final review phase.
+12. **Call `codex`/`codex-reply` MCP directly.** Never pass the `model` parameter. Always prepend the read-only sandbox reminder. Always verify every finding against actual code.
+13. **Create a fresh Codex thread for the final review.** Call `codex` MCP with `profile: "xhigheffort"` (no `model` parameter). Save the returned thread_id and reuse it for all `codex-reply` calls within this final review phase.

@@ -39,9 +39,9 @@ All Codex patterns are documented in `lib/codex-integration.md` (single source o
 
 **Core principle:** Codex is a reference, not authority. CC must independently verify every Codex claim against the actual code before accepting it. When Codex and the code contradict, the code is ground truth.
 
-### Codex Agent (Primary Pattern)
+### Codex Agent (Main Session Pattern)
 
-**All Codex interactions go through the `codex-agent` skill** (`skills/codex-agent/SKILL.md`). This offloads thread management, Codex communication, and response verification to a dedicated agent — preserving the main session's context window.
+**Main session Codex interactions go through the `codex-agent` skill** (`skills/codex-agent/SKILL.md`). This offloads thread management, Codex communication, and response verification to a dedicated agent — preserving the main session's context window.
 
 The agent supports four modes:
 - `create-thread` — Start a new Codex conversation (brainstorming only)
@@ -49,7 +49,11 @@ The agent supports four modes:
 - `review-gate` — Send content for review, get a filtered verdict (false positives removed)
 - `cross-verify` — Cross-verify a specific finding with Codex
 
-Skills dispatch the codex-agent via the Agent tool (foreground). The agent handles thread recovery, skill selection, and response verification internally. See `lib/codex-integration.md` for dispatch format.
+The main session dispatches codex-agent via the Agent tool (foreground). See `lib/codex-integration.md` for dispatch format.
+
+### Direct Codex Calls (Subagent Pattern)
+
+**Subagents call `codex`/`codex-reply` MCP directly** because they don't have the Agent tool. This applies to implementer subagents, final-review subagents, codex-reviewer teammates, and final-reviewer teammates. They inline the verification protocol (read code at cited locations, filter false positives). See `lib/codex-integration.md` "Direct Codex Calls" section.
 
 ### State Directory
 

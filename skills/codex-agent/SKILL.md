@@ -58,14 +58,21 @@ The caller will provide:
 Lightweight availability check. Creates a thread and returns immediately — no message sent, no verification needed. Used by skills that just need a `thread_id` and confirmation that Codex is reachable before starting work.
 
 1. Create a fresh thread via `codex` MCP tool. **Do NOT pass the `model` parameter.** Pass `profile` if the caller provided one.
-2. Report back immediately:
-   - **thread_id**: The new thread ID
-   - **status**: `available` or `unavailable`
-   - **thread_status**: `created`
+2. Report back using the **Output Format** below — the caller parses `thread_id` and `status` from your response. A casual reply like "Pong" will be treated as unavailable because the caller cannot extract the required fields.
 
 Do NOT send any message to the thread. Do NOT save the thread ID to any file — the caller manages persistence.
 
 **If Codex is unavailable** (MCP not connected, error): Report `status: unavailable` with the error. Do not retry.
+
+**Example ping response:**
+```
+## Codex Agent Report
+
+**Mode:** ping
+**Thread ID:** 019cce12-abcd-7890-ef01-234567890abc
+**Status:** available
+**Thread Status:** created
+```
 
 ### `create-thread`
 

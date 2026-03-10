@@ -21,21 +21,21 @@ Every project goes through this process. A todo list, a single-function utility,
 
 You MUST create a task for each of these items and complete them in order:
 
-1. **Explore project context** — check files, docs, recent commits
+1. **Explore project context** — dispatch Explore subagent to scan the project and return a concise summary (see Exploring the Project section below)
 2. **Offer visual companion** (if topic will involve visual questions) — this is its own message, not combined with a clarifying question. See the Visual Companion section below.
 3. **Ask clarifying questions** — one at a time, understand purpose/constraints/success criteria
 4. **Propose 2-3 approaches** — with trade-offs and your recommendation
 5. **Present design** — in sections scaled to their complexity, get user approval after each section
 6. **Write design doc** — save to `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md` and commit
-7. **Run spec review loop** — dispatch spec-document-reviewer, fix issues, repeat until approved
-8. **Run Codex design review gate** — dispatch codex-agent for design verification (see After the Design section)
+7. **Run spec review** — dispatch design-spec-review subagent to handle the full review loop (see After the Design section)
+8. **Run Codex design review** — dispatch codex-design-review subagent to handle the full Codex review gate (see After the Design section)
 9. **Transition to implementation** — invoke writing-plans skill to create implementation plan
 
 ## Process Flow
 
 ```dot
 digraph brainstorming {
-    "Explore project context" [shape=box];
+    "Explore subagent\n(returns project summary)" [shape=box style=filled fillcolor=lightyellow];
     "Visual questions ahead?" [shape=diamond];
     "Offer Visual Companion\n(own message, no other content)" [shape=box];
     "Ask clarifying questions" [shape=box];
@@ -43,9 +43,11 @@ digraph brainstorming {
     "Present design sections" [shape=box];
     "User approves design?" [shape=diamond];
     "Write design doc" [shape=box];
+    "design-spec-review subagent\n(review loop, returns verdict)" [shape=box style=filled fillcolor=lightyellow];
+    "codex-design-review subagent\n(Codex gate, returns verdict)" [shape=box style=filled fillcolor=lightyellow];
     "Invoke writing-plans skill" [shape=doublecircle];
 
-    "Explore project context" -> "Visual questions ahead?";
+    "Explore subagent\n(returns project summary)" -> "Visual questions ahead?";
     "Visual questions ahead?" -> "Offer Visual Companion\n(own message, no other content)" [label="yes"];
     "Visual questions ahead?" -> "Ask clarifying questions" [label="no"];
     "Offer Visual Companion\n(own message, no other content)" -> "Ask clarifying questions";
@@ -54,19 +56,44 @@ digraph brainstorming {
     "Present design sections" -> "User approves design?";
     "User approves design?" -> "Present design sections" [label="no, revise"];
     "User approves design?" -> "Write design doc" [label="yes"];
-    "Write design doc" -> "Spec review loop";
-    "Spec review loop" -> "Codex design review gate";
-    "Codex design review gate" -> "Invoke writing-plans skill";
+    "Write design doc" -> "design-spec-review subagent\n(review loop, returns verdict)";
+    "design-spec-review subagent\n(review loop, returns verdict)" -> "codex-design-review subagent\n(Codex gate, returns verdict)";
+    "codex-design-review subagent\n(Codex gate, returns verdict)" -> "Invoke writing-plans skill";
 }
 ```
 
+**Yellow nodes run as subagents** — their work stays out of the main session's context. The main session only receives the final summary/verdict.
+
 **The terminal state is invoking writing-plans.** Do NOT invoke frontend-design, mcp-builder, or any other implementation skill. The ONLY skill you invoke after brainstorming is writing-plans.
+
+## Exploring the Project
+
+Dispatch an Explore subagent to scan the project and return a concise summary. This keeps raw file contents out of the main session's context.
+
+```
+Agent tool:
+  subagent_type: "Explore"
+  description: "Explore project context"
+  prompt: |
+    Explore this project thoroughly and return a concise summary covering:
+    - **Tech stack**: languages, frameworks, key dependencies
+    - **Architecture**: project structure, main components, how they connect
+    - **Patterns**: coding conventions, naming, file organization
+    - **Relevant context for <user's topic>**: files, modules, or patterns directly related to what we're building
+    - **Recent activity**: last 5-10 commits, any in-progress work
+    - **Existing tests**: test framework, test locations, coverage approach
+
+    Keep the summary under 500 words. Focus on what someone designing a new feature would need to know.
+    Do NOT include raw file contents — summarize.
+```
+
+Use the returned summary as your project understanding for the rest of brainstorming. If you need specific details during design questions, you can read individual files directly — but avoid bulk exploration in the main session.
 
 ## The Process
 
 **Understanding the idea:**
 
-- Check out the current project state first (files, docs, recent commits)
+- Use the project summary from the Explore subagent as your starting context
 - Before asking detailed questions, assess scope: if the request describes multiple independent subsystems (e.g., "build a platform with chat, file storage, billing, and analytics"), flag this immediately. Don't spend questions refining details of a project that needs to be decomposed first.
 - If the project is too large for a single spec, help the user decompose into sub-projects: what are the independent pieces, how do they relate, what order should they be built? Then brainstorm the first sub-project through the normal design flow. Each sub-project gets its own spec → plan → implementation cycle.
 - For appropriately-scoped projects, ask questions one at a time to refine the idea
@@ -110,45 +137,39 @@ digraph brainstorming {
 - Use elements-of-style:writing-clearly-and-concisely skill if available
 - Commit the design document to git
 
-**Spec Review Loop:**
-After writing the spec document:
+**Spec Review (subagent):**
+After writing the spec document, dispatch the design-spec-review subagent to handle the entire review loop. This keeps all review round-trips out of the main session's context.
 
-1. Dispatch spec-document-reviewer subagent (see spec-document-reviewer-prompt.md)
-2. If Issues Found: fix, re-dispatch, repeat until Approved
-3. If loop exceeds 5 iterations, surface to human for guidance
+```
+Agent tool:
+  subagent_type: "superpowers:design-spec-review"
+  description: "Spec review for design doc"
+  prompt: |
+    spec_path: <absolute-path-to-design-doc>
+    reviewer_prompt_path: <absolute-path-to-spec-document-reviewer-prompt.md>
+```
 
-**Codex Design Review Gate:**
-After the spec review loop passes, run a Codex review gate on the design doc. See `lib/codex-integration.md` for full protocol.
+**Handle result:**
+- `approved`: proceed to Codex design review
+- `issues_remaining`: surface to user for guidance (the subagent exhausted 5 rounds)
 
-1. Save the design doc path to `.codex-state/current_design_doc` (relative to repo root):
-   ```bash
-   MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-   STATE_DIR="$MAIN_REPO/.codex-state"
-   mkdir -p "$STATE_DIR"
-   echo "<relative-path-to-design-doc>" > "$STATE_DIR/current_design_doc"
-   ```
+**Codex Design Review (subagent):**
+After spec review passes, dispatch the codex-design-review subagent to handle the Codex review gate. See `lib/codex-integration.md` for the underlying protocol.
 
-2. Dispatch codex-agent via the Agent tool (foreground):
-   ```
-   Agent tool:
-     subagent_type: "superpowers:codex-agent"
-     description: "Codex design review"
-     prompt: |
-       mode: review-gate
-       thread_id: "new"
-       message: |
-         Review this design document for completeness, logical gaps, and missing edge cases.
-         Design doc path: <path-to-design-doc>
-         This is a design review (use verify-design skill).
-       context: Design doc for <1-2 sentence summary of what is being designed>
-       profile: xhigheffort
-   ```
+```
+Agent tool:
+  subagent_type: "superpowers:codex-design-review"
+  description: "Codex design review"
+  prompt: |
+    spec_path: <absolute-path-to-design-doc>
+    summary: <1-2 sentence summary of what is being designed>
+    worktree_path: <absolute-path-to-worktree if applicable>
+```
 
-3. Echo the returned `thread_id` as `**Active Codex thread_id:** <id>`
-4. If verdict is `pass`: proceed to implementation handoff
-5. If verdict is `fail`: **independently verify each finding** — read the cited section of the design doc and confirm the issue exists before fixing. Dismiss false positives. Fix confirmed issues, then redispatch codex-agent with the saved `thread_id`.
-6. Maximum **5 rounds**. If still unresolved, track flags in `docs/unresolved-flags.md` and proceed.
-7. If codex-agent reports `status: unavailable`: skip Codex review and proceed (inform user).
+**Handle result:**
+- `pass` or `pass-with-flags`: proceed to implementation handoff
+- `fail` with remaining issues: surface to user for guidance (the subagent exhausted 5 rounds)
+- Codex `unavailable`: the subagent returns `pass` with a note — proceed (inform user)
 
 **Implementation:**
 

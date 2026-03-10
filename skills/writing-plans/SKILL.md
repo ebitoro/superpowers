@@ -26,10 +26,32 @@ If the spec covers multiple independent subsystems, it should have been broken i
 
 Before defining tasks, map out which files will be created or modified and what each one is responsible for. This is where decomposition decisions get locked in.
 
+**Dispatch an Explore subagent** to scan the codebase and return a structured summary. This keeps raw file contents out of the main session's context.
+
+```
+Agent tool:
+  subagent_type: "Explore"
+  description: "Explore codebase for plan"
+  prompt: |
+    Explore this project to inform an implementation plan. Return a concise summary covering:
+    - **Project structure**: directory layout, key directories, file organization patterns
+    - **Existing files relevant to <feature>**: paths, responsibilities, approximate sizes
+    - **Patterns and conventions**: naming, module structure, import style, test organization
+    - **Test setup**: framework, test locations, how tests are run, example test structure
+    - **Dependencies**: key libraries, build tools, configuration files
+    - **Files that would need modification for <feature>**: paths with line counts and current responsibilities
+
+    Keep the summary under 500 words. Focus on what someone planning file structure changes would need to know.
+    Do NOT include raw file contents — summarize.
+```
+
+Use the returned summary to inform file structure decisions:
+
 - Design units with clear boundaries and well-defined interfaces. Each file should have one clear responsibility.
 - You reason best about code you can hold in context at once, and your edits are more reliable when files are focused. Prefer smaller, focused files over large ones that do too much.
 - Files that change together should live together. Split by responsibility, not by technical layer.
 - In existing codebases, follow established patterns. If the codebase uses large files, don't unilaterally restructure - but if a file you're modifying has grown unwieldy, including a split in the plan is reasonable.
+- If you need specific file details during planning, read individual files directly — but avoid bulk exploration in the main session.
 
 This structure informs the task decomposition. Each task should produce self-contained changes that make sense independently.
 

@@ -177,7 +177,7 @@ echo "<relative-path-to-plan>" > "$STATE_DIR/current_plan"
 echo "$(pwd)" > "$STATE_DIR/current_worktree"
 ```
 
-**Create Codex thread** before dispatching the subagent:
+**Create Codex thread (foreground)** before dispatching the subagent:
 ```
 Agent tool:
   subagent_type: "superpowers:codex-agent"
@@ -188,11 +188,15 @@ Agent tool:
 ```
 Save the returned `thread_id`. If `status: unavailable`, skip Codex plan review and proceed to execution handoff (inform user).
 
-**Tier 1 — Dispatch plan-review-gate subagent (3 rounds max):**
+**Tier 1 — Dispatch plan-review-gate subagent (foreground, 3 rounds max):**
+
+**IMPORTANT: Dispatch in foreground and wait for the result.** Do NOT background this agent. The review gate must complete before proceeding to execution handoff.
+
 ```
 Agent tool:
   subagent_type: "superpowers:plan-review-gate"
   description: "Codex plan review gate"
+  run_in_background: false
   prompt: |
     plan_path: <absolute-path-to-plan>
     design_doc_path: <absolute-path-to-design-doc>

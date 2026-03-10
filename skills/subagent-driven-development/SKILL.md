@@ -55,7 +55,7 @@ Before dispatching the first task:
    - **If multiple candidates:** ask the user which one
    - Read the plan file and extract all tasks with full text and context
 3. **Create TodoWrite** with all tasks
-4. **Create a Codex thread** for per-task reviews (shared across tasks):
+4. **Create a Codex thread (foreground)** for per-task reviews (shared across tasks):
    ```
    Agent tool:
      subagent_type: "superpowers:codex-agent"

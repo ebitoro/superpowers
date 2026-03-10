@@ -140,10 +140,13 @@ Use the returned summary as your project understanding for the rest of brainstor
 **Spec Review (subagent):**
 After writing the spec document, dispatch the design-spec-review subagent to handle the entire review loop. This keeps all review round-trips out of the main session's context.
 
+**IMPORTANT: All review subagents below must be dispatched in foreground.** Do NOT background them. Each review must complete before proceeding to the next step.
+
 ```
 Agent tool:
   subagent_type: "superpowers:design-spec-review"
   description: "Spec review for design doc"
+  run_in_background: false
   prompt: |
     spec_path: <absolute-path-to-design-doc>
     reviewer_prompt_path: <absolute-path-to-spec-document-reviewer-prompt.md>
@@ -156,7 +159,7 @@ Agent tool:
 **Codex Design Review (subagent):**
 After spec review passes, create a Codex thread and dispatch the codex-design-review subagent. See `lib/codex-integration.md` for the underlying protocol.
 
-1. **Create Codex thread** in the main session:
+1. **Create Codex thread (foreground):**
    ```
    Agent tool:
      subagent_type: "superpowers:codex-agent"
@@ -167,11 +170,12 @@ After spec review passes, create a Codex thread and dispatch the codex-design-re
    ```
    Save the returned `thread_id`. If `status: unavailable`, skip Codex review and proceed (inform user).
 
-2. **Dispatch codex-design-review** with the thread_id:
+2. **Dispatch codex-design-review (foreground):**
    ```
    Agent tool:
      subagent_type: "superpowers:codex-design-review"
      description: "Codex design review"
+     run_in_background: false
      prompt: |
        spec_path: <absolute-path-to-design-doc>
        summary: <1-2 sentence summary of what is being designed>

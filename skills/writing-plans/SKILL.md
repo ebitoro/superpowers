@@ -177,6 +177,17 @@ echo "<relative-path-to-plan>" > "$STATE_DIR/current_plan"
 echo "$(pwd)" > "$STATE_DIR/current_worktree"
 ```
 
+**Create Codex thread** before dispatching the subagent:
+```
+Agent tool:
+  subagent_type: "superpowers:codex-agent"
+  description: "Init Codex thread for plan review"
+  prompt: |
+    mode: init
+    profile: xhigheffort
+```
+Save the returned `thread_id`. If `status: unavailable`, skip Codex plan review and proceed to execution handoff (inform user).
+
 **Tier 1 — Dispatch plan-review-gate subagent (3 rounds max):**
 ```
 Agent tool:
@@ -186,6 +197,7 @@ Agent tool:
     plan_path: <absolute-path-to-plan>
     design_doc_path: <absolute-path-to-design-doc>
     worktree_path: <absolute-path-to-worktree>
+    thread_id: <thread_id from init step>
 ```
 
 **Handle Tier 1 result:**

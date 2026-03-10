@@ -154,17 +154,30 @@ Agent tool:
 - `issues_remaining`: surface to user for guidance (the subagent exhausted 5 rounds)
 
 **Codex Design Review (subagent):**
-After spec review passes, dispatch the codex-design-review subagent to handle the Codex review gate. See `lib/codex-integration.md` for the underlying protocol.
+After spec review passes, create a Codex thread and dispatch the codex-design-review subagent. See `lib/codex-integration.md` for the underlying protocol.
 
-```
-Agent tool:
-  subagent_type: "superpowers:codex-design-review"
-  description: "Codex design review"
-  prompt: |
-    spec_path: <absolute-path-to-design-doc>
-    summary: <1-2 sentence summary of what is being designed>
-    worktree_path: <absolute-path-to-worktree if applicable>
-```
+1. **Create Codex thread** in the main session:
+   ```
+   Agent tool:
+     subagent_type: "superpowers:codex-agent"
+     description: "Init Codex thread for design review"
+     prompt: |
+       mode: init
+       profile: xhigheffort
+   ```
+   Save the returned `thread_id`. If `status: unavailable`, skip Codex review and proceed (inform user).
+
+2. **Dispatch codex-design-review** with the thread_id:
+   ```
+   Agent tool:
+     subagent_type: "superpowers:codex-design-review"
+     description: "Codex design review"
+     prompt: |
+       spec_path: <absolute-path-to-design-doc>
+       summary: <1-2 sentence summary of what is being designed>
+       thread_id: <thread_id from step 1>
+       worktree_path: <absolute-path-to-worktree if applicable>
+   ```
 
 **Handle result:**
 - `pass` or `pass-with-flags`: proceed to implementation handoff

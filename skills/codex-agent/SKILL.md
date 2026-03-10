@@ -76,7 +76,7 @@ Do NOT send any message to the thread. Do NOT save the thread ID to any file —
 
 ### `create-thread`
 
-Create a new Codex conversation thread and persist the thread ID. Used at the start of brainstorming. No message is sent — the thread is empty until the first `discuss` or `review-gate` call.
+Create a new Codex conversation thread and persist the thread ID. No message is sent — the thread is empty until the first `discuss` or `review-gate` call. Only use this mode when the caller explicitly requests `mode: create-thread`.
 
 1. Resolve the state directory:
    ```bash

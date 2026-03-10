@@ -28,7 +28,7 @@ mode: init
 profile: <optional — Codex config profile to use for this thread>
 ```
 
-**`create-thread`** — Start a new Codex conversation (brainstorming only). No message sent — thread starts empty:
+**`create-thread`** — Start a new Codex conversation and persist the thread ID. No message sent — thread starts empty. Only used when the caller explicitly requests this mode:
 ```
 mode: create-thread
 profile: <optional — Codex config profile to use for this thread>

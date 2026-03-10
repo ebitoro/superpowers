@@ -39,7 +39,15 @@ digraph when_to_use {
 
 Before dispatching the first task:
 
-1. **Read plan file once** — extract all tasks with full text and context
+1. **Find and read plan file** — the user may have cleared the session, so discover the plan:
+   - **Check breadcrumb first:**
+     ```bash
+     MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+     PLAN_PATH="$MAIN_REPO/$(cat "$MAIN_REPO/.codex-state/current_plan" 2>/dev/null)"
+     ```
+   - **If breadcrumb missing or file not found:** scan `docs/superpowers/plans/` for the most recent plan file (by filename date prefix or modification time)
+   - **If multiple candidates:** ask the user which one
+   - Read the plan file and extract all tasks with full text and context
 2. **Create TodoWrite** with all tasks
 3. **Create a Codex thread** for per-task reviews (shared across tasks):
    ```

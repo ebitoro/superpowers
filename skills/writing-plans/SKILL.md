@@ -18,6 +18,19 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 **Save plans to:** `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`
 - (User preferences for plan location override this default)
 
+## Input Discovery
+
+Find the design doc to plan from. The user may have cleared the session, so conversation context may be absent.
+
+1. **Check breadcrumb first:**
+   ```bash
+   MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+   DESIGN_DOC="$MAIN_REPO/$(cat "$MAIN_REPO/.codex-state/current_design_doc" 2>/dev/null)"
+   ```
+2. **If breadcrumb missing or file not found:** scan `docs/superpowers/specs/` for the most recent spec file (by filename date prefix or modification time)
+3. **If multiple candidates:** ask the user which one
+4. **Read the design doc** before proceeding — this is the spec you are planning from
+
 ## Scope Check
 
 If the spec covers multiple independent subsystems, it should have been broken into sub-project specs during brainstorming. If it wasn't, suggest breaking this into separate plans — one per subsystem. Each plan should produce working, testable software on its own.

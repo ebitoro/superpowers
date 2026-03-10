@@ -133,7 +133,7 @@ git branch -D <feature-branch>
 
 Then: Cleanup worktree (Step 5)
 
-### Step 5: Cleanup Worktree
+### Step 5: Cleanup
 
 **For Options 1, 2, 4:**
 
@@ -149,14 +149,25 @@ git worktree remove <worktree-path>
 
 **For Option 3:** Keep worktree.
 
+**Clean up breadcrumbs (all options):**
+
+Remove stale `.codex-state/` files so the next project starts clean:
+```bash
+MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+rm -f "$MAIN_REPO/.codex-state/codex_thread_id"
+rm -f "$MAIN_REPO/.codex-state/current_design_doc"
+rm -f "$MAIN_REPO/.codex-state/current_plan"
+rm -f "$MAIN_REPO/.codex-state/current_worktree"
+```
+
 ## Quick Reference
 
-| Option | Merge | Push | Keep Worktree | Cleanup Branch |
-|--------|-------|------|---------------|----------------|
-| 1. Merge locally | ✓ | - | - | ✓ |
-| 2. Create PR | - | ✓ | ✓ | - |
-| 3. Keep as-is | - | - | ✓ | - |
-| 4. Discard | - | - | - | ✓ (force) |
+| Option | Merge | Push | Keep Worktree | Cleanup Branch | Cleanup Breadcrumbs |
+|--------|-------|------|---------------|----------------|---------------------|
+| 1. Merge locally | ✓ | - | - | ✓ | ✓ |
+| 2. Create PR | - | ✓ | ✓ | - | ✓ |
+| 3. Keep as-is | - | - | ✓ | - | ✓ |
+| 4. Discard | - | - | - | ✓ (force) | ✓ |
 
 ## Common Mistakes
 
@@ -170,7 +181,11 @@ git worktree remove <worktree-path>
 
 **Automatic worktree cleanup**
 - **Problem:** Remove worktree when might need it (Option 2, 3)
-- **Fix:** Only cleanup for Options 1 and 4
+- **Fix:** Only cleanup worktree for Options 1 and 4
+
+**Stale breadcrumbs**
+- **Problem:** `.codex-state/` files from previous project mislead input discovery in the next project
+- **Fix:** Always clean up breadcrumbs regardless of option chosen
 
 **No confirmation for discard**
 - **Problem:** Accidentally delete work

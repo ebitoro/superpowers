@@ -16,7 +16,14 @@ Load plan, review critically, execute all tasks, report when complete.
 ## The Process
 
 ### Step 1: Load and Review Plan
-1. Read plan file
+1. Find and read plan file — the user may have cleared the session, so discover the plan:
+   - **Check breadcrumb first:**
+     ```bash
+     MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+     PLAN_PATH="$MAIN_REPO/$(cat "$MAIN_REPO/.codex-state/current_plan" 2>/dev/null)"
+     ```
+   - **If breadcrumb missing or file not found:** scan `docs/superpowers/plans/` for the most recent plan file (by filename date prefix or modification time)
+   - **If multiple candidates:** ask the user which one
 2. Review critically - identify any questions or concerns about the plan
 3. If concerns: Raise them with your human partner before starting
 4. If no concerns: Create TodoWrite and proceed

@@ -164,9 +164,18 @@ After completing each chunk of the plan:
 - If loop exceeds 5 iterations, surface to human for guidance
 - Reviewers are advisory - explain disagreements if you believe feedback is incorrect
 
+## Commit the Plan
+
+After the plan review loop passes, commit the plan document:
+
+```bash
+git add <plan-file-path>
+git commit -m "docs(plan): add implementation plan for <feature-name>"
+```
+
 ## Codex Plan Review Gate
 
-After the plan review loop passes (all chunks approved by the plan-document-reviewer), run a Codex review gate on the complete plan. This uses the Tiered Review Gate (3+3 pattern) from `lib/codex-integration.md` to preserve context.
+After committing, run a Codex review gate on the complete plan. This uses the Tiered Review Gate (3+3 pattern) from `lib/codex-integration.md` to preserve context.
 
 **Save breadcrumbs before review:**
 ```bash

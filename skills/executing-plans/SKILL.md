@@ -59,7 +59,7 @@ After all tasks complete and verified, run a Codex review gate on the full imple
 
 3. Echo `**Active Codex thread_id:** <id>`
 4. If `pass`: proceed to Step 4
-5. If `fail`: fix verified issues, redispatch with saved `thread_id`. Max 5 rounds.
+5. If `fail`: **independently verify each finding** — read the actual code at the cited location and confirm the issue exists. Dismiss false positives. Fix confirmed issues, then redispatch with saved `thread_id`. Max 5 rounds.
 6. Track any unresolved flags in `docs/unresolved-flags.md`
 7. If `unavailable`: skip Codex review and proceed (inform user).
 

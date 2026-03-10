@@ -161,7 +161,7 @@ Agent tool:
 **Tier 2 — Main session escalation (3 rounds max):**
 Only if Tier 1 returned `fail` + `must_fix`:
 1. Dispatch codex-agent directly with the `thread_id` returned from Tier 1
-2. Verify and fix each issue
+2. **Independently verify each finding** — read the actual plan section and design doc, confirm the issue exists. Dismiss false positives. Fix confirmed issues.
 3. Redispatch until pass or 3 rounds exhausted
 4. If still unresolved → escalate to user
 

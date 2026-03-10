@@ -227,7 +227,7 @@ After code quality review passes for each task, run a Codex review gate:
    ```
 3. Echo `**Active Codex thread_id:** <id>`
 4. If `pass`: proceed to next task
-5. If `fail`: fix verified issues, redispatch with saved `thread_id`. Max 5 rounds.
+5. If `fail`: **independently verify each finding** — read the actual code at the cited location and confirm the issue exists. Dismiss false positives. Fix confirmed issues, then redispatch with saved `thread_id`. Max 5 rounds.
 6. If `unavailable`: skip Codex for this and remaining tasks. Inform user.
 
 ### Final Codex Review
@@ -254,7 +254,7 @@ After the final code-reviewer subagent passes, run a Codex final review:
    ```
 3. Echo `**Active Codex thread_id:** <id>`
 4. If `pass`: proceed to finishing-a-development-branch
-5. If `fail`: fix verified issues, redispatch. Max 5 rounds.
+5. If `fail`: **independently verify each finding** — read the actual code at the cited location and confirm the issue exists. Dismiss false positives. Fix confirmed issues, then redispatch. Max 5 rounds.
 6. Track any unresolved flags in `docs/unresolved-flags.md`
 
 ## Advantages

@@ -98,10 +98,11 @@ The codex-agent selects the right Codex review skill automatically based on cont
 1. Dispatch codex-agent with `mode: review-gate` and `thread_id: "new"` (or a saved ID for retries)
 2. Echo the returned `thread_id` as `**Active Codex thread_id:** <id>` (compaction rule)
 3. If verdict is `pass`: done
-4. If verdict is `fail` with verified issues: fix the issues, dispatch agent again with the saved `thread_id`
+4. If verdict is `fail` with verified issues:
+   a. **Independently verify each finding** — read the actual code/content at the cited location and confirm the issue exists. The codex-agent filters obvious false positives, but the caller MUST still verify before acting. Never fix an issue you haven't confirmed yourself.
+   b. Fix confirmed issues. Dismiss any remaining false positives.
+   c. Dispatch codex-agent again with the saved `thread_id`
 5. Maximum **5 rounds**. If still unresolved, proceed and track flags.
-
-False positives are filtered by the agent — only real issues come back.
 
 ## Direct Codex Calls (Subagent Context)
 
@@ -148,13 +149,15 @@ For context-heavy skills (e.g., `writing-plans`) where the main session has alre
 **Tier 2 — Main session escalation (3 rounds max):**
 Only triggered when Tier 1 returns `fail` + `must_fix`.
 1. Main session takes over with the returned `thread_id`
-2. Dispatches codex-agent directly, verifies + fixes each finding, up to 3 more rounds
+2. Dispatches codex-agent directly. **Independently verifies each finding** — reads the actual code/content at the cited location, confirms the issue exists, dismisses false positives, fixes confirmed issues. Up to 3 more rounds.
 3. If still `fail` + `must_fix` after 3 rounds → escalate to user
 4. If `can_proceed` → append flags to `docs/unresolved-flags.md` and proceed
 
 **Severity assessment criteria:**
 - `can_proceed`: Style, naming, optional enhancements, suggestions conflicting with design decisions
 - `must_fix`: Missing error handling in critical paths, incorrect tests, architectural problems, dependency ordering errors, security issues
+
+**Independent verification is required at every tier.** The codex-agent filters obvious false positives. The Tier 1 subagent verifies findings before fixing. The Tier 2 main session verifies again during escalation. At no point should any actor fix an issue it hasn't confirmed by reading the actual code/content.
 
 ## Codex Profiles
 

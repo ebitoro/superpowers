@@ -70,7 +70,7 @@ Agent tool:
 
 - Echo `**Active Codex thread_id:** <id>`
 - If `pass`: review complete
-- If `fail`: fix verified issues, redispatch with saved `thread_id`. Max 5 rounds.
+- If `fail`: **independently verify each finding** — read the actual code at the cited location and confirm the issue exists. Dismiss false positives. Fix confirmed issues, then redispatch with saved `thread_id`. Max 5 rounds.
 - Track unresolved flags in `docs/unresolved-flags.md`
 - If `unavailable`: skip Codex review (inform user). Code-reviewer subagent result stands.
 

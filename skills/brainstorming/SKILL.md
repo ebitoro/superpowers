@@ -146,7 +146,7 @@ After the spec review loop passes, run a Codex review gate on the design doc. Se
 
 3. Echo the returned `thread_id` as `**Active Codex thread_id:** <id>`
 4. If verdict is `pass`: proceed to implementation handoff
-5. If verdict is `fail`: fix verified issues in the design doc, redispatch codex-agent with the saved `thread_id`
+5. If verdict is `fail`: **independently verify each finding** — read the cited section of the design doc and confirm the issue exists before fixing. Dismiss false positives. Fix confirmed issues, then redispatch codex-agent with the saved `thread_id`.
 6. Maximum **5 rounds**. If still unresolved, track flags in `docs/unresolved-flags.md` and proceed.
 7. If codex-agent reports `status: unavailable`: skip Codex review and proceed (inform user).
 

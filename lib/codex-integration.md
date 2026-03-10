@@ -108,9 +108,9 @@ The codex-agent selects the right Codex review skill automatically based on cont
 
 Subagents spawned via the Agent tool do NOT have access to the Agent tool themselves. This means they cannot dispatch `codex-agent`. Instead, subagents call `codex` and `codex-reply` MCP tools directly, with the verification protocol inlined.
 
-**When this applies:** Any subagent that needs Codex review — implementer subagents, final-review subagents.
+**When this applies:** Any subagent that needs Codex review — implementer subagents, codex-design-review, plan-review-gate, final-review subagents.
 
-**When codex-agent is still used:** The main session (which HAS the Agent tool) uses codex-agent for init, thread creation, and any Codex interactions it does directly (brainstorming, writing-plans, requesting-code-review).
+**When codex-agent is still used:** The main session (which HAS the Agent tool) uses codex-agent for init, thread creation, and any Codex interactions it does directly (writing-plans Tier 2 escalation, requesting-code-review, subagent-driven-development final review).
 
 ### Direct Call Protocol
 
@@ -139,7 +139,7 @@ For context-heavy skills (e.g., `writing-plans`) where the main session has alre
 
 **Tier 1 — Subagent (3 rounds max):**
 1. Dispatch a dedicated review-gate subagent (e.g., `agents/plan-review-gate.md`) in **foreground**.
-2. The subagent dispatches codex-agent with `mode: review-gate`, **independently verifies** each finding against the actual code/content, fixes verified issues, and redispatches. Up to 3 rounds.
+2. The subagent calls `codex`/`codex-reply` MCP directly (subagents don't have the Agent tool), **independently verifies** each finding against the actual code/content, fixes verified issues, and sends follow-up reviews via `codex-reply`. Up to 3 rounds.
 3. The subagent returns:
    - **verdict**: `pass`, `fail`, or `pass-with-flags`
    - **severity**: `can_proceed` (minor issues) or `must_fix` (blocking issues) — only meaningful when verdict is `fail`

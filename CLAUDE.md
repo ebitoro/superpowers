@@ -62,7 +62,7 @@ STATE_DIR="$MAIN_REPO/.codex-state"
 
 ### Review Gate Pattern
 
-Max 5 rounds. Dispatch codex-agent, fix verified issues, redispatch until pass. The agent filters false positives so only real issues come back.
+Max 5 rounds. Main session dispatches codex-agent (has Agent tool). Subagents call `codex`/`codex-reply` MCP directly (no Agent tool). Both verify findings against actual code, filter false positives, fix verified issues, and retry until pass.
 
 ## Editing Skills
 

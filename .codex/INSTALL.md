@@ -25,7 +25,12 @@ Enable superpowers skills in Codex via native skill discovery. Just clone and sy
    cmd /c mklink /J "$env:USERPROFILE\.agents\skills\superpowers" "$env:USERPROFILE\.codex\superpowers\skills"
    ```
 
-3. **Restart Codex** (quit and relaunch the CLI) to discover the skills.
+3. **Symlink the Codex skills** (for structured review prompts):
+   ```bash
+   ln -s ~/.codex/superpowers/codex/skills ~/.agents/skills/codex-review
+   ```
+
+4. **Restart Codex** (quit and relaunch the CLI) to discover the skills.
 
 ## Migrating from old bootstrap
 

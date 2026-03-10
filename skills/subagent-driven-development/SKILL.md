@@ -75,10 +75,12 @@ digraph process {
     "Code quality reviewer subagent approves?" -> "Implementer subagent fixes quality issues" [label="no"];
     "Implementer subagent fixes quality issues" -> "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" [label="re-review"];
     "Code quality reviewer subagent approves?" -> "Mark task complete in TodoWrite" [label="yes"];
-    "Mark task complete in TodoWrite" -> "More tasks remain?";
+    "Mark task complete in TodoWrite" -> "Codex per-task review gate" ;
+    "Codex per-task review gate" -> "More tasks remain?";
     "More tasks remain?" -> "Dispatch implementer subagent (./implementer-prompt.md)" [label="yes"];
     "More tasks remain?" -> "Dispatch final code reviewer subagent for entire implementation" [label="no"];
-    "Dispatch final code reviewer subagent for entire implementation" -> "Use superpowers:finishing-a-development-branch";
+    "Dispatch final code reviewer subagent for entire implementation" -> "Codex final review gate";
+    "Codex final review gate" -> "Use superpowers:finishing-a-development-branch";
 }
 ```
 
@@ -196,6 +198,64 @@ Final reviewer: All requirements met, ready to merge
 
 Done!
 ```
+
+## Codex Review Gates
+
+See `lib/codex-integration.md` for full protocol. Codex adds a secondary review layer — per-task reviews catch issues within each task (security, correctness, test gaps), while the final review catches cross-cutting issues across the full implementation.
+
+### Per-Task Codex Review
+
+After code quality review passes for each task, run a Codex review gate:
+
+1. Get commit SHAs covering the task's changes
+2. Dispatch codex-agent (foreground):
+   ```
+   Agent tool:
+     subagent_type: "superpowers:codex-agent"
+     description: "Codex review for Task N"
+     prompt: |
+       mode: review-gate
+       thread_id: "new"
+       message: |
+         Review Task N: <task name>
+         Commits: <BASE_SHA>..<HEAD_SHA>
+         Summary: <what was implemented>
+         Tests: <pass/fail summary>
+       context: Task N from <plan-file-path>
+       worktree_path: <worktree-path>
+       profile: higheffort
+   ```
+3. Echo `**Active Codex thread_id:** <id>`
+4. If `pass`: proceed to next task
+5. If `fail`: fix verified issues, redispatch with saved `thread_id`. Max 5 rounds.
+6. If `unavailable`: skip Codex for this and remaining tasks. Inform user.
+
+### Final Codex Review
+
+After the final code-reviewer subagent passes, run a Codex final review:
+
+1. Get commit SHAs covering all implementation (from first task to HEAD)
+2. Dispatch codex-agent (foreground):
+   ```
+   Agent tool:
+     subagent_type: "superpowers:codex-agent"
+     description: "Codex final review"
+     prompt: |
+       mode: review-gate
+       thread_id: "new"
+       message: |
+         Final review of complete implementation.
+         Commits: <FIRST_TASK_SHA>..<HEAD_SHA>
+         Summary: <what the full plan implemented>
+         Tests: <all tests pass/fail summary>
+       context: Full implementation of <plan-file-path>
+       worktree_path: <worktree-path>
+       profile: xhigheffort
+   ```
+3. Echo `**Active Codex thread_id:** <id>`
+4. If `pass`: proceed to finishing-a-development-branch
+5. If `fail`: fix verified issues, redispatch. Max 5 rounds.
+6. Track any unresolved flags in `docs/unresolved-flags.md`
 
 ## Advantages
 

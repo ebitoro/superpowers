@@ -129,6 +129,44 @@ After completing each chunk of the plan:
 - If loop exceeds 5 iterations, surface to human for guidance
 - Reviewers are advisory - explain disagreements if you believe feedback is incorrect
 
+## Codex Plan Review Gate
+
+After the plan review loop passes (all chunks approved by the plan-document-reviewer), run a Codex review gate on the complete plan. This uses the Tiered Review Gate (3+3 pattern) from `lib/codex-integration.md` to preserve context.
+
+**Save breadcrumbs before review:**
+```bash
+MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+STATE_DIR="$MAIN_REPO/.codex-state"
+mkdir -p "$STATE_DIR"
+echo "<relative-path-to-plan>" > "$STATE_DIR/current_plan"
+echo "$(pwd)" > "$STATE_DIR/current_worktree"
+```
+
+**Tier 1 — Dispatch plan-review-gate subagent (3 rounds max):**
+```
+Agent tool:
+  subagent_type: "superpowers:plan-review-gate"
+  description: "Codex plan review gate"
+  prompt: |
+    plan_path: <absolute-path-to-plan>
+    design_doc_path: <absolute-path-to-design-doc>
+    worktree_path: <absolute-path-to-worktree>
+```
+
+**Handle Tier 1 result:**
+- `pass` or `pass-with-flags` (can_proceed): proceed to execution handoff
+- `fail` + `can_proceed`: append flags to `docs/unresolved-flags.md`, proceed
+- `fail` + `must_fix`: escalate to Tier 2
+
+**Tier 2 — Main session escalation (3 rounds max):**
+Only if Tier 1 returned `fail` + `must_fix`:
+1. Dispatch codex-agent directly with the `thread_id` returned from Tier 1
+2. Verify and fix each issue
+3. Redispatch until pass or 3 rounds exhausted
+4. If still unresolved → escalate to user
+
+**If codex-agent reports `status: unavailable`:** Skip Codex plan review and proceed to execution handoff. Inform user.
+
 ## Execution Handoff
 
 After saving the plan:

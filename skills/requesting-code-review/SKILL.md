@@ -46,6 +46,34 @@ Use Task tool with superpowers:code-reviewer type, fill template at `code-review
 - Note Minor issues for later
 - Push back if reviewer is wrong (with reasoning)
 
+**4. Codex Review Gate (second stage):**
+
+After the code-reviewer subagent passes, run a Codex review gate. See `lib/codex-integration.md` for full protocol.
+
+Dispatch codex-agent (foreground):
+```
+Agent tool:
+  subagent_type: "superpowers:codex-agent"
+  description: "Codex code review"
+  prompt: |
+    mode: review-gate
+    thread_id: "new"
+    message: |
+      Review code changes.
+      Commits: <BASE_SHA>..<HEAD_SHA>
+      Summary: <what was implemented>
+      Tests: <pass/fail summary>
+    context: <plan reference or description>
+    worktree_path: <worktree-path>
+    profile: xhigheffort
+```
+
+- Echo `**Active Codex thread_id:** <id>`
+- If `pass`: review complete
+- If `fail`: fix verified issues, redispatch with saved `thread_id`. Max 5 rounds.
+- Track unresolved flags in `docs/unresolved-flags.md`
+- If `unavailable`: skip Codex review (inform user). Code-reviewer subagent result stands.
+
 ## Example
 
 ```
@@ -89,6 +117,14 @@ You: [Fix progress indicators]
 - Review before merge
 - Review when stuck
 
+## Two-Stage Review
+
+Every code review is two stages:
+1. **Code-reviewer subagent** — catches code quality, architecture, and spec compliance issues
+2. **Codex review gate** — catches cross-cutting issues the subagent misses (security, design alignment, test gaps)
+
+Both stages must pass before proceeding. If Codex is unavailable, stage 1 result stands alone.
+
 ## Red Flags
 
 **Never:**
@@ -96,6 +132,7 @@ You: [Fix progress indicators]
 - Ignore Critical issues
 - Proceed with unfixed Important issues
 - Argue with valid technical feedback
+- Skip the Codex review gate (unless Codex is unavailable)
 
 **If reviewer wrong:**
 - Push back with technical reasoning

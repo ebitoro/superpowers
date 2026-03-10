@@ -39,7 +39,13 @@ digraph when_to_use {
 
 Before dispatching the first task:
 
-1. **Find and read plan file** — the user may have cleared the session, so discover the plan:
+1. **Verify worktree** — never implement on main/master. Check if you're in a worktree:
+   ```bash
+   git rev-parse --git-common-dir 2>/dev/null
+   ```
+   If the result equals `.git` (not a worktree), invoke `superpowers:using-git-worktrees` to create one before continuing. If already in a worktree, proceed.
+
+2. **Find and read plan file** — the user may have cleared the session, so discover the plan:
    - **Check breadcrumb first:**
      ```bash
      MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
@@ -48,8 +54,8 @@ Before dispatching the first task:
    - **If breadcrumb missing or file not found:** scan `docs/superpowers/plans/` for the most recent plan file (by filename date prefix or modification time)
    - **If multiple candidates:** ask the user which one
    - Read the plan file and extract all tasks with full text and context
-2. **Create TodoWrite** with all tasks
-3. **Create a Codex thread** for per-task reviews (shared across tasks):
+3. **Create TodoWrite** with all tasks
+4. **Create a Codex thread** for per-task reviews (shared across tasks):
    ```
    Agent tool:
      subagent_type: "superpowers:codex-agent"
@@ -60,7 +66,7 @@ Before dispatching the first task:
    ```
    Save the returned `thread_id`. Pass it to all implementer subagents as `CODEX_THREAD_ID`.
    If codex-agent reports `status: unavailable`, set `CODEX_STATUS: unavailable` and `CODEX_THREAD_ID: none`.
-4. **Record BASE_SHA** — the commit before the first task: `git rev-parse HEAD`
+5. **Record BASE_SHA** — the commit before the first task: `git rev-parse HEAD`
 
 ## The Process
 

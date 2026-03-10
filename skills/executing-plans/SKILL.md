@@ -15,7 +15,15 @@ Load plan, review critically, execute all tasks, report when complete.
 
 ## The Process
 
-### Step 1: Load and Review Plan
+### Step 1: Verify Worktree
+
+Never implement on main/master. Check if you're in a worktree:
+```bash
+git rev-parse --git-common-dir 2>/dev/null
+```
+If the result equals `.git` (not a worktree), invoke `superpowers:using-git-worktrees` to create one before continuing. If already in a worktree, proceed.
+
+### Step 2: Load and Review Plan
 1. Find and read plan file — the user may have cleared the session, so discover the plan:
    - **Check breadcrumb first:**
      ```bash
@@ -28,7 +36,7 @@ Load plan, review critically, execute all tasks, report when complete.
 3. If concerns: Raise them with your human partner before starting
 4. If no concerns: Create TodoWrite and proceed
 
-### Step 2: Execute Tasks
+### Step 3: Execute Tasks
 
 For each task:
 1. Mark as in_progress
@@ -36,7 +44,7 @@ For each task:
 3. Run verifications as specified
 4. Mark as completed
 
-### Step 3: Codex Review Gate
+### Step 4: Codex Review Gate
 
 After all tasks complete and verified, run a Codex review gate on the full implementation. See `lib/codex-integration.md` for full protocol.
 
@@ -65,12 +73,12 @@ After all tasks complete and verified, run a Codex review gate on the full imple
    ```
 
 3. Echo `**Active Codex thread_id:** <id>`
-4. If `pass`: proceed to Step 4
+4. If `pass`: proceed to Step 5
 5. If `fail`: **independently verify each finding** — read the actual code at the cited location and confirm the issue exists. Dismiss false positives. Fix confirmed issues, then redispatch with saved `thread_id`. Max 5 rounds.
 6. Track any unresolved flags in `docs/unresolved-flags.md`
 7. If `unavailable`: skip Codex review and proceed (inform user).
 
-### Step 4: Complete Development
+### Step 5: Complete Development
 
 After all tasks complete and Codex review passes (or is skipped):
 - Announce: "I'm using the finishing-a-development-branch skill to complete this work."

@@ -180,6 +180,10 @@ last_findings: |
 
 ## Per-Task Flow (Main Session)
 
+<HARD-GATE>
+**NEVER skip Steps 2–3 (spec compliance + code quality reviews).** Every task MUST go through all three steps before the next task is dispatched. The implementer's self-review and Codex review are NOT substitutes for the CC reviewer subagents. If you catch yourself about to dispatch the next task without completing reviews, STOP — you are violating the process.
+</HARD-GATE>
+
 For each task:
 
 ### Step 1: Dispatch Implementer

@@ -173,7 +173,7 @@ last_findings: |
 **When to write/update:**
 1. After implementer returns → create file with `stage: spec-compliance, round: 1, status: pending`
 2. After each review-and-fix subagent returns → update `round`, `status`, `head_sha`, `last_findings`
-3. After stage passes → advance `stage`, reset `round: 1, status: pending`
+3. **CRITICAL — After stage passes → update BOTH `stage` AND `round: 1` in a single edit.** The round counter is per-stage, not cumulative. Failing to reset round causes the next stage to inherit the previous stage's round count, leading to premature escalation.
 4. After all reviews pass → set `stage: complete`
 
 **On compaction recovery:** Read the state file to know exactly where you are. Re-read the plan file if task text is needed. The state file has everything needed to dispatch the next subagent.
@@ -255,7 +255,7 @@ Agent tool:
 
 **After subagent returns:**
 - Update state file with verdict, round, head_sha, last_findings
-- If `pass`: advance state to `stage: code-quality, round: 1`. Proceed to Step 3.
+- If `pass`: update state file — change `stage: code-quality` AND `round: 1` in a single edit (round resets per stage). Proceed to Step 3.
 - If `fixed`: increment round. If round <= max_rounds, dispatch fresh review-and-fix subagent (re-review the fixes). If round > max_rounds, escalate to human.
 
 ### Step 3: Code Quality Review-and-Fix Loop

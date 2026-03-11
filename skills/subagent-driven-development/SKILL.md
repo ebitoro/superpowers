@@ -75,7 +75,7 @@ digraph process {
     rankdir=TB;
 
     subgraph cluster_implementer {
-        label="Inside implementer subagent";
+        label="Implementer subagent";
         style=filled;
         fillcolor=lightyellow;
         "Implement + test + commit" [shape=box];
@@ -88,39 +88,48 @@ digraph process {
         "Fix issues" -> "Return verdict";
     }
 
-    subgraph cluster_main_reviews {
-        label="Main session reviews (CC subagents)";
+    subgraph cluster_review_fix {
+        label="Review-and-fix subagent (CC)";
         style=filled;
         fillcolor=lightblue;
-        "Dispatch spec compliance reviewer" [shape=box];
-        "Spec pass?" [shape=diamond];
-        "Dispatch code quality reviewer" [shape=box];
-        "Quality pass?" [shape=diamond];
+        "Review code" [shape=box];
+        "Issues found?" [shape=diamond];
+        "Fix issues and commit" [shape=box];
+        "Return review verdict" [shape=box];
+
+        "Review code" -> "Issues found?";
+        "Issues found?" -> "Return review verdict" [label="no → pass"];
+        "Issues found?" -> "Fix issues and commit" [label="yes"];
+        "Fix issues and commit" -> "Return review verdict" [label="fixed"];
     }
 
-    "Read plan, extract tasks, create Codex thread, create TodoWrite" [shape=box];
-    "Dispatch implementer subagent\n(./implementer-prompt.md)" [shape=box];
+    "Setup: plan, Codex thread, TodoWrite, BASE_SHA" [shape=box];
+    "Dispatch implementer" [shape=box];
     "Implementer asks questions?" [shape=diamond];
     "Answer questions" [shape=box];
-    "Re-dispatch implementer to fix" [shape=box];
+    "Write review state file" [shape=box];
+    "Dispatch spec review-and-fix" [shape=box];
+    "Spec verdict?" [shape=diamond];
+    "Dispatch quality review-and-fix" [shape=box];
+    "Quality verdict?" [shape=diamond];
     "More tasks remain?" [shape=diamond];
     "Dispatch final code reviewer subagent" [shape=box];
     "Codex final review gate" [shape=box];
     "Use superpowers:finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
 
-    "Read plan, extract tasks, create Codex thread, create TodoWrite" -> "Dispatch implementer subagent\n(./implementer-prompt.md)";
-    "Dispatch implementer subagent\n(./implementer-prompt.md)" -> "Implementer asks questions?";
+    "Setup: plan, Codex thread, TodoWrite, BASE_SHA" -> "Dispatch implementer";
+    "Dispatch implementer" -> "Implementer asks questions?";
     "Implementer asks questions?" -> "Answer questions" [label="yes"];
-    "Answer questions" -> "Dispatch implementer subagent\n(./implementer-prompt.md)";
-    "Implementer asks questions?" -> "Dispatch spec compliance reviewer" [label="no — returns verdict"];
-    "Dispatch spec compliance reviewer" -> "Spec pass?";
-    "Spec pass?" -> "Dispatch code quality reviewer" [label="pass"];
-    "Spec pass?" -> "Re-dispatch implementer to fix" [label="fail"];
-    "Re-dispatch implementer to fix" -> "Dispatch spec compliance reviewer";
-    "Dispatch code quality reviewer" -> "Quality pass?";
-    "Quality pass?" -> "More tasks remain?" [label="pass"];
-    "Quality pass?" -> "Re-dispatch implementer to fix" [label="fail"];
-    "More tasks remain?" -> "Dispatch implementer subagent\n(./implementer-prompt.md)" [label="yes"];
+    "Answer questions" -> "Dispatch implementer";
+    "Implementer asks questions?" -> "Write review state file" [label="no — returns verdict"];
+    "Write review state file" -> "Dispatch spec review-and-fix";
+    "Dispatch spec review-and-fix" -> "Spec verdict?";
+    "Spec verdict?" -> "Dispatch quality review-and-fix" [label="pass"];
+    "Spec verdict?" -> "Dispatch spec review-and-fix" [label="fixed → re-review"];
+    "Dispatch quality review-and-fix" -> "Quality verdict?";
+    "Quality verdict?" -> "More tasks remain?" [label="pass"];
+    "Quality verdict?" -> "Dispatch quality review-and-fix" [label="fixed → re-review"];
+    "More tasks remain?" -> "Dispatch implementer" [label="yes"];
     "More tasks remain?" -> "Dispatch final code reviewer subagent" [label="no"];
     "Dispatch final code reviewer subagent" -> "Codex final review gate";
     "Codex final review gate" -> "Use superpowers:finishing-a-development-branch";
@@ -128,11 +137,46 @@ digraph process {
 ```
 
 **Yellow box** = implementer subagent (implement + self-review + Codex).
-**Blue box** = main session dispatches independent CC reviewer subagents.
+**Blue box** = review-and-fix subagent — reviews code, fixes any issues it finds, returns verdict. Main session dispatches fresh ones until one returns `pass` (no issues found).
 
 ## Model Selection
 
 **Always use Opus for implementer subagents.** Implementers handle implementation, self-review, and Codex interaction which requires judgment and multi-phase reasoning. Do not downgrade to cheaper models.
+
+## Review State File
+
+Write review state to disk after each step so compaction can't lose progress. The main session reads this file before every dispatch to recover its position.
+
+**Path:** `$STATE_DIR/task-{N}-review.md` (where `STATE_DIR` is `.dev-state/` at main repo root)
+
+**Format:**
+```markdown
+task: {N}
+task_name: {TASK_NAME}
+stage: implementer | spec-compliance | code-quality | complete
+round: {N}
+max_rounds: 3
+status: pending | fixed | pass
+base_sha: {BASE_SHA}
+head_sha: {current HEAD}
+working_directory: {WORKING_DIRECTORY}
+task_text: |
+  {TASK_TEXT — full task from plan}
+implementation_summary: |
+  {from implementer verdict}
+files_changed: |
+  {from implementer verdict}
+last_findings: |
+  {findings from most recent review, if any}
+```
+
+**When to write/update:**
+1. After implementer returns → create file with `stage: spec-compliance, round: 1, status: pending`
+2. After each review-and-fix subagent returns → update `round`, `status`, `head_sha`, `last_findings`
+3. After stage passes → advance `stage`, reset `round: 1, status: pending`
+4. After all reviews pass → set `stage: complete`
+
+**On compaction recovery:** Read the state file to know exactly where you are. Re-read the plan file if task text is needed. The state file has everything needed to dispatch the next subagent.
 
 ## Per-Task Flow (Main Session)
 
@@ -148,17 +192,24 @@ Agent tool:
     [Use ./implementer-prompt.md template]
 ```
 
-Handle the implementer verdict (see Handling Implementer Verdicts below). If `pass`, proceed to Step 2.
+Handle the implementer verdict (see Handling Implementer Verdicts below). If `pass`, write the review state file and proceed to Step 2.
 
-### Step 2: Dispatch Spec Compliance Reviewer
+### Step 2: Spec Compliance Review-and-Fix Loop
+
+Read the state file. Dispatch a review-and-fix subagent:
 
 ```
 Agent tool:
   subagent_type: "feature-dev:code-reviewer"
-  description: "Spec review for Task {N}"
+  description: "Spec review-and-fix for Task {N} (round {R})"
   prompt: |
-    You are a SPEC COMPLIANCE reviewer. Your job is to verify the implementation
-    matches its specification — nothing more, nothing less.
+    You are a SPEC COMPLIANCE review-and-fix agent.
+
+    ## Your Job
+
+    1. Review the implementation against the spec
+    2. If issues found: FIX them, run tests, commit fixes
+    3. Return your verdict
 
     ## What Was Requested
 
@@ -188,38 +239,75 @@ Agent tool:
     - Extra/unneeded work: Did they build things not in spec?
     - Misunderstandings: Did they solve the wrong problem?
 
-    Report:
-    - PASS: Spec compliant
-    - FAIL: Issues found — list what's missing or extra, with file:line references
+    ## If Issues Found
+
+    Fix them directly. Run tests. Commit with conventional format:
+    `fix(scope): address spec compliance issues`
+
+    ## Verdict
+
+    Return exactly one of:
+    - verdict: pass — No issues found. Implementation matches spec.
+    - verdict: fixed — Issues found and fixed. List what was found and what was changed.
+
+    Include: findings (if any), fixes applied (if any), files changed, test results.
 ```
 
-**If FAIL:** Re-dispatch implementer with the specific issues to fix, then re-run spec review. Max 3 rounds.
+**After subagent returns:**
+- Update state file with verdict, round, head_sha, last_findings
+- If `pass`: advance state to `stage: code-quality, round: 1`. Proceed to Step 3.
+- If `fixed`: increment round. If round <= max_rounds, dispatch fresh review-and-fix subagent (re-review the fixes). If round > max_rounds, escalate to human.
 
-### Step 3: Dispatch Code Quality Reviewer
+### Step 3: Code Quality Review-and-Fix Loop
 
 **Only after spec compliance passes.**
+
+Read the state file. Dispatch a review-and-fix subagent:
 
 ```
 Agent tool:
   subagent_type: "feature-dev:code-reviewer"
-  description: "Code quality review for Task {N}"
+  description: "Quality review-and-fix for Task {N} (round {R})"
   prompt: |
+    You are a CODE QUALITY review-and-fix agent.
+
     Review code changes for Task {N}: {TASK_NAME}
 
     WHAT_WAS_IMPLEMENTED: {IMPLEMENTATION_SUMMARY}
     PLAN_OR_REQUIREMENTS: {TASK_TEXT}
     BASE_SHA: {BASE_SHA}
-    HEAD_SHA: {HEAD_SHA}
+    HEAD_SHA: HEAD
     DESCRIPTION: {task summary}
 
     Working directory: {WORKING_DIRECTORY}
+
+    ## If Critical or Important Issues Found
+
+    Fix them directly. Run tests. Commit with conventional format:
+    `fix(scope): address code quality issues`
+
+    ## Verdict
+
+    Return exactly one of:
+    - verdict: pass — No Critical or Important issues found.
+    - verdict: fixed — Issues found and fixed. List what was found and what was changed.
+
+    Include: findings (if any), fixes applied (if any), files changed, test results.
 ```
 
-**If Critical or Important issues found:** Re-dispatch implementer with the specific issues to fix, then re-run code quality review. Max 3 rounds.
+**After subagent returns:**
+- Update state file with verdict, round, head_sha, last_findings
+- If `pass`: set `stage: complete`. Mark task complete in TodoWrite. Proceed to next task.
+- If `fixed`: increment round. If round <= max_rounds, dispatch fresh review-and-fix subagent. If round > max_rounds, escalate to human.
 
-### Step 4: Mark Complete
+### Summary: Main Session Actions Per Review Dispatch
 
-All reviews passed → mark task complete in TodoWrite. Proceed to next task.
+Each review dispatch costs ~700 tokens in main session context:
+1. Read state file (~50 tokens)
+2. Dispatch subagent with prompt (~300 tokens)
+3. Receive verdict (~200 tokens)
+4. Update state file (~50 tokens)
+5. Decision: next step or re-dispatch (~100 tokens)
 
 ## Handling Implementer Verdicts
 
@@ -269,8 +357,11 @@ Implementer returns verdict:
   codex_review: available, 1 round, 0 findings
   tests: 5/5 passing
 
-[Dispatch spec compliance reviewer → PASS]
-[Dispatch code quality reviewer → PASS]
+[Write state file: stage=spec-compliance, round=1]
+[Dispatch spec review-and-fix → verdict: pass (no issues)]
+[Update state: stage=code-quality, round=1]
+[Dispatch quality review-and-fix → verdict: pass (no issues)]
+[Update state: stage=complete]
 [Mark Task 1 complete]
 
 Task 2: Recovery modes
@@ -285,10 +376,13 @@ Implementer returns verdict:
   codex_review: available, 2 rounds, 1 finding fixed
   tests: 8/8 passing
 
-[Dispatch spec compliance reviewer → FAIL: missing progress percentage]
-[Re-dispatch implementer to fix progress reporting]
-[Re-dispatch spec compliance reviewer → PASS]
-[Dispatch code quality reviewer → PASS]
+[Write state file: stage=spec-compliance, round=1]
+[Dispatch spec review-and-fix → verdict: fixed (added missing progress %)]
+[Update state: round=2]
+[Dispatch fresh spec review-and-fix → verdict: pass (fixes look good)]
+[Update state: stage=code-quality, round=1]
+[Dispatch quality review-and-fix → verdict: pass]
+[Update state: stage=complete]
 [Mark Task 2 complete]
 
 ... (tasks 3-5)
@@ -351,9 +445,9 @@ After the final code-reviewer subagent passes, run a Codex final review:
 **Quality gates:**
 - Self-review catches issues first (inside implementer)
 - Codex review catches security, correctness, test gaps (inside implementer)
-- Spec compliance prevents over/under-building (main session, independent CC reviewer)
-- Code quality ensures implementation is well-built (main session, independent CC reviewer)
-- Fix loops at each stage ensure issues are resolved before moving on
+- Spec compliance review-and-fix prevents over/under-building (independent CC subagent, fixes inline)
+- Code quality review-and-fix ensures implementation is well-built (independent CC subagent, fixes inline)
+- Fresh re-review after each fix ensures fixes don't introduce new problems
 
 ## Red Flags
 
@@ -364,7 +458,7 @@ After the final code-reviewer subagent passes, run a Codex final review:
 - Skip scene-setting context (subagent needs to understand where task fits)
 - Ignore subagent questions (answer before letting them proceed)
 - Mark a task complete if any review stage is `fail` — address unresolved issues first
-- Fix code in the main session — always re-dispatch the implementer (context pollution)
+- Fix code in the main session — review-and-fix subagents handle fixes (context pollution)
 - Skip spec compliance or code quality reviews — they catch what self-review and Codex miss
 
 **If subagent asks questions:**
@@ -372,11 +466,15 @@ After the final code-reviewer subagent passes, run a Codex final review:
 - Provide additional context if needed
 - Re-dispatch with the answer
 
-**If any review fails:**
-- Read the specific issues
-- Re-dispatch implementer with the fix instructions
-- Re-run the failed review after fixes
-- Max 3 rounds per review stage — escalate to human if still failing
+**If review-and-fix returns `fixed`:**
+- The subagent already fixed the issues — no need to re-dispatch the implementer
+- Dispatch a fresh review-and-fix subagent to independently verify the fixes
+- Max 3 rounds per review stage — escalate to human if still finding issues
+
+**After compaction:**
+- Read the state file at `.dev-state/task-{N}-review.md` to recover position
+- Re-read the plan file if task text is needed
+- Continue from where the state file says you left off
 
 ## Integration
 

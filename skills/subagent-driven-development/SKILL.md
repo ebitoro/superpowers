@@ -5,9 +5,9 @@ description: Use when executing implementation plans with independent tasks in t
 
 # Subagent-Driven Development
 
-Execute plan by dispatching fresh implementer subagent per task. Each implementer handles the full lifecycle: implement → self-review → Codex review → spec compliance → code quality → fix → report verdict. Main session only dispatches and tracks progress.
+Execute plan by dispatching fresh subagents per task. Implementer handles: implement → self-review → Codex review. Main session then dispatches spec compliance and code quality reviewer subagents before proceeding to the next task.
 
-**Core principle:** Fresh subagent per task with full review pipeline built in = high quality, minimal main session context usage
+**Core principle:** Fresh subagent per task. Implementer builds and self-reviews. Main session orchestrates independent CC reviewer subagents for spec compliance and code quality.
 
 ## When to Use
 
@@ -32,7 +32,7 @@ digraph when_to_use {
 **vs. Executing Plans (parallel session):**
 - Same session (no context switch)
 - Fresh subagent per task (no context pollution)
-- Full review pipeline inside each subagent (self-review → Codex → spec → quality)
+- Four-stage review: self-review → Codex → spec compliance (CC) → code quality (CC)
 - Faster iteration (no human-in-loop between tasks)
 
 ## Setup
@@ -74,29 +74,35 @@ Before dispatching the first task:
 digraph process {
     rankdir=TB;
 
-    subgraph cluster_per_task {
-        label="Per Task (all inside implementer subagent)";
+    subgraph cluster_implementer {
+        label="Inside implementer subagent";
         style=filled;
         fillcolor=lightyellow;
         "Implement + test + commit" [shape=box];
         "Self-review + Codex review (direct MCP)" [shape=box];
-        "Spec compliance review (sub-subagent)" [shape=box];
-        "Code quality review (sub-subagent)" [shape=box];
-        "Fix issues at each stage" [shape=box];
-        "Return structured verdict" [shape=box];
+        "Fix issues" [shape=box];
+        "Return verdict" [shape=box];
 
         "Implement + test + commit" -> "Self-review + Codex review (direct MCP)";
-        "Self-review + Codex review (direct MCP)" -> "Fix issues at each stage";
-        "Fix issues at each stage" -> "Spec compliance review (sub-subagent)";
-        "Spec compliance review (sub-subagent)" -> "Code quality review (sub-subagent)";
-        "Code quality review (sub-subagent)" -> "Return structured verdict";
+        "Self-review + Codex review (direct MCP)" -> "Fix issues";
+        "Fix issues" -> "Return verdict";
+    }
+
+    subgraph cluster_main_reviews {
+        label="Main session reviews (CC subagents)";
+        style=filled;
+        fillcolor=lightblue;
+        "Dispatch spec compliance reviewer" [shape=box];
+        "Spec pass?" [shape=diamond];
+        "Dispatch code quality reviewer" [shape=box];
+        "Quality pass?" [shape=diamond];
     }
 
     "Read plan, extract tasks, create Codex thread, create TodoWrite" [shape=box];
     "Dispatch implementer subagent\n(./implementer-prompt.md)" [shape=box];
     "Implementer asks questions?" [shape=diamond];
     "Answer questions" [shape=box];
-    "Handle verdict" [shape=box];
+    "Re-dispatch implementer to fix" [shape=box];
     "More tasks remain?" [shape=diamond];
     "Dispatch final code reviewer subagent" [shape=box];
     "Codex final review gate" [shape=box];
@@ -106,8 +112,14 @@ digraph process {
     "Dispatch implementer subagent\n(./implementer-prompt.md)" -> "Implementer asks questions?";
     "Implementer asks questions?" -> "Answer questions" [label="yes"];
     "Answer questions" -> "Dispatch implementer subagent\n(./implementer-prompt.md)";
-    "Implementer asks questions?" -> "Handle verdict" [label="no — returns verdict"];
-    "Handle verdict" -> "More tasks remain?";
+    "Implementer asks questions?" -> "Dispatch spec compliance reviewer" [label="no — returns verdict"];
+    "Dispatch spec compliance reviewer" -> "Spec pass?";
+    "Spec pass?" -> "Dispatch code quality reviewer" [label="pass"];
+    "Spec pass?" -> "Re-dispatch implementer to fix" [label="fail"];
+    "Re-dispatch implementer to fix" -> "Dispatch spec compliance reviewer";
+    "Dispatch code quality reviewer" -> "Quality pass?";
+    "Quality pass?" -> "More tasks remain?" [label="pass"];
+    "Quality pass?" -> "Re-dispatch implementer to fix" [label="fail"];
     "More tasks remain?" -> "Dispatch implementer subagent\n(./implementer-prompt.md)" [label="yes"];
     "More tasks remain?" -> "Dispatch final code reviewer subagent" [label="no"];
     "Dispatch final code reviewer subagent" -> "Codex final review gate";
@@ -115,49 +127,124 @@ digraph process {
 }
 ```
 
-**Yellow box runs entirely inside the implementer subagent.** The main session only sees the dispatch and the final verdict — all reviews, fixes, and re-reviews stay out of the main session's context.
+**Yellow box** = implementer subagent (implement + self-review + Codex).
+**Blue box** = main session dispatches independent CC reviewer subagents.
 
 ## Model Selection
 
-Use the least powerful model that can handle each role to conserve cost and increase speed.
+**Always use Opus for implementer subagents.** Implementers handle implementation, self-review, and Codex interaction which requires judgment and multi-phase reasoning. Do not downgrade to cheaper models.
 
-**Mechanical implementation tasks** (isolated functions, clear specs, 1-2 files): use a fast, cheap model. Most implementation tasks are mechanical when the plan is well-specified.
+## Per-Task Flow (Main Session)
 
-**Integration and judgment tasks** (multi-file coordination, pattern matching, debugging): use a standard model.
+For each task:
 
-**Architecture, design, and review tasks**: use the most capable available model.
+### Step 1: Dispatch Implementer
 
-**Task complexity signals:**
-- Touches 1-2 files with a complete spec → cheap model
-- Touches multiple files with integration concerns → standard model
-- Requires design judgment or broad codebase understanding → most capable model
+```
+Agent tool:
+  description: "Implement Task {N}: {TASK_NAME}"
+  model: opus
+  prompt: |
+    [Use ./implementer-prompt.md template]
+```
+
+Handle the implementer verdict (see Handling Implementer Verdicts below). If `pass`, proceed to Step 2.
+
+### Step 2: Dispatch Spec Compliance Reviewer
+
+```
+Agent tool:
+  subagent_type: "feature-dev:code-reviewer"
+  description: "Spec review for Task {N}"
+  prompt: |
+    You are a SPEC COMPLIANCE reviewer. Your job is to verify the implementation
+    matches its specification — nothing more, nothing less.
+
+    ## What Was Requested
+
+    {TASK_TEXT}
+
+    ## What Implementer Claims They Built
+
+    {IMPLEMENTATION_SUMMARY from implementer verdict}
+
+    ## Files Changed
+
+    {FILES_CHANGED from implementer verdict}
+
+    ## CRITICAL: Do Not Trust the Report
+
+    The implementer's report may be incomplete or optimistic. Verify independently.
+
+    **DO:** Read the actual code, compare to requirements line by line.
+
+    ```bash
+    cd {WORKING_DIRECTORY}
+    git diff {BASE_SHA}..HEAD
+    ```
+
+    **Check for:**
+    - Missing requirements: Did they implement everything requested?
+    - Extra/unneeded work: Did they build things not in spec?
+    - Misunderstandings: Did they solve the wrong problem?
+
+    Report:
+    - PASS: Spec compliant
+    - FAIL: Issues found — list what's missing or extra, with file:line references
+```
+
+**If FAIL:** Re-dispatch implementer with the specific issues to fix, then re-run spec review. Max 3 rounds.
+
+### Step 3: Dispatch Code Quality Reviewer
+
+**Only after spec compliance passes.**
+
+```
+Agent tool:
+  subagent_type: "feature-dev:code-reviewer"
+  description: "Code quality review for Task {N}"
+  prompt: |
+    Review code changes for Task {N}: {TASK_NAME}
+
+    WHAT_WAS_IMPLEMENTED: {IMPLEMENTATION_SUMMARY}
+    PLAN_OR_REQUIREMENTS: {TASK_TEXT}
+    BASE_SHA: {BASE_SHA}
+    HEAD_SHA: {HEAD_SHA}
+    DESCRIPTION: {task summary}
+
+    Working directory: {WORKING_DIRECTORY}
+```
+
+**If Critical or Important issues found:** Re-dispatch implementer with the specific issues to fix, then re-run code quality review. Max 3 rounds.
+
+### Step 4: Mark Complete
+
+All reviews passed → mark task complete in TodoWrite. Proceed to next task.
 
 ## Handling Implementer Verdicts
 
-Implementer subagents return a structured verdict after completing their full review pipeline. Handle each:
+Implementer subagents return a structured verdict after self-review + Codex. Handle each:
 
-**`pass`:** All reviews passed. Mark task complete in TodoWrite. Proceed to next task.
+**`pass`:** Self-review and Codex clean. Proceed to spec compliance review (Step 2).
 
-**`fail`:** One or more review stages have unresolved issues. Read the unresolved items. Assess:
+**`fail`:** Self-review or Codex found unresolved issues. Read the unresolved items. Assess:
 - If fixable with more context: re-dispatch with additional context
-- If the task is too complex: re-dispatch with a more capable model
 - If the plan itself is wrong: escalate to the human
 
 **`needs_context`:** The implementer needs information before starting. Provide the missing context and re-dispatch.
 
 **`blocked`:** The implementer cannot complete the task. Assess the blocker:
 1. If it's a context problem, provide more context and re-dispatch
-2. If the task requires more reasoning, re-dispatch with a more capable model
-3. If the task is too large, break it into smaller pieces
-4. If the plan itself is wrong, escalate to the human
+2. If the task is too large, break it into smaller pieces
+3. If the plan itself is wrong, escalate to the human
 
 **Never** ignore an escalation or force the same model to retry without changes.
 
 ## Prompt Templates
 
-- `./implementer-prompt.md` - Dispatch implementer subagent (includes full review pipeline)
-- `./spec-reviewer-prompt.md` - Spec compliance reviewer (dispatched by implementer as sub-subagent)
-- `./code-quality-reviewer-prompt.md` - Code quality reviewer (dispatched by implementer as sub-subagent)
+- `./implementer-prompt.md` - Dispatch implementer subagent (implement + self-review + Codex)
+- `./spec-reviewer-prompt.md` - Spec compliance reviewer reference (dispatched by main session)
+- `./code-quality-reviewer-prompt.md` - Code quality reviewer reference (dispatched by main session)
 
 ## Example Workflow
 
@@ -172,38 +259,36 @@ You: I'm using Subagent-Driven Development to execute this plan.
 
 Task 1: Hook installation script
 
-[Dispatch implementer with full task text + context + CODEX_THREAD_ID]
-
-Implementer: "Before I begin - should the hook be installed at user or system level?"
-
-You: "User level (~/.config/superpowers/hooks/)"
-
-[Re-dispatch implementer with answer]
+[Dispatch implementer (Opus) with full task text + context + CODEX_THREAD_ID]
 
 Implementer returns verdict:
   task: 1
   verdict: pass
   implementation_summary: Added install-hook command with --force flag
+  files_changed: src/hooks/install.ts, tests/hooks/install.test.ts
   codex_review: available, 1 round, 0 findings
-  spec_compliance: pass (round 1)
-  code_quality: pass (round 1)
   tests: 5/5 passing
 
+[Dispatch spec compliance reviewer → PASS]
+[Dispatch code quality reviewer → PASS]
 [Mark Task 1 complete]
 
 Task 2: Recovery modes
 
-[Dispatch implementer with full task text + context + CODEX_THREAD_ID]
+[Dispatch implementer (Opus) with full task text + context + CODEX_THREAD_ID]
 
 Implementer returns verdict:
   task: 2
   verdict: pass
   implementation_summary: Added verify/repair modes with progress reporting
+  files_changed: src/recovery.ts, tests/recovery.test.ts
   codex_review: available, 2 rounds, 1 finding fixed
-  spec_compliance: pass (round 2 — fixed missing progress reporting, removed extra --json flag)
-  code_quality: pass (round 2 — extracted PROGRESS_INTERVAL constant)
   tests: 8/8 passing
 
+[Dispatch spec compliance reviewer → FAIL: missing progress percentage]
+[Re-dispatch implementer to fix progress reporting]
+[Re-dispatch spec compliance reviewer → PASS]
+[Dispatch code quality reviewer → PASS]
 [Mark Task 2 complete]
 
 ... (tasks 3-5)
@@ -215,8 +300,6 @@ Final reviewer + Codex: All requirements met, ready to merge
 
 [Use superpowers:finishing-a-development-branch]
 ```
-
-**Notice:** The main session only sees dispatch + verdict per task. All review rounds, fixes, and re-reviews happen inside the implementer subagent.
 
 ## Codex Review Gates
 
@@ -263,19 +346,13 @@ After the final code-reviewer subagent passes, run a Codex final review:
 **vs. Executing Plans:**
 - Same session (no handoff)
 - Continuous progress (no waiting)
-- Full review pipeline automatic
+- Four-stage review automatic
 
-**Context efficiency:**
-- Main session only holds dispatch + verdict per task
-- All reviews, fixes, and re-reviews stay inside the implementer subagent
-- For 15 tasks: ~15 subagent interactions in main context instead of 60+
-- No file reading overhead (controller provides full text)
-
-**Quality gates (all inside implementer):**
-- Self-review catches issues first
-- Codex review catches security, correctness, test gaps
-- Spec compliance prevents over/under-building
-- Code quality ensures implementation is well-built
+**Quality gates:**
+- Self-review catches issues first (inside implementer)
+- Codex review catches security, correctness, test gaps (inside implementer)
+- Spec compliance prevents over/under-building (main session, independent CC reviewer)
+- Code quality ensures implementation is well-built (main session, independent CC reviewer)
 - Fix loops at each stage ensure issues are resolved before moving on
 
 ## Red Flags
@@ -286,18 +363,20 @@ After the final code-reviewer subagent passes, run a Codex final review:
 - Make subagent read plan file (provide full text instead)
 - Skip scene-setting context (subagent needs to understand where task fits)
 - Ignore subagent questions (answer before letting them proceed)
-- Mark a task complete if verdict is `fail` — address unresolved issues first
-- Fix code in the main session — always re-dispatch a subagent (context pollution)
+- Mark a task complete if any review stage is `fail` — address unresolved issues first
+- Fix code in the main session — always re-dispatch the implementer (context pollution)
+- Skip spec compliance or code quality reviews — they catch what self-review and Codex miss
 
 **If subagent asks questions:**
 - Answer clearly and completely
 - Provide additional context if needed
 - Re-dispatch with the answer
 
-**If verdict is `fail`:**
-- Read the unresolved items
-- Assess whether more context, a more capable model, or plan changes are needed
-- Re-dispatch or escalate — don't ignore
+**If any review fails:**
+- Read the specific issues
+- Re-dispatch implementer with the fix instructions
+- Re-run the failed review after fixes
+- Max 3 rounds per review stage — escalate to human if still failing
 
 ## Integration
 

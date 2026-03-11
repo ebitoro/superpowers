@@ -25,7 +25,7 @@ Find the design doc to plan from. The user may have cleared the session, so conv
 1. **Check breadcrumb first:**
    ```bash
    MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-   DESIGN_DOC="$MAIN_REPO/$(cat "$MAIN_REPO/.codex-state/current_design_doc" 2>/dev/null)"
+   DESIGN_DOC="$MAIN_REPO/$(cat "$MAIN_REPO/.dev-state/current_design_doc" 2>/dev/null)"
    ```
 2. **If breadcrumb missing or file not found:** scan `docs/superpowers/specs/` for the most recent spec file (by filename date prefix or modification time)
 3. **If multiple candidates:** ask the user which one
@@ -180,7 +180,7 @@ After committing, run a Codex review gate on the complete plan. This uses the Ti
 **Save breadcrumbs before review:**
 ```bash
 MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-STATE_DIR="$MAIN_REPO/.codex-state"
+STATE_DIR="$MAIN_REPO/.dev-state"
 mkdir -p "$STATE_DIR"
 echo "<relative-path-to-plan>" > "$STATE_DIR/current_plan"
 echo "$(pwd)" > "$STATE_DIR/current_worktree"

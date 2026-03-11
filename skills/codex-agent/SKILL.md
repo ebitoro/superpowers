@@ -81,9 +81,9 @@ Create a new Codex conversation thread and persist the thread ID. No message is 
 1. Resolve the state directory:
    ```bash
    MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-   STATE_DIR="$MAIN_REPO/.codex-state"
+   STATE_DIR="$MAIN_REPO/.dev-state"
    mkdir -p "$STATE_DIR"
-   grep -q '.codex-state/' "$MAIN_REPO/.gitignore" 2>/dev/null || echo '.codex-state/' >> "$MAIN_REPO/.gitignore"
+   grep -q '.dev-state/' "$MAIN_REPO/.gitignore" 2>/dev/null || echo '.dev-state/' >> "$MAIN_REPO/.gitignore"
    ```
 2. Call `codex` MCP tool to create a new thread. **Do NOT pass the `model` parameter.** Pass `profile` if the caller provided one.
 3. Save the returned thread ID to `$STATE_DIR/codex_thread_id`
@@ -165,7 +165,7 @@ For all modes except `create-thread`, resolve the thread to use. The caller cont
 3. **`thread_id` not provided**: Fall back to the persistent state file:
    ```bash
    MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-   STATE_DIR="$MAIN_REPO/.codex-state"
+   STATE_DIR="$MAIN_REPO/.dev-state"
    ```
    - Read thread ID from `$STATE_DIR/codex_thread_id`
    - Test thread validity by sending a short `codex-reply` message (prepend the read-only sandbox reminder): `"Thread check — still active?"`

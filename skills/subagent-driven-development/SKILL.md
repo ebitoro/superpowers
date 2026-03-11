@@ -49,7 +49,7 @@ Before dispatching the first task:
    - **Check breadcrumb first:**
      ```bash
      MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-     PLAN_PATH="$MAIN_REPO/$(cat "$MAIN_REPO/.codex-state/current_plan" 2>/dev/null)"
+     PLAN_PATH="$MAIN_REPO/$(cat "$MAIN_REPO/.dev-state/current_plan" 2>/dev/null)"
      ```
    - **If breadcrumb missing or file not found:** scan `docs/superpowers/plans/` for the most recent plan file (by filename date prefix or modification time)
    - **If multiple candidates:** ask the user which one

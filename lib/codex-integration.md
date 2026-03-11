@@ -175,12 +175,12 @@ Codex CLI supports configuration profiles (defined in `~/.codex/config.toml`). P
 
 ## State Directory
 
-All Codex state files live in `.codex-state/` at the **main repo root** (not per-worktree).
+All Codex state files live in `.dev-state/` at the **main repo root** (not per-worktree).
 
 ```bash
 # Resolves to main repo root even from inside a worktree
 MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-STATE_DIR="$MAIN_REPO/.codex-state"
+STATE_DIR="$MAIN_REPO/.dev-state"
 mkdir -p "$STATE_DIR"
 ```
 
@@ -192,9 +192,9 @@ mkdir -p "$STATE_DIR"
 
 Implementation review thread IDs are caller-managed. They survive compaction via the echo rule, not via disk files.
 
-**Ensure `.codex-state/` is gitignored:**
+**Ensure `.dev-state/` is gitignored:**
 ```bash
-grep -q '.codex-state/' "$MAIN_REPO/.gitignore" 2>/dev/null || echo '.codex-state/' >> "$MAIN_REPO/.gitignore"
+grep -q '.dev-state/' "$MAIN_REPO/.gitignore" 2>/dev/null || echo '.dev-state/' >> "$MAIN_REPO/.gitignore"
 ```
 
 ## Codex Availability

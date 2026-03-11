@@ -48,17 +48,17 @@ Subagents call `codex`/`codex-reply` MCP directly because they don't have the Ag
 
 ### State Directory
 
-State lives at `.codex-state/` in the **main repo root** (not per-worktree). Resolved via:
+State lives at `.dev-state/` in the **main repo root** (not per-worktree). Resolved via:
 ```bash
 MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-STATE_DIR="$MAIN_REPO/.codex-state"
+STATE_DIR="$MAIN_REPO/.dev-state"
 ```
 
 ### Files
-- `.codex-state/codex_thread_id` - Codex thread ID for design/plan phases
-- `.codex-state/current_design_doc` - Path to approved design doc
-- `.codex-state/current_plan` - Path to implementation plan
-- `.codex-state/current_worktree` - Absolute path to worktree
+- `.dev-state/codex_thread_id` - Codex thread ID for design/plan phases
+- `.dev-state/current_design_doc` - Path to approved design doc
+- `.dev-state/current_plan` - Path to implementation plan
+- `.dev-state/current_worktree` - Absolute path to worktree
 
 ### Review Gate Pattern
 
@@ -100,4 +100,4 @@ Both `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` must hav
 - `.worktrees/` - Git worktree directories
 - `.private-journal/` - Private notes
 - `.claude/` - Claude Code session data
-- `.codex-state/` - Codex state files
+- `.dev-state/` - Development workflow state files

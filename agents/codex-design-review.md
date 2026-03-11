@@ -25,9 +25,9 @@ Save the design doc path so Codex can resolve it from breadcrumbs:
 
 ```bash
 MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-STATE_DIR="$MAIN_REPO/.codex-state"
+STATE_DIR="$MAIN_REPO/.dev-state"
 mkdir -p "$STATE_DIR"
-grep -q '.codex-state/' "$MAIN_REPO/.gitignore" 2>/dev/null || echo '.codex-state/' >> "$MAIN_REPO/.gitignore"
+grep -q '.dev-state/' "$MAIN_REPO/.gitignore" 2>/dev/null || echo '.dev-state/' >> "$MAIN_REPO/.gitignore"
 ```
 
 Write the spec path (relative to repo root) to `$STATE_DIR/current_design_doc`.

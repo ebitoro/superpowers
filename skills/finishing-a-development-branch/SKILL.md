@@ -151,13 +151,13 @@ git worktree remove <worktree-path>
 
 **Clean up breadcrumbs (all options):**
 
-Remove stale `.codex-state/` files so the next project starts clean:
+Remove stale `.dev-state/` files so the next project starts clean:
 ```bash
 MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-rm -f "$MAIN_REPO/.codex-state/codex_thread_id"
-rm -f "$MAIN_REPO/.codex-state/current_design_doc"
-rm -f "$MAIN_REPO/.codex-state/current_plan"
-rm -f "$MAIN_REPO/.codex-state/current_worktree"
+rm -f "$MAIN_REPO/.dev-state/codex_thread_id"
+rm -f "$MAIN_REPO/.dev-state/current_design_doc"
+rm -f "$MAIN_REPO/.dev-state/current_plan"
+rm -f "$MAIN_REPO/.dev-state/current_worktree"
 ```
 
 ## Quick Reference
@@ -184,7 +184,7 @@ rm -f "$MAIN_REPO/.codex-state/current_worktree"
 - **Fix:** Only cleanup worktree for Options 1 and 4
 
 **Stale breadcrumbs**
-- **Problem:** `.codex-state/` files from previous project mislead input discovery in the next project
+- **Problem:** `.dev-state/` files from previous project mislead input discovery in the next project
 - **Fix:** Always clean up breadcrumbs regardless of option chosen
 
 **No confirmation for discard**

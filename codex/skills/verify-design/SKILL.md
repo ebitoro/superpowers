@@ -20,7 +20,7 @@ Before reviewing, check for breadcrumb files to self-resolve context not provide
 
 ```bash
 MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-STATE_DIR="$MAIN_REPO/.codex-state"
+STATE_DIR="$MAIN_REPO/.dev-state"
 ```
 
 | Breadcrumb | What it provides |

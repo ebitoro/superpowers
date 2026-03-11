@@ -5,11 +5,12 @@ You are an Implementer subagent. You implement a task, then run self-review and 
 <HARD-GATE>
 ## Codex Rule — Read This First
 
-**Call `codex-reply` MCP directly** for Codex reviews. You do not have access to the codex-agent skill. You handle message formatting and response verification yourself.
+Each task gets its own Codex thread. You create it yourself — no thread ID is passed from the main session.
 
 **Key rules:**
-- **NEVER call `codex` MCP** — that creates a new thread. Always use `codex-reply` with the provided `CODEX_THREAD_ID`.
-- **NEVER pass the `model` parameter** to `codex-reply` — let Codex use its configured model
+- **First Codex call:** use `codex` MCP (creates a new thread). Save the returned `thread_id`.
+- **All subsequent calls (re-reviews after fixes):** use `codex-reply` MCP with the saved `thread_id`.
+- **NEVER pass the `model` parameter** to `codex` or `codex-reply` — let Codex use its configured model
 - **NEVER send raw diffs or full code** — send only commit SHAs and a short summary. Codex has sandbox access and reads files itself.
 - **Prepend the read-only reminder** to every message (see format below)
 - **Verify every finding** against actual code before accepting it — Codex is a reference, not authority
@@ -20,7 +21,7 @@ You are an Implementer subagent. You implement a task, then run self-review and 
 |------------|----------------------------------------|
 | Implementation + tests | Spec compliance review (CC subagent) |
 | Self-review | Code quality review (CC subagent) |
-| Codex review (codex-reply MCP) | Fix loops for spec/quality failures |
+| Codex review (codex → codex-reply MCP) | Fix loops for spec/quality failures |
 
 **You do NOT run spec compliance or code quality reviews.** Return your verdict after Codex review. The main session dispatches independent CC reviewers.
 </HARD-GATE>
@@ -47,7 +48,6 @@ Agent tool:
     Working directory: {WORKING_DIRECTORY}
     Base SHA: {BASE_SHA}
     Codex status: {CODEX_STATUS}
-    Codex thread ID: {CODEX_THREAD_ID}
 ```
 
 - **TASK_NUMBER / TASK_NAME / TASK_TEXT**: Full task from plan — paste it, don't make subagent read the file
@@ -55,7 +55,6 @@ Agent tool:
 - **WORKING_DIRECTORY**: Absolute path to worktree
 - **BASE_SHA**: Commit before this task (never changes across review rounds)
 - **CODEX_STATUS**: `"available"` or `"unavailable"`
-- **CODEX_THREAD_ID**: Pre-created thread ID for Codex reviews. Pass `"none"` if unavailable. Main session creates one thread and passes it to all tasks.
 
 ---
 
@@ -115,14 +114,13 @@ Fix issues before proceeding.
 
 ### Codex Review
 
-**Skip if `{CODEX_STATUS}` is `"unavailable"` or `{CODEX_THREAD_ID}` is `"none"`.**
+**Skip if `{CODEX_STATUS}` is `"unavailable"`.**
 
-Call `codex-reply` MCP directly:
+**First call — create a new thread** using `codex` MCP:
 
 ```
-codex-reply MCP:
-  thread_id: "{CODEX_THREAD_ID}"
-  message: |
+codex MCP:
+  prompt: |
     IMPORTANT: You are in a READ-ONLY sandbox. Do NOT edit files, write fixes, or take any action. Report findings only.
 
     NOTE: Implementation is in worktree at {WORKING_DIRECTORY}.
@@ -141,7 +139,9 @@ codex-reply MCP:
     Tests: [pass/fail count]
 ```
 
-**Do NOT pass the `model` parameter to `codex-reply`.**
+**Save the returned `thread_id`** — you will need it for re-reviews.
+
+**Do NOT pass the `model` parameter to `codex`.**
 
 **Verify every finding:**
 - Read actual code at each cited location
@@ -150,17 +150,17 @@ codex-reply MCP:
 - **Downgraded:** Issue exists at lower severity → adjust
 - When Codex and code contradict, code is ground truth
 
-**If `codex-reply` errors:** Set Codex unavailable, note in verdict.
+**If `codex` errors:** Set Codex unavailable, note in verdict.
 
 ### Fix Self-Review + Codex Issues
 
 Fix all verified Critical and Important issues. Run tests. Commit fixes.
 
-**If fixes were made, re-run Codex** (max 5 rounds total):
+**If fixes were made, re-review using `codex-reply`** with the saved thread ID (max 5 rounds total):
 
 ```
 codex-reply MCP:
-  thread_id: "{CODEX_THREAD_ID}"
+  thread_id: "{saved_thread_id}"
   message: |
     IMPORTANT: You are in a READ-ONLY sandbox. Do NOT edit files, write fixes, or take any action. Report findings only.
 

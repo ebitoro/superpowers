@@ -55,17 +55,7 @@ Before dispatching the first task:
    - **If multiple candidates:** ask the user which one
    - Read the plan file and extract all tasks with full text and context
 3. **Create TodoWrite** with all tasks
-4. **Create a Codex thread (foreground)** for per-task reviews (shared across tasks):
-   ```
-   Agent tool:
-     subagent_type: "superpowers:codex-agent"
-     description: "Init Codex thread for implementation"
-     prompt: |
-       mode: init
-       profile: higheffort
-   ```
-   Save the returned `thread_id`. Pass it to all implementer subagents as `CODEX_THREAD_ID`.
-   If codex-agent reports `status: unavailable`, set `CODEX_STATUS: unavailable` and `CODEX_THREAD_ID: none`.
+4. **Check Codex availability** — call `codex` MCP with a simple ping. If it responds, set `CODEX_STATUS: available`. If it errors, set `CODEX_STATUS: unavailable`. Each implementer creates its own per-task Codex thread.
 5. **Record BASE_SHA** — the commit before the first task: `git rev-parse HEAD`
 
 ## The Process
@@ -345,13 +335,13 @@ You: I'm using Subagent-Driven Development to execute this plan.
 
 [Read plan file once: docs/superpowers/plans/feature-plan.md]
 [Extract all 5 tasks with full text and context]
-[Create Codex thread via codex-agent init → thread_id: sess_abc123]
+[Check Codex availability → CODEX_STATUS: available]
 [Create TodoWrite with all tasks]
 [Record BASE_SHA]
 
 Task 1: Hook installation script
 
-[Dispatch implementer (Opus) with full task text + context + CODEX_THREAD_ID]
+[Dispatch implementer (Opus) with full task text + context]
 
 Implementer returns verdict:
   task: 1
@@ -370,7 +360,7 @@ Implementer returns verdict:
 
 Task 2: Recovery modes
 
-[Dispatch implementer (Opus) with full task text + context + CODEX_THREAD_ID]
+[Dispatch implementer (Opus) with full task text + context]
 
 Implementer returns verdict:
   task: 2
@@ -403,7 +393,7 @@ Final reviewer + Codex: All requirements met, ready to merge
 
 See `lib/codex-integration.md` for full protocol.
 
-**Per-task Codex reviews** run inside each implementer subagent (direct MCP calls to `codex-reply`). The main session creates one Codex thread at setup and passes it to all implementers. Per-task reviews catch issues within each task (security, correctness, test gaps).
+**Per-task Codex reviews** run inside each implementer subagent. Each implementer creates its own Codex thread via `codex` MCP, then uses `codex-reply` for re-reviews within the same task. Per-task reviews catch issues within each task (security, correctness, test gaps).
 
 **The final Codex review** runs in the main session after all tasks complete. It catches cross-cutting issues across the full implementation.
 

@@ -57,8 +57,10 @@ Then install the plugin from this marketplace:
 In Cursor Agent chat, install from marketplace:
 
 ```text
-/plugin-add superpowers
+/add-plugin superpowers
 ```
+
+or search for "superpowers" in the plugin marketplace.
 
 ### Codex
 
@@ -79,6 +81,18 @@ Fetch and follow instructions from https://raw.githubusercontent.com/obra/superp
 ```
 
 **Detailed docs:** [docs/README.opencode.md](docs/README.opencode.md)
+
+### Gemini CLI
+
+```bash
+gemini extensions install https://github.com/obra/superpowers
+```
+
+To update:
+
+```bash
+gemini extensions update superpowers
+```
 
 ### Verify Installation
 

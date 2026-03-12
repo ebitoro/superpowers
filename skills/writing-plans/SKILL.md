@@ -186,7 +186,11 @@ echo "<relative-path-to-plan>" > "$STATE_DIR/current_plan"
 echo "$(pwd)" > "$STATE_DIR/current_worktree"
 ```
 
-**Create Codex thread (foreground)** before dispatching the subagent:
+<HARD-GATE>
+**You MUST attempt the Codex init step below.** The init step CREATES a new thread — do NOT check for an existing thread or skip because "no thread is available." The only valid reason to skip the Codex review gate is if the init step itself returns `status: unavailable`.
+</HARD-GATE>
+
+**Step 1: Create Codex thread (foreground).** This is mandatory — dispatch the codex-agent to create a thread:
 ```
 Agent tool:
   subagent_type: "superpowers:codex-agent"
@@ -195,11 +199,11 @@ Agent tool:
     mode: init
     profile: xhigheffort
 ```
-Save the returned `thread_id`. If `status: unavailable`, skip Codex plan review and proceed to execution handoff (inform user).
+**Wait for the result.** Save the returned `thread_id`. Only if the agent returns `status: unavailable` may you skip the Codex plan review (inform user why).
 
-**Tier 1 — Dispatch plan-review-gate subagent (foreground, 3 rounds max):**
+**Step 2: Dispatch plan-review-gate subagent (foreground, 3 rounds max):**
 
-**IMPORTANT: Dispatch in foreground and wait for the result.** Do NOT background this agent. The review gate must complete before proceeding to execution handoff.
+**IMPORTANT: Dispatch in foreground and wait for the result.** Do NOT background this agent. The review gate must complete before proceeding to execution handoff. You MUST pass the `thread_id` returned from Step 1.
 
 ```
 Agent tool:
@@ -210,7 +214,7 @@ Agent tool:
     plan_path: <absolute-path-to-plan>
     design_doc_path: <absolute-path-to-design-doc>
     worktree_path: <absolute-path-to-worktree>
-    thread_id: <thread_id from init step>
+    thread_id: <thread_id from Step 1>
 ```
 
 **Handle Tier 1 result:**

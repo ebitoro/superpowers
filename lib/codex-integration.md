@@ -123,7 +123,7 @@ Subagents spawned via the Agent tool do NOT have access to the Agent tool themse
 ### Read-Only Reminder (prepend to ALL messages)
 
 ```
-IMPORTANT: You are in a READ-ONLY sandbox. Do NOT edit files, write fixes, or take any action. Report findings only.
+IMPORTANT: You are in a READ-ONLY sandbox. Do NOT edit files, write fixes, run tests, or take any action. All tests have already been run and passed by the caller. Report findings only.
 ```
 
 ### Worktree Note (include when in a worktree)

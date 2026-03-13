@@ -121,7 +121,7 @@ Fix issues before proceeding.
 ```
 codex MCP:
   prompt: |
-    IMPORTANT: You are in a READ-ONLY sandbox. Do NOT edit files, write fixes, or take any action. Report findings only.
+    IMPORTANT: You are in a READ-ONLY sandbox. Do NOT edit files, write fixes, run tests, or take any action. All tests have already been run and passed by the caller. Report findings only.
 
     NOTE: Implementation is in worktree at {WORKING_DIRECTORY}.
     All file paths are relative to the worktree root.
@@ -129,7 +129,7 @@ codex MCP:
     [SKILL: code-review]
 
     Use your loaded `code-review` skill to review the following changes.
-    You are READ-ONLY — report findings only, never edit files or write fixes.
+    You are READ-ONLY — report findings only, never edit files, write fixes, or run tests.
     If the skill is not available, respond with: VERDICT: ERROR — skill not loaded.
 
     ---
@@ -162,7 +162,7 @@ Fix all verified Critical and Important issues. Run tests. Commit fixes.
 codex-reply MCP:
   thread_id: "{saved_thread_id}"
   message: |
-    IMPORTANT: You are in a READ-ONLY sandbox. Do NOT edit files, write fixes, or take any action. Report findings only.
+    IMPORTANT: You are in a READ-ONLY sandbox. Do NOT edit files, write fixes, run tests, or take any action. All tests have already been run and passed by the caller. Report findings only.
 
     NOTE: Implementation is in worktree at {WORKING_DIRECTORY}.
     All file paths are relative to the worktree root.
@@ -170,7 +170,7 @@ codex-reply MCP:
     [SKILL: code-review]
 
     Use your loaded `code-review` skill to review the following changes.
-    You are READ-ONLY — report findings only, never edit files or write fixes.
+    You are READ-ONLY — report findings only, never edit files, write fixes, or run tests.
     If the skill is not available, respond with: VERDICT: ERROR — skill not loaded.
 
     ---

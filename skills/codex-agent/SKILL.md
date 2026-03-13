@@ -30,7 +30,7 @@ Codex CLI has structured skill prompts pre-loaded. You reference them by name us
 [SKILL: code-review]
 
 Use your loaded `code-review` skill to review the following changes.
-You are READ-ONLY — report findings only, never edit files or write fixes.
+You are READ-ONLY — report findings only, never edit files, write fixes, or run tests.
 If the skill is not available, respond with: VERDICT: ERROR — skill not loaded.
 
 ---
@@ -187,7 +187,7 @@ Every response MUST include the `thread_id` that was used. This lets callers sav
 **Prepend this to ALL messages sent to Codex** (every `codex-reply` call, in every mode that sends a message — `discuss`, `review-gate`, `cross-verify`):
 
 ```
-IMPORTANT: You are in a READ-ONLY sandbox. Do NOT edit files, write fixes, or take any action. Report findings only.
+IMPORTANT: You are in a READ-ONLY sandbox. Do NOT edit files, write fixes, run tests, or take any action. All tests have already been run and passed by the caller. Report findings only.
 ```
 
 This prevents Codex from interpreting discussion context or review content as work to do.

@@ -33,7 +33,7 @@ For each round:
 
 2. **Send review request via `codex-reply`** using the caller-provided `thread_id`. Compose the message:
    ```
-   IMPORTANT: You are in a READ-ONLY sandbox. Do NOT edit files, write fixes, or take any action. Report findings only.
+   IMPORTANT: You are in a READ-ONLY sandbox. Do NOT edit files, write fixes, run tests, or take any action. All tests have already been run and passed by the caller. Report findings only.
 
    NOTE: Implementation is in worktree at <worktree_path>.
    All file paths are relative to the worktree root.
@@ -41,7 +41,7 @@ For each round:
    [SKILL: verify-plan]
 
    Use your loaded `verify-plan` skill to review the following implementation plan.
-   You are READ-ONLY — report findings only, never edit files or write fixes.
+   You are READ-ONLY — report findings only, never edit files, write fixes, or run tests.
    If the skill is not available, respond with: VERDICT: ERROR — skill not loaded.
 
    ---

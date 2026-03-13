@@ -194,7 +194,7 @@ Read the state file. Dispatch a review-and-fix subagent:
 
 ```
 Agent tool:
-  subagent_type: "feature-dev:code-reviewer"
+  subagent_type: "superpowers:code-reviewer"
   description: "Spec review-and-fix for Task {N} (round {R})"
   prompt: |
     You are a SPEC COMPLIANCE review-and-fix agent.
@@ -260,7 +260,7 @@ Read the state file. Dispatch a review-and-fix subagent:
 
 ```
 Agent tool:
-  subagent_type: "feature-dev:code-reviewer"
+  subagent_type: "superpowers:code-reviewer"
   description: "Quality review-and-fix for Task {N} (round {R})"
   prompt: |
     You are a CODE QUALITY review-and-fix agent.

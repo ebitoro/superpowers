@@ -195,7 +195,7 @@ After spec review passes, create a Codex thread and dispatch the codex-design-re
    ```
 
 **Handle result:**
-- `pass` or `pass-with-flags`: proceed to implementation handoff
+- `pass` or `pass-with-flags`: check for uncommitted changes to the spec file (`git status <spec_path>`). If the subagent edited but forgot to commit, commit now: `git add <spec_path> && git commit -m "fix(spec): address Codex design review findings"`. Then proceed to implementation handoff.
 - `fail` with remaining issues: surface to user for guidance (the subagent exhausted 5 rounds)
 - Codex `unavailable`: the subagent returns `pass` with a note — proceed (inform user)
 

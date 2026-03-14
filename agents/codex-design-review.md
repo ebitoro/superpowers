@@ -68,7 +68,10 @@ For each round:
    c. **If verified:** Fix the issue directly in the spec file using the Edit tool
    d. **If NOT verified:** Note it as dismissed with reasoning. Send a follow-up `codex-reply` explaining why (prepend the read-only reminder), so Codex can update its understanding.
 
-6. Commit fixes: `git add <spec_path> && git commit -m "fix(spec): address Codex design review round N findings"`
+6. **Commit fixes immediately — do not skip this.** Every round that edits the spec MUST produce a commit before the next round begins. Codex re-reads the file each round, so uncommitted changes cause drift.
+   ```bash
+   git add <spec_path> && git commit -m "fix(spec): address Codex design review round N findings"
+   ```
 
 7. Continue to the next round.
 

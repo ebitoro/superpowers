@@ -17,10 +17,14 @@ Guide completion of development work by presenting clear options and handling ch
 
 ### Step 1: Verify Tests
 
-**Before presenting options, verify tests pass:**
+**Before presenting options, verify tests pass.**
+
+**Wait for pending background tasks first.** Check for any in-progress background commands (e.g., test runs from implementer subagents) using TaskList/TaskOutput. Wait for them to complete before running your own tests — stale background completions appearing after you present options confuses the user.
+
+**Run tests in the foreground (never background).** You need the results before proceeding — background execution defeats the purpose of this gate.
 
 ```bash
-# Run project's test suite
+# Run project's test suite (foreground, not background)
 npm test / cargo test / pytest / go test ./...
 ```
 
@@ -171,6 +175,10 @@ rm -f "$MAIN_REPO"/.dev-state/task-*-review.md
 | 4. Discard | - | - | - | ✓ (force) | ✓ |
 
 ## Common Mistakes
+
+**Running tests in background or not waiting for pending tasks**
+- **Problem:** Background test completions appear after options are presented, confusing the user. Or tests haven't actually finished when you proceed.
+- **Fix:** Wait for all pending background tasks (TaskList/TaskOutput) before running tests. Run tests in the foreground. Only proceed after results are in hand.
 
 **Skipping test verification**
 - **Problem:** Merge broken code, create failing PR

@@ -105,8 +105,12 @@ digraph process {
     "Dispatch quality review-and-fix" [shape=box];
     "Quality verdict?" [shape=diamond];
     "More tasks remain?" [shape=diamond];
-    "Dispatch final code reviewer subagent" [shape=box];
+    "Dispatch final CC reviewer" [shape=box];
+    "CC final pass?" [shape=diamond];
+    "Dispatch fix subagent (CC)" [shape=box];
     "Codex final review gate" [shape=box];
+    "Codex final pass?" [shape=diamond];
+    "Dispatch verify-and-fix subagent (Codex)" [shape=box];
     "Use superpowers:finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
 
     "Setup: plan, Codex thread, TodoWrite, BASE_SHA" -> "Dispatch implementer";
@@ -122,9 +126,15 @@ digraph process {
     "Quality verdict?" -> "More tasks remain?" [label="pass"];
     "Quality verdict?" -> "Dispatch quality review-and-fix" [label="fixed → re-review"];
     "More tasks remain?" -> "Dispatch implementer" [label="yes"];
-    "More tasks remain?" -> "Dispatch final code reviewer subagent" [label="no"];
-    "Dispatch final code reviewer subagent" -> "Codex final review gate";
-    "Codex final review gate" -> "Use superpowers:finishing-a-development-branch";
+    "More tasks remain?" -> "Dispatch final CC reviewer" [label="no"];
+    "Dispatch final CC reviewer" -> "CC final pass?";
+    "CC final pass?" -> "Codex final review gate" [label="pass"];
+    "CC final pass?" -> "Dispatch fix subagent (CC)" [label="fail"];
+    "Dispatch fix subagent (CC)" -> "Dispatch final CC reviewer" [label="re-review"];
+    "Codex final review gate" -> "Codex final pass?";
+    "Codex final pass?" -> "Use superpowers:finishing-a-development-branch" [label="pass"];
+    "Codex final pass?" -> "Dispatch verify-and-fix subagent (Codex)" [label="fail"];
+    "Dispatch verify-and-fix subagent (Codex)" -> "Codex final review gate" [label="re-review"];
 }
 ```
 
@@ -384,24 +394,76 @@ Implementer returns verdict:
 ... (tasks 3-5)
 
 [After all tasks]
-[Dispatch final code-reviewer subagent]
-[Dispatch Codex final review]
-Final reviewer + Codex: All requirements met, ready to merge
+
+CC final review (round 1):
+[Dispatch CC final reviewer → pass: all requirements met, code quality good]
+
+Codex final review (round 1):
+[Dispatch Codex final review → fail: missing input validation on recovery mode]
+[Dispatch verify-and-fix subagent → verified 1 finding, dismissed 1 false positive, fixed, committed]
+[Re-dispatch Codex final review → pass]
 
 [Use superpowers:finishing-a-development-branch]
 ```
 
-## Codex Review Gates
+## Final Reviews (After All Tasks Complete)
 
-See `lib/codex-integration.md` for full protocol.
+After all per-task reviews pass, run two final reviews across the entire implementation. CC final reviewer runs first (catches cross-cutting issues with full tool access), then Codex runs last (independent second opinion). Both use a fix-subagent + retry loop — the main session never fixes code itself.
 
-**Per-task Codex reviews** run inside each implementer subagent. Each implementer creates its own Codex thread via `codex` MCP, then uses `codex-reply` for re-reviews within the same task. Per-task reviews catch issues within each task (security, correctness, test gaps).
+### Step 1: CC Final Code Review
 
-**The final Codex review** runs in the main session after all tasks complete. It catches cross-cutting issues across the full implementation.
+Dispatch a final CC reviewer subagent to review the entire implementation:
 
-### Final Codex Review
+```
+Agent tool:
+  subagent_type: "superpowers:code-reviewer"
+  description: "CC final review (round {R})"
+  prompt: |
+    You are the FINAL CODE REVIEWER for a complete implementation.
 
-After the final code-reviewer subagent passes, run a Codex final review:
+    ## What to Review
+
+    Review ALL changes from the full implementation:
+
+    ```bash
+    cd {WORKING_DIRECTORY}
+    git diff {FIRST_TASK_SHA}..HEAD
+    ```
+
+    Plan: {PLAN_FILE_PATH}
+    Summary: {WHAT_THE_FULL_PLAN_IMPLEMENTED}
+
+    ## Review Focus
+
+    - Cross-cutting concerns: consistency across all tasks
+    - Integration issues: do the pieces work together?
+    - Missing pieces: anything the plan required that wasn't implemented?
+    - Architecture: does the overall structure make sense?
+    - Test coverage: are there gaps across the full implementation?
+
+    ## If Critical or Important Issues Found
+
+    Fix them directly. Run tests. Commit with conventional format:
+    `fix(scope): address final review findings`
+
+    ## Verdict
+
+    Return exactly one of:
+    - verdict: pass — No Critical or Important issues found. Implementation is ready.
+    - verdict: fixed — Issues found and fixed. List what was found and what was changed.
+
+    Include: findings (if any), fixes applied (if any), files changed, test results.
+```
+
+**After subagent returns:**
+- If `pass`: proceed to Step 2 (Codex Final Review).
+- If `fixed`: dispatch a fresh CC final reviewer to verify the fixes (the fixer should not review their own work). Max 5 rounds — escalate to human if still finding issues.
+
+### Step 2: Codex Final Review
+
+**Only after CC final review passes.** This is the last gate — an independent second opinion.
+
+See `lib/codex-integration.md` for full protocol. Per-task Codex reviews run inside each implementer subagent. The final Codex review catches cross-cutting issues across the full implementation.
 
 1. Get commit SHAs covering all implementation (from first task to HEAD)
 2. Dispatch codex-agent (foreground):
@@ -422,8 +484,51 @@ After the final code-reviewer subagent passes, run a Codex final review:
        profile: xhigheffort
    ```
 3. Echo `**Active Codex thread_id:** <id>`
-4. If `pass`: proceed to finishing-a-development-branch
-5. If `fail`: **independently verify each finding** — read the actual code at the cited location and confirm the issue exists. Dismiss false positives. Fix confirmed issues, then redispatch. Max 5 rounds.
+4. If `pass`: proceed to `superpowers:finishing-a-development-branch`
+5. If `fail`: dispatch a verify-and-fix subagent. Codex can produce false positives, so the subagent must independently verify each finding against the actual code before fixing anything:
+   ```
+   Agent tool:
+     subagent_type: "superpowers:code-reviewer"
+     description: "Verify-and-fix Codex final findings (round {R})"
+     prompt: |
+       You are a VERIFY-AND-FIX agent for Codex review findings.
+
+       Codex is a useful reviewer but it can produce false positives.
+       You MUST independently verify each finding before acting on it.
+
+       Working directory: {WORKING_DIRECTORY}
+
+       ## Codex Findings
+
+       {CODEX_FINDINGS — paste the full findings from Codex response}
+
+       ## Verification Protocol
+
+       For EACH finding:
+       1. Read the actual code at the cited file and line
+       2. Determine if the issue genuinely exists in the code
+       3. Classify as: VERIFIED (real issue) or FALSE POSITIVE (Codex was wrong)
+
+       ## After Verification
+
+       - Dismiss all false positives — explain briefly why each is wrong
+       - Fix all verified issues
+       - Run tests — all must pass
+       - Commit with: `fix(scope): address verified Codex final review findings`
+
+       ## Verdict
+
+       Return exactly one of:
+       - verdict: fixed — Verified issues found and fixed. List verified vs dismissed.
+       - verdict: all-false-positives — Every finding was a false positive. List evidence.
+       - verdict: blocked — Cannot fix a verified issue. Explain why.
+
+       Include: verification results for each finding, fixes applied, files changed, test results.
+   ```
+   After the subagent returns:
+   - `fixed`: re-dispatch the Codex final review to verify. Max 5 rounds.
+   - `all-false-positives`: treat as pass — proceed to `superpowers:finishing-a-development-branch`.
+   - `blocked`: escalate to human.
 6. Track any unresolved flags in `docs/unresolved-flags.md`
 
 ## Advantages
@@ -438,11 +543,15 @@ After the final code-reviewer subagent passes, run a Codex final review:
 - Continuous progress (no waiting)
 - Four-stage review automatic
 
-**Quality gates:**
+**Quality gates (per task):**
 - Self-review catches issues first (inside implementer)
 - Codex review catches security, correctness, test gaps (inside implementer)
 - Spec compliance review-and-fix prevents over/under-building (independent CC subagent, fixes inline)
 - Code quality review-and-fix ensures implementation is well-built (independent CC subagent, fixes inline)
+
+**Final gates (after all tasks):**
+- CC final review catches cross-cutting issues (review-and-fix subagent + retry loop)
+- Codex final review is the last gate — independent second opinion (verify-and-fix subagent filters false positives + retry loop)
 - Fresh re-review after each fix ensures fixes don't introduce new problems
 
 ## Red Flags
@@ -454,8 +563,10 @@ After the final code-reviewer subagent passes, run a Codex final review:
 - Skip scene-setting context (subagent needs to understand where task fits)
 - Ignore subagent questions (answer before letting them proceed)
 - Mark a task complete if any review stage is `fail` — address unresolved issues first
-- Fix code in the main session — review-and-fix subagents handle fixes (context pollution)
+- Fix code in the main session — always dispatch a fix subagent instead (context pollution)
 - Skip spec compliance or code quality reviews — they catch what self-review and Codex miss
+- Skip Codex or CC final reviews — they catch cross-cutting issues that per-task reviews miss
+- Proceed to finishing-a-development-branch before both final reviews pass
 
 **If subagent asks questions:**
 - Answer clearly and completely

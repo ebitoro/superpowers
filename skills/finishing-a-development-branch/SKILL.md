@@ -158,6 +158,7 @@ rm -f "$MAIN_REPO/.dev-state/codex_thread_id"
 rm -f "$MAIN_REPO/.dev-state/current_design_doc"
 rm -f "$MAIN_REPO/.dev-state/current_plan"
 rm -f "$MAIN_REPO/.dev-state/current_worktree"
+rm -f "$MAIN_REPO"/.dev-state/task-*-review.md
 ```
 
 ## Quick Reference

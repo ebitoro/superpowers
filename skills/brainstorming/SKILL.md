@@ -28,8 +28,8 @@ You MUST create a task for each of these items and complete them in order:
 5. **Present design** — in sections scaled to their complexity, get user approval after each section
 6. **Write design doc** — save to `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md` and commit
 7. **Run spec review** — dispatch design-spec-review subagent with precisely crafted review context (never your session history) to handle the full review loop (see After the Design section)
-8. **User reviews written spec** — ask user to review the spec file before proceeding
-9. **Run Codex design review** — dispatch codex-design-review subagent to handle the full Codex review gate (see After the Design section)
+8. **Run Codex design review** — dispatch codex-design-review subagent to handle the full Codex review gate, verify and fix findings (see After the Design section)
+9. **User reviews written spec** — ask user to review the final spec (after both reviews have passed) before proceeding
 10. **Transition to implementation** — invoke writing-plans skill to create implementation plan
 
 ## Process Flow
@@ -45,8 +45,8 @@ digraph brainstorming {
     "User approves design?" [shape=diamond];
     "Write design doc" [shape=box];
     "design-spec-review subagent\n(review loop, returns verdict)" [shape=box style=filled fillcolor=lightyellow];
+    "codex-design-review subagent\n(Codex gate, verify & fix)" [shape=box style=filled fillcolor=lightyellow];
     "User reviews spec?" [shape=diamond];
-    "codex-design-review subagent\n(Codex gate, returns verdict)" [shape=box style=filled fillcolor=lightyellow];
     "Invoke writing-plans skill" [shape=doublecircle];
 
     "Explore subagent\n(returns project summary)" -> "Visual questions ahead?";
@@ -59,10 +59,10 @@ digraph brainstorming {
     "User approves design?" -> "Present design sections" [label="no, revise"];
     "User approves design?" -> "Write design doc" [label="yes"];
     "Write design doc" -> "design-spec-review subagent\n(review loop, returns verdict)";
-    "design-spec-review subagent\n(review loop, returns verdict)" -> "User reviews spec?";
+    "design-spec-review subagent\n(review loop, returns verdict)" -> "codex-design-review subagent\n(Codex gate, verify & fix)";
+    "codex-design-review subagent\n(Codex gate, verify & fix)" -> "User reviews spec?";
     "User reviews spec?" -> "Write design doc" [label="changes requested"];
-    "User reviews spec?" -> "codex-design-review subagent\n(Codex gate, returns verdict)" [label="approved"];
-    "codex-design-review subagent\n(Codex gate, returns verdict)" -> "Invoke writing-plans skill";
+    "User reviews spec?" -> "Invoke writing-plans skill" [label="approved"];
 }
 ```
 
@@ -157,15 +157,8 @@ Agent tool:
 ```
 
 **Handle result:**
-- `approved`: proceed to user review gate
+- `approved`: proceed to Codex design review
 - `issues_remaining`: surface to user for guidance (the subagent exhausted 5 rounds)
-
-**User Review Gate:**
-After the spec review passes, ask the user to review the written spec before proceeding:
-
-> "Spec written and committed to `<path>`. Please review it and let me know if you want to make any changes before we start writing out the implementation plan."
-
-Wait for the user's response. If they request changes, make them and re-run the spec review loop. Only proceed once the user approves.
 
 **Codex Design Review (subagent):**
 After spec review passes, create a Codex thread and dispatch the codex-design-review subagent. See `lib/codex-integration.md` for the underlying protocol.
@@ -179,7 +172,7 @@ After spec review passes, create a Codex thread and dispatch the codex-design-re
        mode: init
        profile: xhigheffort
    ```
-   Save the returned `thread_id`. If `status: unavailable`, skip Codex review and proceed (inform user).
+   Save the returned `thread_id`. If `status: unavailable`, skip Codex review and proceed to user review (inform user).
 
 2. **Dispatch codex-design-review (foreground):**
    ```
@@ -195,9 +188,16 @@ After spec review passes, create a Codex thread and dispatch the codex-design-re
    ```
 
 **Handle result:**
-- `pass` or `pass-with-flags`: check for uncommitted changes to the spec file (`git status <spec_path>`). If the subagent edited but forgot to commit, commit now: `git add <spec_path> && git commit -m "fix(spec): address Codex design review findings"`. Then proceed to implementation handoff.
+- `pass` or `pass-with-flags`: check for uncommitted changes to the spec file (`git status <spec_path>`). If the subagent edited but forgot to commit, commit now: `git add <spec_path> && git commit -m "fix(spec): address Codex design review findings"`. Then proceed to user review.
 - `fail` with remaining issues: surface to user for guidance (the subagent exhausted 5 rounds)
-- Codex `unavailable`: the subagent returns `pass` with a note — proceed (inform user)
+- Codex `unavailable`: the subagent returns `pass` with a note — proceed to user review (inform user)
+
+**User Review Gate:**
+After both spec review and Codex design review pass, ask the user to review the final spec:
+
+> "Spec written, reviewed, and Codex-approved at `<path>`. Please review it and let me know if you want to make any changes before we start writing the implementation plan."
+
+Wait for the user's response. If they request changes, make them and re-run the spec review and Codex review loops. Only proceed once the user approves.
 
 **Implementation:**
 

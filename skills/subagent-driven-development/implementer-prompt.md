@@ -107,9 +107,7 @@ HEAD_SHA=$(git rev-parse HEAD)
 
 ---
 
-## Phase 2 — Self-Review + Codex Review
-
-### Self-Review
+## Phase 2 — Self-Review
 
 Review your work:
 
@@ -118,9 +116,15 @@ Review your work:
 - **Discipline:** YAGNI? Only what was requested? Followed patterns?
 - **Testing:** Tests verify behavior? TDD followed? Comprehensive?
 
-Fix issues before proceeding.
+### Fix Self-Review Issues
 
-### Codex Review
+Fix all issues found. Run tests — all must pass. Commit fixes. Update `HEAD_SHA`.
+
+**Do NOT proceed to Codex review until self-review fixes are committed and tests pass.**
+
+---
+
+## Phase 2b — Codex Review
 
 **Skip if `{CODEX_STATUS}` is `"unavailable"`.**
 
@@ -161,9 +165,9 @@ codex MCP:
 
 **If `codex` errors:** Set Codex unavailable, note in verdict.
 
-### Fix Self-Review + Codex Issues
+### Fix Codex Issues
 
-Fix all verified Critical and Important issues. Run tests. Commit fixes.
+Fix all verified Critical and Important issues. Run tests — all must pass. Commit fixes. Update `HEAD_SHA`.
 
 **If fixes were made, re-review using `codex-reply`** with the saved thread ID (max 5 rounds total):
 
@@ -233,7 +237,7 @@ concerns: [any risks or "none"]
 
 ## Rules
 
-1. **Review order: self-review → Codex.** Spec compliance and code quality are handled by the main session.
+1. **Review order: self-review → fix → Codex → fix.** Each review's fixes must be committed with passing tests before proceeding. Spec compliance and code quality are handled by the main session.
 2. **Always re-run Codex after fixes.** Even minor fixes require re-review.
 3. **Never guess at Codex findings.** Verify every finding against actual code.
 4. **Fix ONLY listed issues during fix phases.** No drive-by refactoring.

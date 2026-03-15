@@ -91,7 +91,15 @@ It is always OK to stop and say "this is too hard for me."
 
 **How to escalate:** Report with status BLOCKED or NEEDS_CONTEXT. Skip review phases.
 
-### Step 3: Record HEAD SHA
+### Step 3: Verify Build and Tests
+
+**HARD GATE — do NOT proceed to Phase 2 until this passes.**
+
+1. Build the project — confirm zero compile errors
+2. Run all relevant tests — confirm all pass
+3. If build fails or tests fail: fix, re-run, commit. Do NOT move to review with broken code.
+
+### Step 4: Record HEAD SHA
 
 ```bash
 HEAD_SHA=$(git rev-parse HEAD)

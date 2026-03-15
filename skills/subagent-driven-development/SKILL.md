@@ -57,7 +57,7 @@ Before dispatching the first task:
    - **If multiple candidates:** ask the user which one
    - Read the plan file and extract all tasks with full text and context
 3. **Create TodoWrite** with all tasks
-4. **Check Codex availability** — call `codex` MCP with a simple ping. If it responds, set `CODEX_STATUS: available`. If it errors, set `CODEX_STATUS: unavailable`. Each implementer creates its own per-task Codex thread.
+4. **Check Codex availability** — call `codex` MCP with a simple ping (always pass `sandbox: "read-only"`). If it responds, set `CODEX_STATUS: available`. If it errors, set `CODEX_STATUS: unavailable`. Each implementer creates its own per-task Codex thread.
 5. **Record BASE_SHA** — the commit before the first task: `git rev-parse HEAD`
 
 ## The Process

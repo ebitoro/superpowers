@@ -114,7 +114,7 @@ Subagents spawned via the Agent tool do NOT have access to the Agent tool themse
 
 ### Direct Call Protocol
 
-1. **Thread creation** (when needed): Call `codex` MCP — never pass `model`, pass `profile` if starting a new thread
+1. **Thread creation** (when needed): Call `codex` MCP — never pass `model`, always pass `sandbox: "read-only"`, pass `profile` if starting a new thread
 2. **Review messages**: Call `codex-reply` MCP — never pass `model`, always prepend read-only reminder
 3. **Message format**: `[SKILL: code-review]` tag + read-only reminder + worktree note + review content (commit SHAs only)
 4. **Response verification**: Read actual code at every cited location, classify as verified/false-positive/downgraded

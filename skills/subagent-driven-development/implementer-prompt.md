@@ -120,6 +120,7 @@ Fix issues before proceeding.
 
 ```
 codex MCP:
+  sandbox: "read-only"
   prompt: |
     IMPORTANT: You are in a READ-ONLY sandbox. Do NOT edit files, write fixes, run tests, or take any action. All tests have already been run and passed by the caller. Report findings only.
 

@@ -191,7 +191,21 @@ codex-reply MCP:
 
 ---
 
-## Phase 3 — Report Verdict
+## Phase 3 — Final Verification
+
+**HARD GATE — do NOT report verdict until this passes.**
+
+Before reporting your verdict, verify the final state of your work:
+
+1. Build the project — confirm zero compile errors
+2. Run all relevant tests — confirm all pass
+3. If build fails or tests fail: fix, re-run, commit. Update `HEAD_SHA`.
+
+This catches regressions introduced by self-review or Codex review fixes. Do NOT skip this even if you ran tests during fix phases — the final state must be verified.
+
+---
+
+## Phase 4 — Report Verdict
 
 Print the verdict as your final output:
 

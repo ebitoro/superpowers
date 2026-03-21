@@ -526,6 +526,7 @@ Implementer returns verdict:
   files_changed: src/auth/middleware.ts, tests/auth/middleware.test.ts
   tests: 4/4 passing
 
+[Build validation: run project build command → build succeeds]
 [Write state file: stage=spec-compliance, round=1]
 [Dispatch spec review-and-fix → verdict: pass]
 [Update state: stage=code-quality, round=1]
@@ -717,6 +718,7 @@ See `lib/codex-integration.md` for full protocol. Batch Codex reviews during exe
 
 **Quality gates (per task):**
 - Self-review catches issues first (inside implementer)
+- Build validation catches compile errors before review (main session runs project build)
 - Spec compliance review-and-fix prevents over/under-building (independent CC subagent, fixes inline)
 - Code quality review-and-fix ensures implementation is well-built (independent CC subagent, fixes inline)
 

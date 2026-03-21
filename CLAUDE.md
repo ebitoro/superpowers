@@ -26,7 +26,7 @@ brainstorming -> writing-plans -> [subagent-driven-development | executing-plans
 
 - **brainstorming**: Explores idea, consults Codex (design review gate), produces design doc
 - **writing-plans**: Creates TDD implementation plan, runs Codex plan review gate (tiered 3+3)
-- **subagent-driven-development**: Fresh subagent per task + two-stage review (spec then quality) + Codex per-task and final review gates
+- **subagent-driven-development**: Fresh subagent per task + three-stage per-task review (self-review, spec, quality) + Codex batch review checkpoints between task groups + CC/Codex final review gates
 - **executing-plans**: Sequential execution with Codex final review gate
 - **requesting-code-review**: Two-stage gate: code-reviewer subagent first, then Codex review gate
 
@@ -59,6 +59,7 @@ STATE_DIR="$MAIN_REPO/.dev-state"
 - `.dev-state/current_design_doc` - Path to approved design doc
 - `.dev-state/current_plan` - Path to implementation plan
 - `.dev-state/current_worktree` - Absolute path to worktree
+- `.dev-state/last_codex_batch_sha` - Last Codex batch review boundary (subagent-driven-development)
 
 ### Review Gate Pattern
 

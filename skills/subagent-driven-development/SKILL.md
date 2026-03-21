@@ -5,11 +5,11 @@ description: Use when executing implementation plans with independent tasks in t
 
 # Subagent-Driven Development
 
-Execute plan by dispatching fresh subagents per task. Implementer handles: implement → self-review → Codex review. Main session then dispatches spec compliance and code quality reviewer subagents before proceeding to the next task.
+Execute plan by dispatching fresh subagents per task. Implementer handles: implement → self-review. Main session dispatches spec compliance and code quality reviewer subagents per task, plus Codex batch reviews at strategic checkpoints between task groups.
 
 **Why subagents:** You delegate tasks to specialized agents with isolated context. By precisely crafting their instructions and context, you ensure they stay focused and succeed at their task. They should never inherit your session's context or history — you construct exactly what they need. This also preserves your own context for coordination work.
 
-**Core principle:** Fresh subagent per task. Implementer builds and self-reviews. Main session orchestrates independent CC reviewer subagents for spec compliance and code quality.
+**Core principle:** Fresh subagent per task. Implementer builds and self-reviews. Main session orchestrates independent CC reviewer subagents for spec compliance and code quality, plus Codex batch reviews after groups of related tasks.
 
 ## When to Use
 
@@ -34,7 +34,9 @@ digraph when_to_use {
 **vs. Executing Plans (parallel session):**
 - Same session (no context switch)
 - Fresh subagent per task (no context pollution)
-- Four-stage review: self-review → Codex → spec compliance (CC) → code quality (CC)
+- Three-stage per-task review: self-review → spec compliance (CC) → code quality (CC)
+- Codex batch reviews at strategic checkpoints between task groups
+- Final gates: CC final review → Codex final review
 - Faster iteration (no human-in-loop between tasks)
 
 ## Setup
@@ -47,17 +49,76 @@ Before dispatching the first task:
    ```
    If the result equals `.git` (not a worktree), invoke `superpowers:using-git-worktrees` to create one before continuing. If already in a worktree, proceed.
 
-2. **Find and read plan file** — the user may have cleared the session, so discover the plan:
-   - **Check breadcrumb first:**
-     ```bash
-     MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-     PLAN_PATH="$MAIN_REPO/$(cat "$MAIN_REPO/.dev-state/current_plan" 2>/dev/null)"
-     ```
-   - **If breadcrumb missing or file not found:** scan `docs/superpowers/plans/` for the most recent plan file (by filename date prefix or modification time)
-   - **If multiple candidates:** ask the user which one
-   - Read the plan file and extract all tasks with full text and context
-3. **Create TodoWrite** with all tasks
-4. **Check Codex availability** — call `codex` MCP with a simple ping (always pass `sandbox: "read-only"`). If it responds, set `CODEX_STATUS: available`. If it errors, set `CODEX_STATUS: unavailable`. Each implementer creates its own per-task Codex thread.
+2. **Parallel setup** — dispatch all three in the same turn (single message, three tool calls):
+
+   a. **Read plan file** — discover and read the plan:
+      - Check breadcrumb first:
+        ```bash
+        MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+        PLAN_PATH="$MAIN_REPO/$(cat "$MAIN_REPO/.dev-state/current_plan" 2>/dev/null)"
+        ```
+      - If breadcrumb missing or file not found: scan `docs/superpowers/plans/` for the most recent plan file (by filename date prefix or modification time)
+      - If multiple candidates: ask the user which one
+      - Extract all tasks with full text and context
+
+   b. **Ping Codex availability** — call `codex` MCP with a simple ping (always pass `sandbox: "read-only"`). If it responds, set `CODEX_AVAILABLE: true`. If it errors, set `CODEX_AVAILABLE: false`.
+
+   c. **Dispatch grouping subagent (sonnet)** — determines where to insert Codex review checkpoints:
+      ```
+      Agent tool:
+        model: sonnet
+        description: "Group tasks for Codex review checkpoints"
+        prompt: |
+          Read the plan file at: {PLAN_FILE_PATH}
+
+          Analyze the tasks and group them by feature or topic. Determine where
+          Codex review checkpoints should be inserted — after groups of related
+          implementation tasks finish.
+
+          Guidelines:
+          - Group tasks that work on the same feature, module, or topic
+          - Place a checkpoint after each group completes
+          - Don't put a checkpoint after every single task — batch related work
+          - Don't create groups larger than ~4 tasks (reviews lose focus)
+          - The final task does NOT need a checkpoint (there's a separate final review)
+          - If all tasks are closely related (same feature), place a single checkpoint
+            after the second-to-last task
+          - If there are only 1-2 tasks total, return an empty array (final review
+            is sufficient)
+
+          Return ONLY a JSON array of checkpoint positions:
+          ```json
+          [
+            {"after_task": 2, "covers_tasks": [1, 2], "topic": "authentication"},
+            {"after_task": 5, "covers_tasks": [3, 4, 5], "topic": "API endpoints"}
+          ]
+          ```
+      ```
+
+   **Fallback:** If the grouping subagent fails or returns invalid JSON, fall back to no batch checkpoints (same as when Codex is unavailable).
+
+3. **Build task list** — after all three parallel operations complete:
+   - If `CODEX_AVAILABLE: true` and grouping succeeded: interleave Codex batch review items at positions from the grouping subagent
+   - If `CODEX_AVAILABLE: false` or grouping failed: build task list without Codex batch reviews
+   - Create TodoWrite with all tasks (implementation tasks + Codex checkpoint items)
+
+   Example task list with checkpoints:
+   ```
+   1. [ ] Task 1: Add auth middleware
+   2. [ ] Task 2: Add session management
+   3. [ ] Codex batch review: Tasks 1-2 (authentication)
+   4. [ ] Task 3: Add API routes
+   5. [ ] Task 4: Add request validation
+   6. [ ] Task 5: Add rate limiting
+   7. [ ] Codex batch review: Tasks 3-5 (API endpoints)
+   ```
+
+4. **Initialize batch tracking:**
+   ```bash
+   MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+   echo "$(git rev-parse HEAD)" > "$MAIN_REPO/.dev-state/last_codex_batch_sha"
+   ```
+
 5. **Record BASE_SHA** — the commit before the first task: `git rev-parse HEAD`
 
 ## The Process
@@ -71,13 +132,11 @@ digraph process {
         style=filled;
         fillcolor=lightyellow;
         "Implement + test + commit" [shape=box];
-        "Self-review + Codex review (direct MCP)" [shape=box];
-        "Fix issues" [shape=box];
+        "Self-review + fix" [shape=box];
         "Return verdict" [shape=box];
 
-        "Implement + test + commit" -> "Self-review + Codex review (direct MCP)";
-        "Self-review + Codex review (direct MCP)" -> "Fix issues";
-        "Fix issues" -> "Return verdict";
+        "Implement + test + commit" -> "Self-review + fix";
+        "Self-review + fix" -> "Return verdict";
     }
 
     subgraph cluster_review_fix {
@@ -95,7 +154,21 @@ digraph process {
         "Fix issues and commit" -> "Return review verdict" [label="fixed"];
     }
 
-    "Setup: plan, Codex thread, TodoWrite, BASE_SHA" [shape=box];
+    subgraph cluster_codex_batch {
+        label="Codex Batch Review subagent";
+        style=filled;
+        fillcolor=lightsalmon;
+        "Codex review" [shape=box];
+        "Verify + fix" [shape=box];
+        "Batch verdict" [shape=box];
+
+        "Codex review" -> "Verify + fix";
+        "Verify + fix" -> "Codex review" [label="re-review (max 5)"];
+        "Verify + fix" -> "Batch verdict" [label="pass or max rounds"];
+    }
+
+    "Setup (parallel): read plan + ping Codex + grouping" [shape=box];
+    "Build task list (with Codex checkpoints if available)" [shape=box];
     "Dispatch implementer" [shape=box];
     "Implementer asks questions?" [shape=diamond];
     "Answer questions" [shape=box];
@@ -104,6 +177,8 @@ digraph process {
     "Spec verdict?" [shape=diamond];
     "Dispatch quality review-and-fix" [shape=box];
     "Quality verdict?" [shape=diamond];
+    "Codex checkpoint?" [shape=diamond];
+    "Dispatch Codex batch review subagent" [shape=box];
     "More tasks remain?" [shape=diamond];
     "Dispatch final CC reviewer" [shape=box];
     "CC final pass?" [shape=diamond];
@@ -113,7 +188,8 @@ digraph process {
     "Dispatch verify-and-fix subagent (Codex)" [shape=box];
     "Use superpowers:finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
 
-    "Setup: plan, Codex thread, TodoWrite, BASE_SHA" -> "Dispatch implementer";
+    "Setup (parallel): read plan + ping Codex + grouping" -> "Build task list (with Codex checkpoints if available)";
+    "Build task list (with Codex checkpoints if available)" -> "Dispatch implementer";
     "Dispatch implementer" -> "Implementer asks questions?";
     "Implementer asks questions?" -> "Answer questions" [label="yes"];
     "Answer questions" -> "Dispatch implementer";
@@ -123,8 +199,11 @@ digraph process {
     "Spec verdict?" -> "Dispatch quality review-and-fix" [label="pass"];
     "Spec verdict?" -> "Dispatch spec review-and-fix" [label="fixed → re-review"];
     "Dispatch quality review-and-fix" -> "Quality verdict?";
-    "Quality verdict?" -> "More tasks remain?" [label="pass"];
+    "Quality verdict?" -> "Codex checkpoint?" [label="pass"];
     "Quality verdict?" -> "Dispatch quality review-and-fix" [label="fixed → re-review"];
+    "Codex checkpoint?" -> "Dispatch Codex batch review subagent" [label="yes — batch boundary"];
+    "Codex checkpoint?" -> "More tasks remain?" [label="no"];
+    "Dispatch Codex batch review subagent" -> "More tasks remain?";
     "More tasks remain?" -> "Dispatch implementer" [label="yes"];
     "More tasks remain?" -> "Dispatch final CC reviewer" [label="no"];
     "Dispatch final CC reviewer" -> "CC final pass?";
@@ -138,12 +217,13 @@ digraph process {
 }
 ```
 
-**Yellow box** = implementer subagent (implement + self-review + Codex).
+**Yellow box** = implementer subagent (implement + self-review).
 **Blue box** = review-and-fix subagent — reviews code, fixes any issues it finds, returns verdict. Main session dispatches fresh ones until one returns `pass` (no issues found).
+**Salmon box** = Codex batch review subagent — sends batch to Codex, verifies findings against actual code, fixes verified issues, loops up to 5 rounds. Runs as a single self-contained agent.
 
 ## Model Selection
 
-**Always use Opus for implementer subagents.** Implementers handle implementation, self-review, and Codex interaction which requires judgment and multi-phase reasoning. Do not downgrade to cheaper models.
+**Always use Opus for implementer subagents.** Implementers handle implementation and self-review which requires judgment and multi-phase reasoning. Do not downgrade to cheaper models.
 
 ## Review State File
 
@@ -183,7 +263,7 @@ last_findings: |
 ## Per-Task Flow (Main Session)
 
 <HARD-GATE>
-**NEVER skip Steps 2–3 (spec compliance + code quality reviews).** Every task MUST go through all three steps before the next task is dispatched. The implementer's self-review and Codex review are NOT substitutes for the CC reviewer subagents. If you catch yourself about to dispatch the next task without completing reviews, STOP — you are violating the process.
+**NEVER skip Steps 2–3 (spec compliance + code quality reviews).** Every task MUST go through all steps before the next task is dispatched. The implementer's self-review is NOT a substitute for the CC reviewer subagents. If you catch yourself about to dispatch the next task without completing reviews, STOP — you are violating the process.
 </HARD-GATE>
 
 For each task:
@@ -232,6 +312,11 @@ Agent tool:
     ## CRITICAL: Do Not Trust the Report
 
     The implementer's report may be incomplete or optimistic. Verify independently.
+
+    **DO NOT:**
+    - Take their word for what they implemented
+    - Trust their claims about completeness
+    - Accept their interpretation of requirements
 
     **DO:** Read the actual code, compare to requirements line by line.
 
@@ -287,6 +372,11 @@ Agent tool:
 
     Working directory: {WORKING_DIRECTORY}
 
+    ```bash
+    cd {WORKING_DIRECTORY}
+    git diff {BASE_SHA}..HEAD
+    ```
+
     ## If Critical or Important Issues Found
 
     Fix them directly. Run tests. Commit with conventional format:
@@ -303,7 +393,9 @@ Agent tool:
 
 **After subagent returns:**
 - Update state file with verdict, round, head_sha, last_findings
-- If `pass`: set `stage: complete`. Mark task complete in TodoWrite. Proceed to next task.
+- If `pass`: set `stage: complete`. Mark task complete in TodoWrite.
+  - **If this task is at a Codex batch checkpoint:** proceed to Codex Batch Review (next section).
+  - **Otherwise:** proceed to next task.
 - If `fixed`: increment round. If round <= max_rounds, dispatch fresh review-and-fix subagent. If round > max_rounds, escalate to human.
 
 ### Summary: Main Session Actions Per Review Dispatch
@@ -315,13 +407,55 @@ Each review dispatch costs ~700 tokens in main session context:
 4. Update state file (~50 tokens)
 5. Decision: next step or re-dispatch (~100 tokens)
 
+## Codex Batch Review Checkpoints
+
+When the task list includes a Codex batch review checkpoint after the current task, dispatch a batch review subagent. These checkpoints were determined during setup by the grouping subagent and are visible as items in the TodoWrite task list.
+
+**If Codex becomes unavailable** at the time a checkpoint runs (was available during setup but errors now): skip the checkpoint, mark it as skipped in TodoWrite with a note, and continue to the next task.
+
+### Dispatch Codex Batch Review
+
+Read the batch commit range:
+```bash
+MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+BATCH_START_SHA=$(cat "$MAIN_REPO/.dev-state/last_codex_batch_sha")
+BATCH_END_SHA=$(git rev-parse HEAD)
+```
+
+```
+Agent tool:
+  model: opus
+  description: "Codex batch review: Tasks {BATCH_TASKS}"
+  prompt: |
+    [Use ./codex-batch-reviewer-prompt.md template]
+
+    BATCH_TASKS: {list of task numbers and names in this batch}
+    BATCH_START_SHA: {BATCH_START_SHA}
+    BATCH_END_SHA: {BATCH_END_SHA}
+    BATCH_SUMMARY: {short summary of what the batch implemented}
+    WORKING_DIRECTORY: {WORKING_DIRECTORY}
+    TEST_STATUS: {current test pass/fail count}
+```
+
+### After Batch Review Returns
+
+- **pass / all-false-positives:** Update batch tracking SHA, mark checkpoint complete in TodoWrite, proceed to next task.
+- **fixed:** Update batch tracking SHA, mark checkpoint complete in TodoWrite, proceed to next task.
+- **blocked:** Escalate to human with the unresolved findings.
+
+Update batch tracking after every completed (non-skipped) batch review:
+```bash
+MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+echo "$(git rev-parse HEAD)" > "$MAIN_REPO/.dev-state/last_codex_batch_sha"
+```
+
 ## Handling Implementer Verdicts
 
-Implementer subagents return a structured verdict after self-review + Codex. Handle each:
+Implementer subagents return a structured verdict after self-review. Handle each:
 
-**`pass`:** Self-review and Codex clean. Proceed to spec compliance review (Step 2).
+**`pass`:** Self-review clean. Proceed to spec compliance review (Step 2).
 
-**`fail`:** Self-review or Codex found unresolved issues. Read the unresolved items. Assess:
+**`fail`:** Self-review found unresolved issues. Read the unresolved items. Assess:
 - If fixable with more context: re-dispatch with additional context
 - If the plan itself is wrong: escalate to the human
 
@@ -336,79 +470,101 @@ Implementer subagents return a structured verdict after self-review + Codex. Han
 
 ## Prompt Templates
 
-- `./implementer-prompt.md` - Dispatch implementer subagent (implement + self-review + Codex)
+- `./implementer-prompt.md` - Dispatch implementer subagent (implement + self-review)
 - `./spec-reviewer-prompt.md` - Spec compliance reviewer reference (dispatched by main session)
 - `./code-quality-reviewer-prompt.md` - Code quality reviewer reference (dispatched by main session)
+- `./codex-batch-reviewer-prompt.md` - Codex batch review subagent (review + verify + fix loop)
 
 ## Example Workflow
 
 ```
 You: I'm using Subagent-Driven Development to execute this plan.
 
-[Read plan file once: docs/superpowers/plans/feature-plan.md]
-[Extract all 5 tasks with full text and context]
-[Check Codex availability → CODEX_STATUS: available]
-[Create TodoWrite with all tasks]
+[Parallel setup — all three at once:]
+  [Read plan file: docs/superpowers/plans/feature-plan.md — 7 tasks extracted]
+  [Ping Codex → CODEX_AVAILABLE: true]
+  [Grouping subagent (sonnet) → checkpoints: after task 3 (auth), after task 6 (API)]
+
+[Build task list:]
+  1. Task 1: Add auth middleware
+  2. Task 2: Add session tokens
+  3. Task 3: Add auth tests
+  4. Codex batch review: Tasks 1-3 (authentication)
+  5. Task 4: Add API routes
+  6. Task 5: Add request validation
+  7. Task 6: Add rate limiting
+  8. Codex batch review: Tasks 4-6 (API layer)
+  9. Task 7: Add integration tests
+
+[Initialize batch tracking: last_codex_batch_sha = BASE_SHA]
 [Record BASE_SHA]
 
-Task 1: Hook installation script
+Task 1: Add auth middleware
 
 [Dispatch implementer (Opus) with full task text + context]
 
 Implementer returns verdict:
   task: 1
   verdict: pass
-  implementation_summary: Added install-hook command with --force flag
-  files_changed: src/hooks/install.ts, tests/hooks/install.test.ts
-  codex_review: available, 1 round, 0 findings
-  tests: 5/5 passing
+  implementation_summary: Added auth middleware with JWT validation
+  files_changed: src/auth/middleware.ts, tests/auth/middleware.test.ts
+  tests: 4/4 passing
 
 [Write state file: stage=spec-compliance, round=1]
-[Dispatch spec review-and-fix → verdict: pass (no issues)]
-[Update state: stage=code-quality, round=1]
-[Dispatch quality review-and-fix → verdict: pass (no issues)]
-[Update state: stage=complete]
-[Mark Task 1 complete]
-
-Task 2: Recovery modes
-
-[Dispatch implementer (Opus) with full task text + context]
-
-Implementer returns verdict:
-  task: 2
-  verdict: pass
-  implementation_summary: Added verify/repair modes with progress reporting
-  files_changed: src/recovery.ts, tests/recovery.test.ts
-  codex_review: available, 2 rounds, 1 finding fixed
-  tests: 8/8 passing
-
-[Write state file: stage=spec-compliance, round=1]
-[Dispatch spec review-and-fix → verdict: fixed (added missing progress %)]
-[Update state: round=2]
-[Dispatch fresh spec review-and-fix → verdict: pass (fixes look good)]
+[Dispatch spec review-and-fix → verdict: pass]
 [Update state: stage=code-quality, round=1]
 [Dispatch quality review-and-fix → verdict: pass]
 [Update state: stage=complete]
-[Mark Task 2 complete]
+[Mark Task 1 complete]
+[Not a Codex checkpoint → proceed to Task 2]
 
-... (tasks 3-5)
+Task 2: Add session tokens
+... (same per-task flow)
 
-[After all tasks]
+Task 3: Add auth tests
+... (same per-task flow)
+[Mark Task 3 complete]
+[This IS a Codex checkpoint]
+
+Codex batch review: Tasks 1-3 (authentication)
+
+[Read batch range: last_codex_batch_sha..HEAD]
+[Dispatch Codex batch review subagent (Opus)]
+
+Batch review subagent:
+  [Creates Codex thread, sends review for batch commits]
+  [Codex reports 2 findings]
+  [Verifies: 1 real issue, 1 false positive]
+  [Fixes verified issue, commits, re-reviews]
+  [Codex clean on round 2]
+  Returns: verdict=fixed, rounds=2, findings_fixed=1, findings_dismissed=1
+
+[Update last_codex_batch_sha to HEAD]
+[Mark Codex checkpoint complete]
+
+Task 4: Add API routes
+... (per-task flow continues)
+
+... (Tasks 5-6, then second Codex batch review)
+... (Task 7, no checkpoint needed — final review covers it)
+
+[After all tasks complete]
 
 CC final review (round 1):
 [Dispatch CC final reviewer → pass: all requirements met, code quality good]
 
 Codex final review (round 1):
-[Dispatch Codex final review → fail: missing input validation on recovery mode]
-[Dispatch verify-and-fix subagent → verified 1 finding, dismissed 1 false positive, fixed, committed]
-[Re-dispatch Codex final review → pass]
+[Dispatch Codex final review (BASE_SHA..HEAD — full implementation)]
+[pass: no cross-cutting issues found]
 
 [Use superpowers:finishing-a-development-branch]
 ```
 
 ## Final Reviews (After All Tasks Complete)
 
-After all per-task reviews pass, run two final reviews across the entire implementation. CC final reviewer runs first (catches cross-cutting issues with full tool access), then Codex runs last (independent second opinion). Both use a fix-subagent + retry loop — the main session never fixes code itself.
+After all per-task reviews and batch checkpoints pass, run two final reviews across the entire implementation. CC final reviewer runs first (catches cross-cutting issues with full tool access), then Codex runs last (independent second opinion reviewing the FULL implementation from BASE_SHA..HEAD). Both use a fix-subagent + retry loop — the main session never fixes code itself.
+
+**The Codex final review covers the full implementation (BASE_SHA..HEAD)**, not just the last batch. This is intentional — it catches cross-cutting issues across all tasks that batch reviews (which are incremental) would miss.
 
 ### Step 1: CC Final Code Review
 
@@ -427,7 +583,7 @@ Agent tool:
 
     ```bash
     cd {WORKING_DIRECTORY}
-    git diff {FIRST_TASK_SHA}..HEAD
+    git diff {BASE_SHA}..HEAD
     ```
 
     Plan: {PLAN_FILE_PATH}
@@ -461,9 +617,9 @@ Agent tool:
 
 ### Step 2: Codex Final Review
 
-**Only after CC final review passes.** This is the last gate — an independent second opinion.
+**Only after CC final review passes.** This is the last gate — an independent second opinion covering the FULL implementation.
 
-See `lib/codex-integration.md` for full protocol. Per-task Codex reviews run inside each implementer subagent. The final Codex review catches cross-cutting issues across the full implementation.
+See `lib/codex-integration.md` for full protocol. Batch Codex reviews during execution covered incremental slices. This final review catches cross-cutting issues across the entire implementation (BASE_SHA..HEAD).
 
 1. Get commit SHAs covering all implementation (from first task to HEAD)
 2. Dispatch codex-agent (foreground):
@@ -476,7 +632,7 @@ See `lib/codex-integration.md` for full protocol. Per-task Codex reviews run ins
        thread_id: "new"
        message: |
          Final review of complete implementation.
-         Commits: <FIRST_TASK_SHA>..<HEAD_SHA>
+         Commits: <BASE_SHA>..<HEAD_SHA>
          Summary: <what the full plan implemented>
          Tests: <all tests pass/fail summary>
        context: Full implementation of <plan-file-path>
@@ -541,17 +697,22 @@ See `lib/codex-integration.md` for full protocol. Per-task Codex reviews run ins
 **vs. Executing Plans:**
 - Same session (no handoff)
 - Continuous progress (no waiting)
-- Four-stage review automatic
+- Automated review pipeline
 
 **Quality gates (per task):**
 - Self-review catches issues first (inside implementer)
-- Codex review catches security, correctness, test gaps (inside implementer)
 - Spec compliance review-and-fix prevents over/under-building (independent CC subagent, fixes inline)
 - Code quality review-and-fix ensures implementation is well-built (independent CC subagent, fixes inline)
 
+**Codex batch review (at checkpoints):**
+- Reviews groups of related tasks together (more efficient than per-task)
+- Catches issues across related tasks within a topic
+- Single subagent handles full review-and-fix loop (max 5 rounds)
+- Checkpoints are planned upfront and visible in the task list
+
 **Final gates (after all tasks):**
 - CC final review catches cross-cutting issues (review-and-fix subagent + retry loop)
-- Codex final review is the last gate — independent second opinion (verify-and-fix subagent filters false positives + retry loop)
+- Codex final review is the last gate — independent second opinion covering full implementation (verify-and-fix subagent filters false positives + retry loop)
 - Fresh re-review after each fix ensures fixes don't introduce new problems
 
 ## Red Flags
@@ -564,9 +725,10 @@ See `lib/codex-integration.md` for full protocol. Per-task Codex reviews run ins
 - Ignore subagent questions (answer before letting them proceed)
 - Mark a task complete if any review stage is `fail` — address unresolved issues first
 - Fix code in the main session — always dispatch a fix subagent instead (context pollution)
-- Skip spec compliance or code quality reviews — they catch what self-review and Codex miss
-- Skip Codex or CC final reviews — they catch cross-cutting issues that per-task reviews miss
+- Skip spec compliance or code quality reviews — they catch what self-review misses
+- Skip Codex final review — it catches cross-cutting issues that batch reviews miss
 - Proceed to finishing-a-development-branch before both final reviews pass
+- Add Codex batch review checkpoints to the task list when Codex is unavailable
 
 **If subagent asks questions:**
 - Answer clearly and completely
@@ -578,9 +740,15 @@ See `lib/codex-integration.md` for full protocol. Per-task Codex reviews run ins
 - Dispatch a fresh review-and-fix subagent to independently verify the fixes
 - Max 3 rounds per review stage — escalate to human if still finding issues
 
+**If Codex batch review returns `blocked`:**
+- Escalate to human — do not skip and proceed silently
+- The blocked findings need human judgment
+
 **After compaction:**
 - Read the state file at `.dev-state/task-{N}-review.md` to recover position
 - Re-read the plan file if task text is needed
+- Check `.dev-state/last_codex_batch_sha` for batch review tracking
+- Check TodoWrite for which checkpoints have been completed
 - Continue from where the state file says you left off
 
 ## Integration

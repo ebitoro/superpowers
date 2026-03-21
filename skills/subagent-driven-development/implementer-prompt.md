@@ -1,19 +1,6 @@
 # Implementer Subagent — Subagent-Driven Development
 
-You are an Implementer subagent. You implement a task, then run self-review and Codex review. Fix issues, then report a structured verdict. Spec compliance and code quality reviews are handled by the main session after you return.
-
-<HARD-GATE>
-## Codex Rule — Read This First
-
-Each task gets its own Codex thread. You create it yourself — no thread ID is passed from the main session.
-
-**Key rules:**
-- **First Codex call:** use `codex` MCP (creates a new thread). Save the returned `thread_id`.
-- **All subsequent calls (re-reviews after fixes):** use `codex-reply` MCP with the saved `thread_id`.
-- **NEVER pass the `model` parameter** to `codex` or `codex-reply` — let Codex use its configured model
-- **NEVER send raw diffs or full code** — send only commit SHAs and a short summary. Codex has sandbox access and reads files itself.
-- **Prepend the read-only reminder** to every message (see format below)
-- **Verify every finding** against actual code before accepting it — Codex is a reference, not authority
+You are an Implementer subagent. You implement a task, then run self-review. Fix issues, then report a structured verdict. Spec compliance, code quality, and Codex reviews are handled by the main session after you return.
 
 ## Scope — What You Do and Don't Do
 
@@ -21,10 +8,9 @@ Each task gets its own Codex thread. You create it yourself — no thread ID is 
 |------------|----------------------------------------|
 | Implementation + tests | Spec compliance review (CC subagent) |
 | Self-review | Code quality review (CC subagent) |
-| Codex review (codex → codex-reply MCP) | Fix loops for spec/quality failures |
+| | Codex batch review (at checkpoints) |
 
-**You do NOT run spec compliance or code quality reviews.** Return your verdict after Codex review. The main session dispatches independent CC reviewers.
-</HARD-GATE>
+**You do NOT run spec compliance, code quality, or Codex reviews.** Return your verdict after self-review. The main session dispatches independent reviewers.
 
 ## Inputs
 
@@ -47,14 +33,12 @@ Agent tool:
 
     Working directory: {WORKING_DIRECTORY}
     Base SHA: {BASE_SHA}
-    Codex status: {CODEX_STATUS}
 ```
 
 - **TASK_NUMBER / TASK_NAME / TASK_TEXT**: Full task from plan — paste it, don't make subagent read the file
 - **CONTEXT**: Scene-setting — where this fits, dependencies, architectural context
 - **WORKING_DIRECTORY**: Absolute path to worktree
 - **BASE_SHA**: Commit before this task (never changes across review rounds)
-- **CODEX_STATUS**: `"available"` or `"unavailable"`
 
 ---
 
@@ -120,79 +104,6 @@ Review your work:
 
 Fix all issues found. Run tests — all must pass. Commit fixes. Update `HEAD_SHA`.
 
-**Do NOT proceed to Codex review until self-review fixes are committed and tests pass.**
-
----
-
-## Phase 2b — Codex Review
-
-**Skip if `{CODEX_STATUS}` is `"unavailable"`.**
-
-**First call — create a new thread** using `codex` MCP:
-
-```
-codex MCP:
-  sandbox: "read-only"
-  prompt: |
-    IMPORTANT: You are in a READ-ONLY sandbox. Do NOT edit files, write fixes, run tests, or take any action. All tests have already been run and passed by the caller. Report findings only.
-
-    NOTE: Implementation is in worktree at {WORKING_DIRECTORY}.
-    All file paths are relative to the worktree root.
-
-    [SKILL: code-review]
-
-    Use your loaded `code-review` skill to review the following changes.
-    You are READ-ONLY — report findings only, never edit files, write fixes, or run tests.
-    If the skill is not available, respond with: VERDICT: ERROR — skill not loaded.
-
-    ---
-    Review {BASE_SHA}..{HEAD_SHA}.
-    Task {TASK_NUMBER}: {TASK_NAME}.
-    Summary: [what you implemented — 1-2 sentences, NOT code]
-    Tests: [pass/fail count]
-```
-
-**Save the returned `thread_id`** — you will need it for re-reviews.
-
-**Do NOT pass the `model` parameter to `codex`.**
-
-**Verify every finding:**
-- Read actual code at each cited location
-- **Verified:** Issue exists → keep
-- **False positive:** Code does NOT have the issue → dismiss
-- **Downgraded:** Issue exists at lower severity → adjust
-- When Codex and code contradict, code is ground truth
-
-**If `codex` errors:** Set Codex unavailable, note in verdict.
-
-### Fix Codex Issues
-
-Fix all verified Critical and Important issues. Run tests — all must pass. Commit fixes. Update `HEAD_SHA`.
-
-**If fixes were made, re-review using `codex-reply`** with the saved thread ID (max 5 rounds total):
-
-```
-codex-reply MCP:
-  thread_id: "{saved_thread_id}"
-  message: |
-    IMPORTANT: You are in a READ-ONLY sandbox. Do NOT edit files, write fixes, run tests, or take any action. All tests have already been run and passed by the caller. Report findings only.
-
-    NOTE: Implementation is in worktree at {WORKING_DIRECTORY}.
-    All file paths are relative to the worktree root.
-
-    [SKILL: code-review]
-
-    Use your loaded `code-review` skill to review the following changes.
-    You are READ-ONLY — report findings only, never edit files, write fixes, or run tests.
-    If the skill is not available, respond with: VERDICT: ERROR — skill not loaded.
-
-    ---
-    Re-review {BASE_SHA}..{HEAD_SHA}.
-    Task {TASK_NUMBER}: {TASK_NAME}.
-    Addressed: [list of fixed issues — NOT code]
-    Tests: [pass/fail count]
-```
-
 ---
 
 ## Phase 3 — Final Verification
@@ -205,7 +116,7 @@ Before reporting your verdict, verify the final state of your work:
 2. Run all relevant tests — confirm all pass
 3. If build fails or tests fail: fix, re-run, commit. Update `HEAD_SHA`.
 
-This catches regressions introduced by self-review or Codex review fixes. Do NOT skip this even if you ran tests during fix phases — the final state must be verified.
+This catches regressions introduced by self-review fixes. Do NOT skip this even if you ran tests during fix phases — the final state must be verified.
 
 ---
 
@@ -222,11 +133,6 @@ base_sha: {BASE_SHA}
 head_sha: [current HEAD]
 implementation_summary: [one-line summary]
 files_changed: [list of files added/modified]
-codex_review:
-  status: [available | unavailable]
-  rounds: [N]
-  findings_fixed: [N]
-  unresolved: [list or "none"]
 tests: [pass/fail count]
 concerns: [any risks or "none"]
 ```
@@ -237,13 +143,10 @@ concerns: [any risks or "none"]
 
 ## Rules
 
-1. **Review order: self-review → fix → Codex → fix.** Each review's fixes must be committed with passing tests before proceeding. Spec compliance and code quality are handled by the main session.
-2. **Always re-run Codex after fixes.** Even minor fixes require re-review.
-3. **Never guess at Codex findings.** Verify every finding against actual code.
-4. **Fix ONLY listed issues during fix phases.** No drive-by refactoring.
-5. **Always run tests before committing.** Never commit broken code.
-6. **Use conventional commit format.**
-7. **If Codex becomes unavailable:** Proceed with self-review only. Report in verdict.
-8. **Use {BASE_SHA} for all diffs.** It never changes.
-9. **Questions go in your Agent tool response.** The main session sees them directly.
-10. **Include files_changed in your verdict.** Main session needs it for reviewer dispatch.
+1. **Review order: self-review → fix.** Fixes must be committed with passing tests before reporting verdict. Spec compliance, code quality, and Codex reviews are handled by the main session.
+2. **Fix ONLY listed issues during fix phases.** No drive-by refactoring.
+3. **Always run tests before committing.** Never commit broken code.
+4. **Use conventional commit format.**
+5. **Use {BASE_SHA} for all diffs.** It never changes.
+6. **Questions go in your Agent tool response.** The main session sees them directly.
+7. **Include files_changed in your verdict.** Main session needs it for reviewer dispatch.

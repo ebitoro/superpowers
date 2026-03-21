@@ -189,6 +189,7 @@ mkdir -p "$STATE_DIR"
 - `$STATE_DIR/current_design_doc` — path to the approved design doc (relative to repo root)
 - `$STATE_DIR/current_plan` — path to the implementation plan (relative to repo root)
 - `$STATE_DIR/current_worktree` — absolute path to worktree
+- `$STATE_DIR/last_codex_batch_sha` — commit SHA marking the end of the last Codex batch review (used by subagent-driven-development for incremental batch ranges)
 
 Implementation review thread IDs are caller-managed. They survive compaction via the echo rule, not via disk files.
 
@@ -223,7 +224,7 @@ When the review gate passes with unresolved flags (round limit hit, or pass-with
 **Format:**
 ```markdown
 ## [Task/Batch name] - [YYYY-MM-DD HH:MM]
-- **Source:** [which review — brainstorming design, per-task Codex, batch review, final review]
+- **Source:** [which review — brainstorming design, Codex batch review, Codex final review]
 - **Flags:**
   - [flag 1 description]
   - [flag 2 description]

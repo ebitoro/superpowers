@@ -25,30 +25,32 @@ Add a build validation step to the Per-Task Flow in `SKILL.md`, between handling
 
 ### Design
 
-After the implementer returns `pass`:
+After the implementer returns `pass`, but **before writing the review state file**:
 
 1. Run the project's build command from the main session (e.g., `dotnet build`, `npm run build`, `cargo build`)
-2. If build succeeds: proceed to Step 2. Any stale LSP annotations are transient — ignore them.
-3. If build fails with real compile errors: re-dispatch the implementer with the build error output as additional context.
+2. If build succeeds: write the review state file (stage: spec-compliance) and proceed to Step 2. Any stale LSP annotations are transient — ignore them.
+3. If build fails with real compile errors: re-dispatch the implementer with the build error output as additional context. Do not write the review state file — the task is still in the implementer stage.
 
 **Rationale:** The implementer already runs build verification (Phase 3 — Final Verification in implementer-prompt.md), so this is a redundant safety net. But the main session's independent verification serves as ground truth and explicitly addresses the LSP false-positive scenario. Build commands are authoritative; LSP is advisory.
 
+**State file ordering:** Build validation must pass before the review state file is created. This prevents a failed build from leaving a state file that claims spec compliance review has started when the task is actually being re-dispatched to the implementer.
+
 ### Text to add
 
-New subsection after the implementer verdict handling (line ~281), before Step 2:
+New subsection after the implementer verdict handling (line ~281), before the review state file write and Step 2:
 
 ```markdown
 ### Step 1b: Build Validation
 
-After the implementer returns `pass`, independently verify the build from the main session:
+After the implementer returns `pass`, independently verify the build from the main session **before writing the review state file**:
 
 \`\`\`bash
 cd {WORKING_DIRECTORY}
 # Use the project's build command (dotnet build, npm run build, cargo build, etc.)
 \`\`\`
 
-- **Build succeeds:** Proceed to Step 2. Ignore any stale LSP/IDE annotations — the build is ground truth.
-- **Build fails:** Re-dispatch the implementer with the build error output as additional context.
+- **Build succeeds:** Write the review state file and proceed to Step 2. Ignore any stale LSP/IDE annotations — the build is ground truth.
+- **Build fails:** Re-dispatch the implementer with the build error output as additional context. Do not write the review state file.
 ```
 
 ## Fix 2: No Main-Session Commits for Subagent Work

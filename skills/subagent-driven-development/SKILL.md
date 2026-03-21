@@ -750,6 +750,7 @@ See `lib/codex-integration.md` for full protocol. Batch Codex reviews during exe
 - Proceed to finishing-a-development-branch before both final reviews pass
 - Add Codex batch review checkpoints to the task list when Codex is unavailable
 - Commit code that a subagent already committed (always check `git status` first)
+- Use SendMessage to continue a subagent that has already returned a verdict — it wastes tokens reconstructing stale context. For follow-up work, dispatch a fresh agent. The only valid SendMessage is answering an implementer's pre-verdict questions.
 
 **If subagent asks questions:**
 - Answer clearly and completely

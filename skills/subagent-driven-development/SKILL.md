@@ -193,7 +193,10 @@ digraph process {
     "Dispatch implementer" -> "Implementer asks questions?";
     "Implementer asks questions?" -> "Answer questions" [label="yes"];
     "Answer questions" -> "Dispatch implementer";
-    "Implementer asks questions?" -> "Write review state file" [label="no — returns verdict"];
+    "Implementer asks questions?" -> "Build validation" [label="no — returns pass"];
+    "Build validation" [shape=box];
+    "Build validation" -> "Write review state file" [label="build succeeds"];
+    "Build validation" -> "Dispatch implementer" [label="compile errors — re-dispatch"];
     "Write review state file" -> "Dispatch spec review-and-fix";
     "Dispatch spec review-and-fix" -> "Spec verdict?";
     "Spec verdict?" -> "Dispatch quality review-and-fix" [label="pass"];
@@ -278,7 +281,20 @@ Agent tool:
     [Use ./implementer-prompt.md template]
 ```
 
-Handle the implementer verdict (see Handling Implementer Verdicts below). If `pass`, write the review state file and proceed to Step 2.
+Handle the implementer verdict (see Handling Implementer Verdicts below). If `pass`, proceed to Step 1b.
+
+### Step 1b: Build Validation
+
+After the implementer returns `pass`, independently verify the build from the main session **before writing the review state file**:
+
+```bash
+cd {WORKING_DIRECTORY}
+# Use the project's build command (dotnet build, npm run build, cargo build, etc.)
+```
+
+- **Build succeeds:** Write the review state file and proceed to Step 2. Ignore any stale LSP/IDE annotations — the build is ground truth.
+- **Build fails with compile errors:** Re-dispatch the implementer with the build error output as additional context. Do not write the review state file.
+- **Build fails for environment/tooling reasons** (missing SDK, network issues, etc.): Diagnose and fix the environment issue in the main session. Do not re-dispatch the implementer — their code is not at fault.
 
 ### Step 2: Spec Compliance Review-and-Fix Loop
 
@@ -453,7 +469,7 @@ echo "$(git rev-parse HEAD)" > "$MAIN_REPO/.dev-state/last_codex_batch_sha"
 
 Implementer subagents return a structured verdict after self-review. Handle each:
 
-**`pass`:** Self-review clean. Proceed to spec compliance review (Step 2).
+**`pass`:** Self-review clean. Proceed to build validation (Step 1b).
 
 **`fail`:** Self-review found unresolved issues. Read the unresolved items. Assess:
 - If fixable with more context: re-dispatch with additional context

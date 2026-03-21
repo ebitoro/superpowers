@@ -15,7 +15,9 @@
 ### Task 1: Add build validation step (Step 1b)
 
 **Files:**
+- Modify: `skills/subagent-driven-development/SKILL.md:196` (process diagram edges)
 - Modify: `skills/subagent-driven-development/SKILL.md:281`
+- Modify: `skills/subagent-driven-development/SKILL.md:456` (Handling Implementer Verdicts)
 
 - [ ] **Step 1: Replace the implementer verdict handling line**
 
@@ -42,11 +44,40 @@ cd {WORKING_DIRECTORY}
 - **Build fails for environment/tooling reasons** (missing SDK, network issues, etc.): Diagnose and fix the environment issue in the main session. Do not re-dispatch the implementer — their code is not at fault.
 ```
 
-- [ ] **Step 2: Verify the edit**
+- [ ] **Step 2: Update the process diagram**
 
-Read back lines 281-298 of the modified file to confirm the new Step 1b is correctly inserted between Step 1 and Step 2, with proper markdown formatting.
+In the `digraph process` flow (line ~127), add a "Build validation" node and update edges. Replace:
+```dot
+    "Implementer asks questions?" -> "Write review state file" [label="no — returns verdict"];
+    "Write review state file" -> "Dispatch spec review-and-fix";
+```
 
-- [ ] **Step 3: Commit**
+With:
+```dot
+    "Implementer asks questions?" -> "Build validation" [label="no — returns pass"];
+    "Build validation" [shape=box];
+    "Build validation" -> "Write review state file" [label="build succeeds"];
+    "Build validation" -> "Dispatch implementer" [label="compile errors — re-dispatch"];
+    "Write review state file" -> "Dispatch spec review-and-fix";
+```
+
+- [ ] **Step 3: Update Handling Implementer Verdicts section**
+
+In the "Handling Implementer Verdicts" section (line ~456), replace:
+```
+**`pass`:** Self-review clean. Proceed to spec compliance review (Step 2).
+```
+
+With:
+```
+**`pass`:** Self-review clean. Proceed to build validation (Step 1b).
+```
+
+- [ ] **Step 4: Verify all three edits**
+
+Read back lines 281-298 to confirm the new Step 1b is correctly inserted between Step 1 and Step 2 with proper markdown formatting. Read the `digraph process` flow (line ~127) to confirm the new "Build validation" node is correctly wired between the implementer verdict and "Write review state file". Also read the "Handling Implementer Verdicts" section (line ~456) to confirm the `pass` verdict now routes to Step 1b.
+
+- [ ] **Step 5: Commit**
 
 ```bash
 git add skills/subagent-driven-development/SKILL.md

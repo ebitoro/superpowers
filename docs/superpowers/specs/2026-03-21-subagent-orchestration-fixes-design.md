@@ -50,7 +50,8 @@ cd {WORKING_DIRECTORY}
 \`\`\`
 
 - **Build succeeds:** Write the review state file and proceed to Step 2. Ignore any stale LSP/IDE annotations — the build is ground truth.
-- **Build fails:** Re-dispatch the implementer with the build error output as additional context. Do not write the review state file.
+- **Build fails with compile errors:** Re-dispatch the implementer with the build error output as additional context. Do not write the review state file.
+- **Build fails for environment/tooling reasons** (missing SDK, network issues, etc.): Diagnose and fix the environment issue in the main session. Do not re-dispatch the implementer — their code is not at fault.
 ```
 
 ## Fix 2: No Main-Session Commits for Subagent Work

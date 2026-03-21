@@ -271,6 +271,8 @@ last_findings: |
 
 For each task:
 
+**Commit discipline:** The main session NEVER commits implementation code. All commits come from subagents (implementer, review-and-fix). The main session only writes/updates review state files and `.dev-state/` breadcrumbs. Before any commit attempt in the main session, verify uncommitted changes exist with `git status --short` — if clean, skip the commit.
+
 ### Step 1: Dispatch Implementer
 
 ```
@@ -747,6 +749,7 @@ See `lib/codex-integration.md` for full protocol. Batch Codex reviews during exe
 - Skip Codex final review — it catches cross-cutting issues that batch reviews miss
 - Proceed to finishing-a-development-branch before both final reviews pass
 - Add Codex batch review checkpoints to the task list when Codex is unavailable
+- Commit code that a subagent already committed (always check `git status` first)
 
 **If subagent asks questions:**
 - Answer clearly and completely

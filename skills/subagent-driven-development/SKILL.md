@@ -193,7 +193,7 @@ digraph process {
     "Dispatch implementer" -> "Implementer asks questions?";
     "Implementer asks questions?" -> "Answer questions" [label="yes"];
     "Answer questions" -> "Dispatch implementer";
-    "Implementer asks questions?" -> "Build validation" [label="no — returns pass"];
+    "Implementer asks questions?" -> "Build validation" [label="no — returns verdict"];
     "Build validation" [shape=box];
     "Build validation" -> "Write review state file" [label="build succeeds"];
     "Build validation" -> "Dispatch implementer" [label="compile errors — re-dispatch"];

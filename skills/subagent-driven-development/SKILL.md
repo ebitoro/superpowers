@@ -256,7 +256,7 @@ last_findings: |
 ```
 
 **When to write/update:**
-1. After implementer returns → create file with `stage: spec-compliance, round: 1, status: pending`
+1. After build validation succeeds (Step 1b) → create file with `stage: spec-compliance, round: 1, status: pending`
 2. After each review-and-fix subagent returns → update `round`, `status`, `head_sha`, `last_findings`
 3. **CRITICAL — After stage passes → update BOTH `stage` AND `round: 1` in a single edit.** The round counter is per-stage, not cumulative. Failing to reset round causes the next stage to inherit the previous stage's round count, leading to premature escalation.
 4. After all reviews pass → set `stage: complete`

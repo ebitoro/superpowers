@@ -198,11 +198,26 @@ Implementation review thread IDs are caller-managed. They survive compaction via
 grep -q '.dev-state/' "$MAIN_REPO/.gitignore" 2>/dev/null || echo '.dev-state/' >> "$MAIN_REPO/.gitignore"
 ```
 
-## Codex Availability
+## Codex Availability & CC Fallback Review
 
-If the codex-agent reports `status: unavailable` (MCP not connected, usage limit, or any error), skip all Codex steps and proceed without Codex review. Inform the user that Codex review was skipped and why.
+If the codex-agent reports `status: unavailable` (MCP not connected, usage limit, or any error), **dispatch a CC fallback review** instead of skipping the review entirely. This ensures every review gate has at least one independent reviewer — either Codex or a fresh CC agent.
 
-## Dispatch Pattern
+### CC Fallback Review Pattern
+
+When Codex is unavailable at any review gate:
+
+1. **Inform the user:** "Codex unavailable — running CC fallback review instead."
+2. **Dispatch a `superpowers:code-reviewer` subagent** in foreground with a review prompt tailored to what Codex would have reviewed (design, plan, batch, or final review). Each skill defines its own CC fallback prompt.
+3. **Handle verdict:**
+   - `pass`: proceed to the next step
+   - `fixed`: dispatch a fresh reviewer to verify the fixes. Max **3 rounds** — escalate to human if still finding issues.
+4. **Track unresolved flags** the same way as Codex reviews: append to `docs/unresolved-flags.md`.
+
+The CC fallback is a **blocking gate** — the review must pass before proceeding, just like the Codex gate it replaces. The difference: fewer rounds (3 vs 5) since CC reviews iterate faster.
+
+**Why not just skip?** Self-review has confirmation bias — the implementer reviewing its own work. A fresh CC agent with no implementation context provides a genuinely different perspective, even if it's the same model family as the implementer. The cost is low and the catch rate is meaningful.
+
+### Dispatch Pattern
 
 ```
 Agent tool:
@@ -213,7 +228,7 @@ Agent tool:
     ...
 ```
 
-If codex-agent reports `status: unavailable`, mark Codex unavailable for remaining tasks and proceed without Codex review.
+If codex-agent reports `status: unavailable`, dispatch the CC fallback review for that gate (see skill-specific prompts). Mark Codex unavailable for remaining tasks — all subsequent gates use CC fallback.
 
 ## Tracking Unresolved Flags
 

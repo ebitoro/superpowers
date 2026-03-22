@@ -194,7 +194,7 @@ Agent tool:
     mode: init
     profile: xhigheffort
 ```
-**Wait for the result.** Save the returned `thread_id`. Only if the agent returns `status: unavailable` may you skip the Codex plan review (inform user why).
+**Wait for the result.** Save the returned `thread_id`. If the agent returns `status: unavailable`, skip to CC Fallback Plan Review below.
 
 **Step 2: Dispatch plan-review-gate subagent (foreground, 3 rounds max):**
 
@@ -224,7 +224,53 @@ Only if Tier 1 returned `fail` + `must_fix`:
 3. Redispatch until pass or 3 rounds exhausted
 4. If still unresolved → escalate to user
 
-**If codex-agent reports `status: unavailable`:** Skip Codex plan review and proceed to execution handoff. Inform user.
+**If codex-agent reports `status: unavailable`:** Dispatch CC fallback plan review instead.
+
+### CC Fallback Plan Review (when Codex unavailable)
+
+When Codex is unavailable, dispatch a CC fallback reviewer to independently review the plan. The plan-document-reviewer (earlier step) already checked document structure and consistency — this reviewer focuses on what Codex would have caught: completeness, TDD adherence, and implementation risks.
+
+```
+Agent tool:
+  subagent_type: "superpowers:code-reviewer"
+  description: "CC fallback plan review (round {R})"
+  run_in_background: false
+  prompt: |
+    You are an INDEPENDENT PLAN REVIEWER providing a second opinion on an implementation plan.
+    A separate plan-document-reviewer has already checked structure and consistency.
+    Your focus is different — completeness and implementation risk.
+
+    ## Plan
+
+    Read the plan at: {PLAN_PATH}
+    Design doc: {DESIGN_DOC_PATH}
+
+    ## Review Focus
+
+    - **Completeness:** Does the plan cover ALL requirements from the design doc?
+    - **Task ordering:** Are dependencies between tasks correctly sequenced?
+    - **TDD adherence:** Does each task follow write-test → verify-fail → implement → verify-pass?
+    - **Missing steps:** Are there implicit steps that should be explicit?
+    - **Risk areas:** Which tasks are most likely to cause problems? Are they adequately planned?
+    - **Testability:** Are the test cases meaningful, not just happy-path?
+
+    Do NOT re-check document formatting or structure — that's already done.
+
+    ## If Critical or Important Issues Found
+
+    Fix them directly in the plan file. Commit with:
+    `fix(plan): address CC plan review findings`
+
+    ## Verdict
+
+    Return exactly one of:
+    - verdict: pass — No Critical or Important issues found. Plan is ready for execution.
+    - verdict: fixed — Issues found and fixed. List what was found and what was changed.
+```
+
+**Handle CC fallback verdict:**
+- `pass`: proceed to execution handoff
+- `fixed`: dispatch a fresh CC fallback reviewer to verify fixes. Max 3 rounds — escalate to human if still finding issues. Then proceed to execution handoff.
 
 ## Execution Handoff
 

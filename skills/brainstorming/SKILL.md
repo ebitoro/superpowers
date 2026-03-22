@@ -28,7 +28,7 @@ You MUST create a task for each of these items and complete them in order:
 5. **Present design** — in sections scaled to their complexity, get user approval after each section
 6. **Write design doc** — save to `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md` and commit
 7. **Run spec review** — dispatch design-spec-review subagent with precisely crafted review context (never your session history) to handle the full review loop (see After the Design section)
-8. **Run Codex design review** — dispatch codex-design-review subagent to handle the full Codex review gate, verify and fix findings (see After the Design section)
+8. **Run Codex design review** — dispatch codex-design-review subagent to handle the full Codex review gate. If Codex unavailable, dispatch CC fallback design review instead (see After the Design section)
 9. **User reviews written spec** — ask user to review the final spec (after both reviews have passed) before proceeding
 10. **Transition to implementation** — invoke writing-plans skill to create implementation plan
 
@@ -172,7 +172,7 @@ After spec review passes, create a Codex thread and dispatch the codex-design-re
        mode: init
        profile: xhigheffort
    ```
-   Save the returned `thread_id`. If `status: unavailable`, skip Codex review and proceed to user review (inform user).
+   Save the returned `thread_id`. If `status: unavailable`, skip to CC Fallback Design Review below.
 
 2. **Dispatch codex-design-review (foreground):**
    ```
@@ -190,7 +190,51 @@ After spec review passes, create a Codex thread and dispatch the codex-design-re
 **Handle result:**
 - `pass` or `pass-with-flags`: check for uncommitted changes to the spec file (`git status <spec_path>`). If the subagent edited but forgot to commit, commit now: `git add <spec_path> && git commit -m "fix(spec): address Codex design review findings"`. Then proceed to user review.
 - `fail` with remaining issues: surface to user for guidance (the subagent exhausted 5 rounds)
-- Codex `unavailable`: the subagent returns `pass` with a note — proceed to user review (inform user)
+- Codex `unavailable`: the subagent returns `pass` with a note — proceed to CC Fallback Design Review below
+
+**CC Fallback Design Review (when Codex unavailable):**
+
+When Codex is unavailable, dispatch a CC fallback reviewer to provide an independent design review. The spec reviewer (step 7) already checked document quality/completeness — this reviewer focuses on architecture and feasibility to approximate what Codex would have caught.
+
+```
+Agent tool:
+  subagent_type: "superpowers:code-reviewer"
+  description: "CC fallback design review (round {R})"
+  run_in_background: false
+  prompt: |
+    You are an INDEPENDENT DESIGN REVIEWER providing a second opinion on a design spec.
+    A separate spec reviewer has already checked document quality and completeness.
+    Your focus is different — architecture and feasibility.
+
+    ## Design Spec
+
+    Read the design doc at: {SPEC_PATH}
+
+    ## Review Focus
+
+    - **Architecture:** Are the components well-bounded? Do interfaces make sense?
+    - **Feasibility:** Can this realistically be implemented as described?
+    - **Edge cases:** What scenarios might the design miss?
+    - **Dependencies:** Are external dependencies reasonable? Any risks?
+    - **Simplicity:** Is the design as simple as it could be while meeting requirements?
+
+    Do NOT re-check document quality, grammar, or formatting — that's already done.
+
+    ## If Critical or Important Issues Found
+
+    Fix them directly in the spec file. Commit with:
+    `fix(spec): address CC design review findings`
+
+    ## Verdict
+
+    Return exactly one of:
+    - verdict: pass — No Critical or Important architectural issues found.
+    - verdict: fixed — Issues found and fixed. List what was found and what was changed.
+```
+
+**Handle CC fallback verdict:**
+- `pass`: proceed to user review
+- `fixed`: dispatch a fresh CC fallback reviewer to verify fixes. Max 3 rounds — escalate to human if still finding issues. Then proceed to user review.
 
 **User Review Gate:**
 After both spec review and Codex design review pass, ask the user to review the final spec:

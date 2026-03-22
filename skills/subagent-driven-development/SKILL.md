@@ -63,7 +63,7 @@ Before dispatching the first task:
 
    b. **Ping Codex availability** — call `codex` MCP with a simple ping (always pass `sandbox: "read-only"`). If it responds, set `CODEX_AVAILABLE: true`. If it errors, set `CODEX_AVAILABLE: false`.
 
-   c. **Dispatch grouping subagent (sonnet)** — determines where to insert Codex review checkpoints:
+   c. **Dispatch grouping subagent (sonnet)** — determines where to insert review checkpoints (Codex or CC fallback):
       ```
       Agent tool:
         model: sonnet
@@ -95,12 +95,12 @@ Before dispatching the first task:
           ```
       ```
 
-   **Fallback:** If the grouping subagent fails or returns invalid JSON, fall back to no batch checkpoints (same as when Codex is unavailable).
+   **Fallback:** If the grouping subagent fails or returns invalid JSON, fall back to no batch checkpoints.
 
 3. **Build task list** — after all three parallel operations complete:
-   - If `CODEX_AVAILABLE: true` and grouping succeeded: interleave Codex batch review items at positions from the grouping subagent
-   - If `CODEX_AVAILABLE: false` or grouping failed: build task list without Codex batch reviews
-   - Create TodoWrite with all tasks (implementation tasks + Codex checkpoint items)
+   - If grouping succeeded: interleave batch review items at positions from the grouping subagent. Label as "Codex batch review" if `CODEX_AVAILABLE: true`, or "CC batch review" if `CODEX_AVAILABLE: false`.
+   - If grouping failed: build task list without batch reviews
+   - Create TodoWrite with all tasks (implementation tasks + batch checkpoint items)
 
    Example task list with checkpoints:
    ```
@@ -223,6 +223,8 @@ digraph process {
 **Yellow box** = implementer subagent (implement + self-review).
 **Blue box** = review-and-fix subagent — reviews code, fixes any issues it finds, returns verdict. Main session dispatches fresh ones until one returns `pass` (no issues found).
 **Salmon box** = Codex batch review subagent — sends batch to Codex, verifies findings against actual code, fixes verified issues, loops up to 5 rounds. Runs as a single self-contained agent.
+
+**When Codex is unavailable:** All Codex nodes in the diagram are replaced by CC fallback equivalents. Codex batch reviews become CC batch reviews. Codex final review becomes CC second-opinion final review (max 3 rounds). See the CC Fallback sections below for dispatch prompts.
 
 ## Model Selection
 
@@ -429,7 +431,7 @@ Each review dispatch costs ~700 tokens in main session context:
 
 When the task list includes a Codex batch review checkpoint after the current task, dispatch a batch review subagent. These checkpoints were determined during setup by the grouping subagent and are visible as items in the TodoWrite task list.
 
-**If Codex becomes unavailable** at the time a checkpoint runs (was available during setup but errors now): skip the checkpoint, mark it as skipped in TodoWrite with a note, and continue to the next task.
+**If Codex becomes unavailable** at the time a Codex checkpoint runs (was available during setup but errors now): run the checkpoint as a CC batch review instead. Use the CC Batch Review dispatch below.
 
 ### Dispatch Codex Batch Review
 
@@ -461,11 +463,57 @@ Agent tool:
 - **fixed:** Update batch tracking SHA, mark checkpoint complete in TodoWrite, proceed to next task.
 - **blocked:** Escalate to human with the unresolved findings.
 
-Update batch tracking after every completed (non-skipped) batch review:
+Update batch tracking after every completed batch review:
 ```bash
 MAIN_REPO="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
 echo "$(git rev-parse HEAD)" > "$MAIN_REPO/.dev-state/last_codex_batch_sha"
 ```
+
+### Dispatch CC Batch Review
+
+When Codex is unavailable (either from setup or at runtime), dispatch a CC batch reviewer instead:
+
+```
+Agent tool:
+  subagent_type: "superpowers:code-reviewer"
+  description: "CC batch review: Tasks {BATCH_TASKS} (round {R})"
+  prompt: |
+    You are a BATCH REVIEWER reviewing a group of related tasks together.
+
+    ## What to Review
+
+    Review ALL changes in this batch:
+
+    ```bash
+    cd {WORKING_DIRECTORY}
+    git diff {BATCH_START_SHA}..{BATCH_END_SHA}
+    ```
+
+    Tasks in this batch: {BATCH_TASKS}
+    Batch summary: {BATCH_SUMMARY}
+
+    ## Review Focus
+
+    - **Integration:** Do the tasks in this batch work together correctly?
+    - **Consistency:** Are patterns and conventions consistent across tasks?
+    - **Missing pieces:** Anything implied by the tasks that wasn't implemented?
+    - **Cross-task issues:** Problems only visible when viewing tasks together
+
+    ## If Critical or Important Issues Found
+
+    Fix them directly. Run tests. Commit with:
+    `fix(scope): address CC batch review findings`
+
+    ## Verdict
+
+    Return exactly one of:
+    - verdict: pass — No Critical or Important issues found.
+    - verdict: fixed — Issues found and fixed. List what was found and what was changed.
+```
+
+**After CC batch review returns:**
+- `pass`: Update batch tracking SHA, mark checkpoint complete, proceed to next task.
+- `fixed`: Dispatch a fresh CC batch reviewer to verify fixes. Max 3 rounds — escalate to human if still finding issues. Then update batch tracking SHA and proceed.
 
 ## Handling Implementer Verdicts
 
@@ -634,11 +682,11 @@ Agent tool:
 - If `pass`: proceed to Step 2 (Codex Final Review).
 - If `fixed`: dispatch a fresh CC final reviewer to verify the fixes (the fixer should not review their own work). Max 5 rounds — escalate to human if still finding issues.
 
-### Step 2: Codex Final Review
+### Step 2: Codex Final Review (or CC Fallback)
 
 **Only after CC final review passes.** This is the last gate — an independent second opinion covering the FULL implementation.
 
-See `lib/codex-integration.md` for full protocol. Batch Codex reviews during execution covered incremental slices. This final review catches cross-cutting issues across the entire implementation (BASE_SHA..HEAD).
+**If Codex is available:** See `lib/codex-integration.md` for full protocol. Batch reviews during execution covered incremental slices. This final review catches cross-cutting issues across the entire implementation (BASE_SHA..HEAD).
 
 1. Get commit SHAs covering all implementation (from first task to HEAD)
 2. Dispatch codex-agent (foreground):
@@ -660,7 +708,8 @@ See `lib/codex-integration.md` for full protocol. Batch Codex reviews during exe
    ```
 3. Echo `**Active Codex thread_id:** <id>`
 4. If `pass`: proceed to `superpowers:finishing-a-development-branch`
-5. If `fail`: dispatch a verify-and-fix subagent. Codex can produce false positives, so the subagent must independently verify each finding against the actual code before fixing anything:
+5. If `unavailable`: skip to CC Fallback Final Review below
+6. If `fail`: dispatch a verify-and-fix subagent. Codex can produce false positives, so the subagent must independently verify each finding against the actual code before fixing anything:
    ```
    Agent tool:
      subagent_type: "superpowers:code-reviewer"
@@ -706,6 +755,57 @@ See `lib/codex-integration.md` for full protocol. Batch Codex reviews during exe
    - `blocked`: escalate to human.
 6. Track any unresolved flags in `docs/unresolved-flags.md`
 
+### CC Fallback Final Review (when Codex unavailable)
+
+When Codex is unavailable, dispatch a CC second-opinion final reviewer instead. This provides a different perspective from the CC final review in Step 1 — it focuses on requirements completeness and edge cases rather than code quality and architecture.
+
+```
+Agent tool:
+  subagent_type: "superpowers:code-reviewer"
+  description: "CC second-opinion final review (round {R})"
+  prompt: |
+    You are an INDEPENDENT SECOND-OPINION REVIEWER for a complete implementation.
+    A separate CC reviewer has already passed this code for quality and cross-cutting concerns.
+    Your role is to provide a genuinely different perspective.
+
+    ## What to Review
+
+    Review ALL changes from the full implementation:
+
+    ```bash
+    cd {WORKING_DIRECTORY}
+    git diff {BASE_SHA}..HEAD
+    ```
+
+    Plan: {PLAN_FILE_PATH}
+    Summary: {WHAT_THE_FULL_PLAN_IMPLEMENTED}
+
+    ## Review Focus (different from prior review)
+
+    - **Requirements completeness:** Does the implementation satisfy ALL plan requirements?
+    - **Edge cases and error handling:** What happens when things go wrong?
+    - **Security:** Any potential vulnerabilities introduced?
+    - **Dependency risks:** Are new dependencies appropriate and up-to-date?
+    - **Testability gaps:** Are there important paths that aren't tested?
+
+    Do NOT re-review code style, naming, or architecture — that was already reviewed.
+
+    ## If Critical or Important Issues Found
+
+    Fix them directly. Run tests. Commit with:
+    `fix(scope): address CC second-opinion review findings`
+
+    ## Verdict
+
+    Return exactly one of:
+    - verdict: pass — No Critical or Important issues found. Implementation is ready.
+    - verdict: fixed — Issues found and fixed. List what was found and what was changed.
+```
+
+**After CC second-opinion returns:**
+- `pass`: proceed to `superpowers:finishing-a-development-branch`
+- `fixed`: dispatch a fresh CC second-opinion reviewer to verify fixes. Max 3 rounds — escalate to human if still finding issues.
+
 ## Advantages
 
 **vs. Manual execution:**
@@ -724,15 +824,15 @@ See `lib/codex-integration.md` for full protocol. Batch Codex reviews during exe
 - Spec compliance review-and-fix prevents over/under-building (independent CC subagent, fixes inline)
 - Code quality review-and-fix ensures implementation is well-built (independent CC subagent, fixes inline)
 
-**Codex batch review (at checkpoints):**
+**Batch review (at checkpoints):**
 - Reviews groups of related tasks together (more efficient than per-task)
 - Catches issues across related tasks within a topic
-- Single subagent handles full review-and-fix loop (max 5 rounds)
+- Uses Codex when available, CC batch reviewer as fallback
 - Checkpoints are planned upfront and visible in the task list
 
 **Final gates (after all tasks):**
 - CC final review catches cross-cutting issues (review-and-fix subagent + retry loop)
-- Codex final review is the last gate — independent second opinion covering full implementation (verify-and-fix subagent filters false positives + retry loop)
+- Second gate: Codex final review when available, CC second-opinion review as fallback — independent perspective covering full implementation
 - Fresh re-review after each fix ensures fixes don't introduce new problems
 
 ## Red Flags
@@ -748,7 +848,7 @@ See `lib/codex-integration.md` for full protocol. Batch Codex reviews during exe
 - Skip spec compliance or code quality reviews — they catch what self-review misses
 - Skip Codex final review — it catches cross-cutting issues that batch reviews miss
 - Proceed to finishing-a-development-branch before both final reviews pass
-- Add Codex batch review checkpoints to the task list when Codex is unavailable
+- Skip batch review checkpoints entirely — when Codex is unavailable, use CC batch reviews instead
 - Commit code that a subagent already committed (always check `git status` first)
 - Use SendMessage to continue a subagent that has already returned a verdict — it wastes tokens reconstructing stale context. For follow-up work, dispatch a fresh agent. The only valid SendMessage is answering an implementer's pre-verdict questions.
 

@@ -76,7 +76,55 @@ After all tasks complete and verified, run a Codex review gate on the full imple
 4. If `pass`: proceed to Step 5
 5. If `fail`: **independently verify each finding** — read the actual code at the cited location and confirm the issue exists. Dismiss false positives. Fix confirmed issues, then redispatch with saved `thread_id`. Max 5 rounds.
 6. Track any unresolved flags in `docs/unresolved-flags.md`
-7. If `unavailable`: skip Codex review and proceed (inform user).
+7. If `unavailable`: dispatch CC fallback final review (see below).
+
+### Step 4b: CC Fallback Final Review (when Codex unavailable)
+
+When Codex is unavailable, dispatch a CC fallback reviewer to provide an independent final review.
+
+```
+Agent tool:
+  subagent_type: "superpowers:code-reviewer"
+  description: "CC fallback final review (round {R})"
+  run_in_background: false
+  prompt: |
+    You are an INDEPENDENT FINAL REVIEWER for a complete implementation.
+
+    ## What to Review
+
+    Review ALL changes from the full implementation:
+
+    ```bash
+    cd {WORKING_DIRECTORY}
+    git diff {BASE_SHA}..{HEAD_SHA}
+    ```
+
+    Plan: {PLAN_FILE_PATH}
+    Summary: {WHAT_THE_PLAN_IMPLEMENTED}
+
+    ## Review Focus
+
+    - **Requirements completeness:** Does the implementation satisfy ALL plan requirements?
+    - **Cross-cutting concerns:** Consistency, integration, architecture
+    - **Edge cases and error handling:** What happens when things go wrong?
+    - **Security:** Any potential vulnerabilities introduced?
+    - **Test coverage:** Are there gaps in the test suite?
+
+    ## If Critical or Important Issues Found
+
+    Fix them directly. Run tests. Commit with:
+    `fix(scope): address CC final review findings`
+
+    ## Verdict
+
+    Return exactly one of:
+    - verdict: pass — No Critical or Important issues found. Implementation is ready.
+    - verdict: fixed — Issues found and fixed. List what was found and what was changed.
+```
+
+**Handle CC fallback verdict:**
+- `pass`: proceed to Step 5
+- `fixed`: dispatch a fresh CC fallback reviewer to verify fixes. Max 3 rounds — escalate to human if still finding issues. Then proceed to Step 5.
 
 ### Step 5: Complete Development
 

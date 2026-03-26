@@ -16,13 +16,13 @@ Task tool (general-purpose):
 
     ## What to Check
 
-    | Category | What to Look For |
-    |----------|------------------|
-    | Completeness | TODOs, placeholders, "TBD", incomplete sections |
-    | Consistency | Internal contradictions, conflicting requirements |
-    | Clarity | Requirements ambiguous enough to cause someone to build the wrong thing |
-    | Scope | Focused enough for a single plan — not covering multiple independent subsystems |
-    | YAGNI | Unrequested features, over-engineering |
+    | Category | What to Look For | Action |
+    |----------|------------------|--------|
+    | Completeness | TODOs, placeholders, "TBD", incomplete sections, vague requirements | Fix them — fill in concrete details, don't just flag |
+    | Consistency | Sections that contradict each other, architecture that doesn't match feature descriptions | Resolve the contradiction — pick one and align the rest |
+    | Clarity | Requirements ambiguous enough to be interpreted two different ways | Pick the intended interpretation and make it explicit |
+    | Scope | Covers multiple independent subsystems instead of a single implementation plan | Flag for decomposition — this needs to be split |
+    | YAGNI | Unrequested features, over-engineering, speculative abstractions | Remove them |
 
     ## Calibration
 

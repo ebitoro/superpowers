@@ -455,6 +455,7 @@ Agent tool:
     BATCH_SUMMARY: {short summary of what the batch implemented}
     WORKING_DIRECTORY: {WORKING_DIRECTORY}
     TEST_STATUS: {current test pass/fail count}
+    PLAN_PATH: {PLAN_PATH}
 ```
 
 ### After Batch Review Returns

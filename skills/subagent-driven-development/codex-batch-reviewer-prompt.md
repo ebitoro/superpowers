@@ -11,6 +11,7 @@ The main session provides:
 - **BATCH_SUMMARY**: Short summary of what the batch implemented
 - **WORKING_DIRECTORY**: Absolute path to worktree
 - **TEST_STATUS**: Current test pass/fail count
+- **PLAN_PATH**: Absolute path to the implementation plan file
 
 ## Protocol
 
@@ -33,6 +34,8 @@ codex MCP:
     Use your loaded `code-review` skill to review the following changes.
     You are READ-ONLY — report findings only, never edit files, write fixes, or run tests.
     If the skill is not available, respond with: VERDICT: ERROR — skill not loaded.
+
+    Plan: {PLAN_PATH}
 
     ---
     Review {BATCH_START_SHA}..{BATCH_END_SHA}.
@@ -89,6 +92,8 @@ codex-reply MCP:
     Use your loaded `code-review` skill to review the following changes.
     You are READ-ONLY — report findings only, never edit files, write fixes, or run tests.
     If the skill is not available, respond with: VERDICT: ERROR — skill not loaded.
+
+    Plan: {PLAN_PATH}
 
     ---
     Re-review {BATCH_START_SHA}..HEAD.

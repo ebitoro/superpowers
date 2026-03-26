@@ -35,6 +35,8 @@ codex MCP:
     You are READ-ONLY — report findings only, never edit files, write fixes, or run tests.
     If the skill is not available, respond with: VERDICT: ERROR — skill not loaded.
 
+    Plan: {PLAN_PATH}
+
     ---
     Review {BATCH_START_SHA}..{BATCH_END_SHA}.
     Batch: {BATCH_TASKS}
@@ -92,6 +94,8 @@ codex-reply MCP:
     Use your loaded `code-review` skill to review the following changes.
     You are READ-ONLY — report findings only, never edit files, write fixes, or run tests.
     If the skill is not available, respond with: VERDICT: ERROR — skill not loaded.
+
+    Plan: {PLAN_PATH}
 
     ---
     Re-review {BATCH_START_SHA}..HEAD.

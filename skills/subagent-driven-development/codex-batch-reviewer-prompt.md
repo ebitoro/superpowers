@@ -35,8 +35,6 @@ codex MCP:
     You are READ-ONLY — report findings only, never edit files, write fixes, or run tests.
     If the skill is not available, respond with: VERDICT: ERROR — skill not loaded.
 
-    Plan: {PLAN_PATH}
-
     ---
     Review {BATCH_START_SHA}..{BATCH_END_SHA}.
     Batch: {BATCH_TASKS}
@@ -51,6 +49,8 @@ codex MCP:
 **If `codex` errors:** Report Codex unavailable in verdict and return immediately. Do not retry.
 
 ### Step 2: Verify Findings
+
+**First**, read the plan at `{PLAN_PATH}` to understand what the implementation should do. Use this as context when judging whether Codex findings are real issues.
 
 For EACH finding Codex reports:
 
@@ -92,8 +92,6 @@ codex-reply MCP:
     Use your loaded `code-review` skill to review the following changes.
     You are READ-ONLY — report findings only, never edit files, write fixes, or run tests.
     If the skill is not available, respond with: VERDICT: ERROR — skill not loaded.
-
-    Plan: {PLAN_PATH}
 
     ---
     Re-review {BATCH_START_SHA}..HEAD.

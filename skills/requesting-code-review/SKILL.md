@@ -92,10 +92,12 @@ You: [Fix progress indicators]
 ## Red Flags
 
 **Never:**
-- Skip review because "it's simple"
+- Skip review because "it's simple" — simple tasks are fast to review, not exempt from review
 - Ignore Critical issues
 - Proceed with unfixed Important issues
 - Argue with valid technical feedback
+- Let self-review or coordinator inspection replace dispatching a review subagent
+- Rationalize skipping review due to context/token budget — reviews are non-negotiable
 
 **If reviewer wrong:**
 - Push back with technical reasoning

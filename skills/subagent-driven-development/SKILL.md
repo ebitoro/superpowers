@@ -11,6 +11,10 @@ Execute plan by dispatching fresh subagent per task, with two-stage review after
 
 **Core principle:** Fresh subagent per task + two-stage review (spec then quality) = high quality, fast iteration
 
+<HARD-GATE>
+You MUST NOT skip, abbreviate, or bypass any review stage (spec compliance OR code quality). Both reviews are mandatory for EVERY task — no exceptions regardless of task simplicity, time pressure, or perceived code quality. A task is not complete until both reviews pass. Skipping a review is a process failure.
+</HARD-GATE>
+
 ## When to Use
 
 ```dot
@@ -86,18 +90,15 @@ digraph process {
 
 ## Model Selection
 
-Use the least powerful model that can handle each role to conserve cost and increase speed.
+Use the least powerful model that can handle each role, but never below a standard-tier model.
 
-**Mechanical implementation tasks** (isolated functions, clear specs, 1-2 files): use a fast, cheap model. Most implementation tasks are mechanical when the plan is well-specified.
+**Implementation tasks** (isolated functions, clear specs, single-file changes): use a standard model. Most implementation tasks are mechanical when the plan is well-specified.
 
-**Integration and judgment tasks** (multi-file coordination, pattern matching, debugging): use a standard model.
-
-**Architecture, design, and review tasks**: use the most capable available model.
+**Architecture, design, integration, and review tasks** (multi-file coordination, broad codebase understanding, design judgment): use the most capable available model.
 
 **Task complexity signals:**
-- Touches 1-2 files with a complete spec → cheap model
-- Touches multiple files with integration concerns → standard model
-- Requires design judgment or broad codebase understanding → most capable model
+- Touches 1-2 files with a complete spec → standard model
+- Touches multiple files, integration concerns, or requires judgment → most capable model
 
 ## Handling Implementer Status
 
@@ -246,6 +247,17 @@ Done!
 - Let implementer self-review replace actual review (both are needed)
 - **Start code quality review before spec compliance is ✅** (wrong order)
 - Move to next task while either review has open issues
+
+## Review Skip Rationalizations — All Mean STOP
+
+| Excuse | Reality |
+|--------|---------|
+| "This task is too simple to need review" | Every task gets both reviews. Simple tasks are fast to review. |
+| "The implementer's self-review was thorough" | Self-review supplements, never replaces formal review. |
+| "We're running low on context/tokens" | Reviews are non-negotiable cost. Budget for them. |
+| "Previous tasks from the same pattern passed" | Each task is independently reviewed. Patterns drift. |
+| "The change is only a few lines" | Small changes cause big bugs. Review cost is proportional. |
+| "I can see the code is correct" | You are the coordinator, not the reviewer. Dispatch the review. |
 
 **If subagent asks questions:**
 - Answer clearly and completely

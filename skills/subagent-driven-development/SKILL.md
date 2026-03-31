@@ -90,15 +90,16 @@ digraph process {
 
 ## Model Selection
 
-Use the least powerful model that can handle each role, but never below a standard-tier model.
+**All review subagents (spec compliance, code quality, final review) MUST use the most capable available model.** Reviews require judgment, pattern recognition, and the ability to catch subtle issues. This is non-negotiable regardless of task simplicity. Never downgrade a review subagent to a lower-tier model.
 
-**Implementation tasks** (isolated functions, clear specs, single-file changes): use a standard model. Most implementation tasks are mechanical when the plan is well-specified.
+**Implementation tasks** (isolated functions, clear specs, single-file changes): use a standard-tier model. Most implementation tasks are mechanical when the plan is well-specified.
 
-**Architecture, design, integration, and review tasks** (multi-file coordination, broad codebase understanding, design judgment): use the most capable available model.
+**Architecture, design, and integration tasks** (multi-file coordination, broad codebase understanding): use the most capable available model.
 
 **Task complexity signals:**
-- Touches 1-2 files with a complete spec → standard model
+- Touches 1-2 files with a complete spec → standard-tier model for implementation
 - Touches multiple files, integration concerns, or requires judgment → most capable model
+- Any review task → always the most capable model
 
 ## Handling Implementer Status
 
